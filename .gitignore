@@ -101,3 +101,8 @@ sessions/
 # Local development
 local/
 dev-local/
+
+# Claude Code settings (local only)
+.claude/settings.local.json
+.claude/memory.db
+.claude/sessions/

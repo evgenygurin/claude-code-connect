@@ -29,36 +29,27 @@ import {
   createMockLogger
 } from "../testing/mocks.js";
 
-// Mock crypto module for signature verification
-vi.mock("crypto", () => ({
-  default: {
-    createHmac: vi.fn().mockReturnValue({
-      update: vi.fn().mockReturnThis(),
-      digest: vi.fn().mockReturnValue("mocked-signature")
-    }),
-    timingSafeEqual: vi.fn().mockReturnValue(true)
-  }
-}));
+import { 
+  setupTestEnvironment,
+  standardBeforeEach,
+  standardAfterEach 
+} from "../testing/test-utils.js";
+
+// Setup test environment with crypto mock
+const testEnv = setupTestEnvironment({ needsCryptoMock: true });
 
 describe("LinearWebhookHandler", () => {
   let webhookHandler: LinearWebhookHandler;
-  let loggerSpy: ReturnType<typeof createMockLogger>;
-  let config: IntegrationConfig;
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    loggerSpy = createMockLogger();
-    config = { ...mockIntegrationConfig };
-    webhookHandler = new LinearWebhookHandler(config, loggerSpy);
-  });
+  beforeEach(standardBeforeEach(() => {
+    webhookHandler = new LinearWebhookHandler(testEnv.config, testEnv.logger);
+  }));
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
+  afterEach(standardAfterEach());
 
   describe("instantiation", () => {
     it("should create instance with valid config and logger", () => {
-      const handler = new LinearWebhookHandler(config, loggerSpy);
+      const handler = new LinearWebhookHandler(testEnv.config, testEnv.logger);
       expect(handler).toBeInstanceOf(LinearWebhookHandler);
     });
   });
@@ -76,7 +67,7 @@ describe("LinearWebhookHandler", () => {
     it("should log successful validation", () => {
       webhookHandler.validateWebhook(mockWebhookEventIssueCreated);
 
-      expect(loggerSpy.debug).toHaveBeenCalledWith("Webhook validation successful", {
+      expect(testEnv.logger.debug).toHaveBeenCalledWith("Webhook validation successful", {
         type: "Issue",
         action: "create",
         organizationId: "org-test-123"
@@ -93,7 +84,7 @@ describe("LinearWebhookHandler", () => {
       const result = webhookHandler.validateWebhook(invalidPayload);
 
       expect(result).toBeNull();
-      expect(loggerSpy.error).toHaveBeenCalledWith(
+      expect(testEnv.logger.error).toHaveBeenCalledWith(
         "Webhook validation failed",
         expect.any(Error),
         { payload: invalidPayload }
@@ -104,14 +95,14 @@ describe("LinearWebhookHandler", () => {
       const result = webhookHandler.validateWebhook(null);
 
       expect(result).toBeNull();
-      expect(loggerSpy.error).toHaveBeenCalled();
+      expect(testEnv.logger.error).toHaveBeenCalled();
     });
 
     it("should handle undefined payload", () => {
       const result = webhookHandler.validateWebhook(undefined);
 
       expect(result).toBeNull();
-      expect(loggerSpy.error).toHaveBeenCalled();
+      expect(testEnv.logger.error).toHaveBeenCalled();
     });
 
     it("should validate webhook with minimal required fields", () => {
@@ -148,7 +139,7 @@ describe("LinearWebhookHandler", () => {
     it("should log webhook processing start", async () => {
       await webhookHandler.processWebhook(mockWebhookEventIssueCreated);
 
-      expect(loggerSpy.info).toHaveBeenCalledWith("Processing webhook event", {
+      expect(testEnv.logger.info).toHaveBeenCalledWith("Processing webhook event", {
         type: "Issue",
         action: "create",
         organizationId: "org-test-123"
@@ -163,9 +154,9 @@ describe("LinearWebhookHandler", () => {
       const result = await webhookHandler.processWebhook(differentOrgEvent);
 
       expect(result).toBeNull();
-      expect(loggerSpy.debug).toHaveBeenCalledWith("Ignoring event from different organization", {
+      expect(testEnv.logger.debug).toHaveBeenCalledWith("Ignoring event from different organization", {
         eventOrg: "different-org-id",
-        configOrg: config.linearOrganizationId
+        configOrg: testEnv.config.linearOrganizationId
       });
     });
 
@@ -191,7 +182,7 @@ describe("LinearWebhookHandler", () => {
       const result = await webhookHandler.processWebhook(unknownEvent);
 
       expect(result).toBeNull();
-      expect(loggerSpy.debug).toHaveBeenCalledWith("Unhandled event type", {
+      expect(testEnv.logger.debug).toHaveBeenCalledWith("Unhandled event type", {
         type: "UnknownEventType"
       });
     });
@@ -204,7 +195,7 @@ describe("LinearWebhookHandler", () => {
       const result = await webhookHandler.processWebhook(malformedEvent);
 
       expect(result).toBeNull();
-      expect(loggerSpy.error).toHaveBeenCalledWith(
+      expect(testEnv.logger.error).toHaveBeenCalledWith(
         "Failed to process webhook event",
         expect.any(Error),
         {
@@ -284,7 +275,7 @@ describe("LinearWebhookHandler", () => {
     it("should log issue event processing", async () => {
       await webhookHandler.processWebhook(mockWebhookEventIssueCreated);
 
-      expect(loggerSpy.debug).toHaveBeenCalledWith("Issue event processed", expect.objectContaining({
+      expect(testEnv.logger.debug).toHaveBeenCalledWith("Issue event processed", expect.objectContaining({
         issueId: mockIssue.id,
         identifier: mockIssue.identifier,
         action: "create"
@@ -350,7 +341,7 @@ describe("LinearWebhookHandler", () => {
     it("should log comment event processing", async () => {
       await webhookHandler.processWebhook(mockWebhookEventCommentMention);
 
-      expect(loggerSpy.debug).toHaveBeenCalledWith("Comment event processed", expect.objectContaining({
+      expect(testEnv.logger.debug).toHaveBeenCalledWith("Comment event processed", expect.objectContaining({
         commentId: mockComment.id,
         issueId: mockIssue.id,
         issueIdentifier: mockIssue.identifier,
@@ -388,8 +379,8 @@ describe("LinearWebhookHandler", () => {
     });
 
     it("should detect configured agent user ID", async () => {
-      config.agentUserId = "special-agent-id";
-      webhookHandler = new LinearWebhookHandler(config, loggerSpy);
+      testEnv.config.agentUserId = "special-agent-id";
+      webhookHandler = new LinearWebhookHandler(testEnv.config, testEnv.logger);
 
       const comment = createMockComment({ 
         body: "Please have special-agent-id handle this" 
@@ -427,19 +418,19 @@ describe("LinearWebhookHandler", () => {
     });
 
     it("should return true when no webhook secret is configured", () => {
-      config.webhookSecret = undefined;
-      webhookHandler = new LinearWebhookHandler(config, loggerSpy);
+      testEnv.config.webhookSecret = undefined;
+      webhookHandler = new LinearWebhookHandler(testEnv.config, testEnv.logger);
 
       const result = webhookHandler.verifySignature("payload", "signature");
 
       expect(result).toBe(true);
-      expect(loggerSpy.warn).toHaveBeenCalledWith(
+      expect(testEnv.logger.warn).toHaveBeenCalledWith(
         "No webhook secret configured, skipping signature verification"
       );
     });
 
     it("should verify valid signature", () => {
-      crypto.timingSafeEqual.mockReturnValue(true);
+      testEnv.mockCrypto.timingSafeEqual.mockReturnValue(true);
 
       const result = webhookHandler.verifySignature(
         mockWebhookPayloadString,
@@ -447,11 +438,11 @@ describe("LinearWebhookHandler", () => {
       );
 
       expect(result).toBe(true);
-      expect(crypto.createHmac).toHaveBeenCalledWith("sha256", config.webhookSecret);
+      expect(testEnv.mockCrypto.createHmac).toHaveBeenCalledWith("sha256", testEnv.config.webhookSecret);
     });
 
     it("should reject invalid signature", () => {
-      crypto.timingSafeEqual.mockReturnValue(false);
+      testEnv.mockCrypto.timingSafeEqual.mockReturnValue(false);
 
       const result = webhookHandler.verifySignature(
         mockWebhookPayloadString,
@@ -459,11 +450,11 @@ describe("LinearWebhookHandler", () => {
       );
 
       expect(result).toBe(false);
-      expect(loggerSpy.warn).toHaveBeenCalledWith("Webhook signature verification failed");
+      expect(testEnv.logger.warn).toHaveBeenCalledWith("Webhook signature verification failed");
     });
 
     it("should handle signature verification errors", () => {
-      crypto.createHmac.mockImplementation(() => {
+      testEnv.mockCrypto.createHmac.mockImplementation(() => {
         throw new Error("Crypto error");
       });
 
@@ -473,14 +464,14 @@ describe("LinearWebhookHandler", () => {
       );
 
       expect(result).toBe(false);
-      expect(loggerSpy.error).toHaveBeenCalledWith(
+      expect(testEnv.logger.error).toHaveBeenCalledWith(
         "Webhook signature verification error",
         expect.any(Error)
       );
     });
 
     it("should strip sha256= prefix from signature", () => {
-      crypto.timingSafeEqual.mockReturnValue(true);
+      testEnv.mockCrypto.timingSafeEqual.mockReturnValue(true);
 
       webhookHandler.verifySignature(
         mockWebhookPayloadString,
@@ -508,7 +499,7 @@ describe("LinearWebhookHandler", () => {
       const result = await webhookHandler.processWebhook(malformedEvent);
 
       expect(result).toBeNull();
-      expect(loggerSpy.error).toHaveBeenCalled();
+      expect(testEnv.logger.error).toHaveBeenCalled();
     });
 
     it("should handle malformed comment data in webhook", async () => {
@@ -523,7 +514,7 @@ describe("LinearWebhookHandler", () => {
       const result = await webhookHandler.processWebhook(malformedEvent);
 
       expect(result).toBeNull();
-      expect(loggerSpy.error).toHaveBeenCalled();
+      expect(testEnv.logger.error).toHaveBeenCalled();
     });
 
     it("should handle issues without description", async () => {

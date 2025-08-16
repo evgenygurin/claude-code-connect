@@ -570,8 +570,8 @@ export class SecurityMonitor extends EventEmitter {
       ? recentMetrics.reduce((sum, m) => sum + m.memoryUsageMB, 0) / recentMetrics.length
       : 0;
 
-    const avgActiveSession = recentMetrics.length > 0
-      ? recentMetrics.reduce((sum, m) => sum + m.activeSession, 0) / recentMetrics.length
+    const avgActiveSessions = recentMetrics.length > 0
+      ? recentMetrics.reduce((sum, m) => sum + m.activeSessions, 0) / recentMetrics.length
       : 0;
 
     const totalBlockedRequests = recentMetrics.reduce((sum, m) => sum + m.blockedRequests, 0);
@@ -580,7 +580,7 @@ export class SecurityMonitor extends EventEmitter {
     const trends = {
       securityEvents: this.generateTrendData(recentMetrics, 'securityEvents'),
       memoryUsage: this.generateTrendData(recentMetrics, 'memoryUsageMB'),
-      activeSession: this.generateTrendData(recentMetrics, 'activeSession')
+      activeSessions: this.generateTrendData(recentMetrics, 'activeSessions')
     };
 
     // Generate recommendations
@@ -604,7 +604,7 @@ export class SecurityMonitor extends EventEmitter {
         criticalAlerts: recentAlerts.filter(a => a.severity === SecuritySeverity.CRITICAL).length,
         highAlerts: recentAlerts.filter(a => a.severity === SecuritySeverity.HIGH).length,
         avgMemoryUsage: Math.round(avgMemoryUsage),
-        avgActiveSession: Math.round(avgActiveSession),
+        avgActiveSessions: Math.round(avgActiveSessions),
         totalBlockedRequests
       },
       trends,
