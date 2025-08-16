@@ -13,6 +13,19 @@
     "test:connection": "tsx src/index.ts test",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "test:analyze": "tsx src/testing/cli.ts analyze",
+    "test:generate": "tsx src/testing/cli.ts generate",
+    "test:generate-all": "tsx src/testing/cli.ts generate-all",
+    "test:recommendations": "tsx src/testing/cli.ts recommendations",
+    "test:demo": "tsx src/testing/example.ts",
+    "test:integration": "tsx src/testing/run-integration-tests.ts",
+    "test:integration:bug-fix": "tsx src/testing/run-integration-tests.ts --scenario=bug-fix",
+    "test:integration:multi-agent": "tsx src/testing/run-integration-tests.ts --scenario=multi-agent",
+    "test:integration:stress": "tsx src/testing/run-integration-tests.ts --stress-test --events=200",
+    "test:workflow": "vitest run src/testing/workflow.test.ts",
+    "test:agents": "vitest run src/testing/agent-scenarios.test.ts",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write src"
   },
@@ -22,7 +35,8 @@
     "tsx": "^4.7.0",
     "dotenv": "^16.3.1",
     "nanoid": "^5.0.4",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "glob": "^10.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
