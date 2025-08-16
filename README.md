@@ -55,11 +55,14 @@ cd claude-code-linear/cc
 # Install dependencies
 npm install
 
-# Initialize configuration
-npm run init
+# Copy environment template
+cp .env.example .env
 
 # Edit .env with your settings
-# (See Configuration section below)
+# (Add your Linear API token, GitHub token, etc.)
+
+# Initialize configuration
+npm run init
 
 # Test Linear connection
 npm run test:connection
@@ -68,16 +71,36 @@ npm run test:connection
 npm start
 ```
 
+### Alternative: Use Makefile
+
+```bash
+# Show all available commands
+make help
+
+# Development workflow
+make dev           # Start development server
+make build         # Build TypeScript
+make test          # Run tests
+make quality       # Run all quality checks
+
+# Configuration
+make init          # Initialize .env
+make test-connection  # Test Linear API
+```
+
 ### Configuration
 
-Create and edit `.env` file:
+Create and edit `.env` file (copy from `.env.example`):
 
 ```env
-# Required: Linear API token
+# Required: Linear API token (get from https://linear.app/settings/account/security)
 LINEAR_API_TOKEN=your_linear_api_token_here
 
 # Required: Linear organization ID
 LINEAR_ORGANIZATION_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+# Required: GitHub token for repository operations
+GITHUB_TOKEN=ghp_your_github_token_here
 
 # Required: Project directory
 PROJECT_ROOT_DIR=/path/to/your/project

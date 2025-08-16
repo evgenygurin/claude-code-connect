@@ -21,63 +21,6 @@ This is a **Claude Code + Linear Native Integration** - a TypeScript implementat
 
 ## 🛠️ Development Commands
 
-### Essential Commands
-
-```bash
-# Install dependencies
-npm install
-
-# Development mode with auto-restart (uses tsx watch)
-npm run dev
-
-# Type checking (ALWAYS run before committing)
-npm run typecheck
-
-# Linting and formatting
-npm run lint
-npm run format
-
-# Build TypeScript to dist/
-npm run build
-
-# Run tests (uses vitest)
-npm test
-```
-
-### CLI Application Commands
-
-```bash
-# Initialize configuration (.env file)
-npm run init
-
-# Test Linear API connection
-npm run test:connection
-
-# Start production server (uses built dist/index.js)
-npm start
-
-# Start development server (direct tsx execution)
-npm run start:dev
-```
-
-### CLI Interface
-
-```bash
-# Available CLI commands (via src/index.ts):
-npm start start          # Start integration server (default)
-npm start init           # Initialize .env configuration
-npm start test           # Test Linear API connection  
-npm start help           # Show help information
-
-# Custom config file
-npm start start --config=.env.production
-
-# Force overwrite .env
-npm start init --force
-```
-
-## 📁 Project Structure
-
 ```text
 src/
 ├── core/types.ts              # TypeScript interfaces and types
@@ -96,44 +39,7 @@ src/
 └── index.ts                  # CLI entry point
 ```
 
-## 🔧 Configuration
-
-### Environment Variables Mapping
-
-The system uses the following environment variable mapping (from `src/utils/config.ts`):
-
-| Config Key | Environment Variable | Required | Default | Description |
-|------------|---------------------|----------|---------|-------------|
-| `linearApiToken` | `LINEAR_API_TOKEN` | ✅ | - | Linear API token |
-| `linearOrganizationId` | `LINEAR_ORGANIZATION_ID` | ❌ | auto-detected | Linear organization ID (from API token) |
-| `projectRootDir` | `PROJECT_ROOT_DIR` | ❌ | `process.cwd()` | Project directory path (current dir) |
-| `agentUserId` | `CLAUDE_AGENT_USER_ID` | ❌ | auto-detected | Agent user ID (current Linear user) |
-| `webhookSecret` | `LINEAR_WEBHOOK_SECRET` | ❌ | - | Webhook verification secret |
-| `defaultBranch` | `DEFAULT_BRANCH` | ❌ | `main` | Git default branch |
-| `createBranches` | `CREATE_BRANCHES` | ❌ | `true` | Auto-create git branches |
-| `webhookPort` | `WEBHOOK_PORT` | ❌ | `3000` | Server port |
-| `claudeExecutablePath` | `CLAUDE_EXECUTABLE_PATH` | ❌ | `claude` | Claude CLI path |
-| `timeoutMinutes` | `SESSION_TIMEOUT_MINUTES` | ❌ | `30` | Session timeout |
-| `debug` | `DEBUG` | ❌ | `false` | Debug logging |
-
-### Quick Setup (Minimal Configuration)
-
-For most use cases, you only need one environment variable:
-
-```bash
-# Create minimal .env file
-echo "LINEAR_API_TOKEN=your_token_here" > .env
-
-# Test the setup
-npm run test:connection
-```
-
-**Minimal .env example:**
-
-```env
-# Only required field - everything else auto-detected
-LINEAR_API_TOKEN=lin_api_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-```
+### Quick Setup
 
 The script automatically determines:
 
@@ -142,46 +48,6 @@ The script automatically determines:
 - **Agent User**: Current authenticated Linear user
 - **Port**: Default 3000
 - **All other settings**: Use sensible defaults
-
-### Full Configuration (Advanced)
-
-```bash
-# Generate complete .env template
-npm run init
-
-# Full .env template:
-```
-
-```env
-# Required: Linear API token (get from https://linear.app/settings/account/security)
-LINEAR_API_TOKEN=lin_api_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-# Auto-detected if not set: Linear organization ID
-# LINEAR_ORGANIZATION_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-
-# Auto-detected if not set: Current directory
-# PROJECT_ROOT_DIR=/path/to/your/project
-
-# Auto-detected if not set: Current Linear user
-# CLAUDE_AGENT_USER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-
-# Optional: Webhook secret for Linear webhook verification
-# LINEAR_WEBHOOK_SECRET=your-webhook-secret
-
-# Optional: Git branch configuration
-# DEFAULT_BRANCH=main
-# CREATE_BRANCHES=true
-
-# Optional: Server configuration
-# WEBHOOK_PORT=3000
-# SESSION_TIMEOUT_MINUTES=30
-
-# Optional: Claude executable path (if not in PATH)
-# CLAUDE_EXECUTABLE_PATH=/usr/local/bin/claude
-
-# Optional: Debug logging
-# DEBUG=false
-```
 
 ### Configuration Loading Process
 
@@ -374,38 +240,6 @@ npm run typecheck && npm run lint && npm run format
 4. **Type Safety**: Utilize interfaces from `src/core/types.ts`
 5. **Configuration**: Access config through `IntegrationConfig` interface
 
-## 🎯 Architecture Patterns
-
-### Error Handling Pattern
-
-All components implement structured error handling with context:
-
-```typescript
-import type { Logger } from "../core/types.js";
-
-try {
-  // operation
-} catch (error) {
-  this.logger.error("Operation failed", error as Error, { 
-    context: "additional info",
-    sessionId: "session-123"
-  });
-  throw error;
-}
-```
-
-### Configuration Pattern
-
-Configuration is centrally managed through `src/utils/config.ts`:
-
-```typescript
-import { loadConfig } from "../utils/config.js";
-import type { IntegrationConfig } from "../core/types.js";
-
-const config: IntegrationConfig = loadConfig();
-// All environment variables mapped and validated
-```
-
 ### Session Lifecycle Pattern
 
 Sessions follow a strict state machine pattern:
@@ -425,3 +259,4 @@ Webhook → Validation → Processing → Routing → Handling
 ```
 
 Each step has error boundaries and structured logging.
+`
