@@ -55,7 +55,7 @@ export class LinearClient {
     try {
       const issues = await this.client.issues({
         filter: {
-          identifier: {
+          id: {
             eq: identifier
           }
         },
@@ -188,8 +188,8 @@ export class LinearClient {
         body
       });
 
-      this.logger.info("Comment created", { issueId, commentId: comment.comment?.id });
-      return comment.comment || null;
+      this.logger.info("Comment created", { issueId, commentId: (await comment.comment)?.id });
+      return await comment.comment || null;
     } catch (error) {
       this.logger.error("Failed to create comment", error as Error, { issueId });
       return null;
