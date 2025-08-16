@@ -109,7 +109,7 @@ export interface LinearWebhookEvent {
   /** Event type */
   type: string;
   /** Event data */
-  data: Issue | Comment | IssueUpdate;
+  data: Issue | Comment | Record<string, any>;
   /** Event URL */
   url?: string;
   /** Organization ID */
