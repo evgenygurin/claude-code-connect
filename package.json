@@ -1,0 +1,39 @@
+{
+  "name": "claude-code-linear-native",
+  "version": "1.0.0",
+  "description": "Native Claude Code + Linear integration without customer ID dependency",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "start:dev": "tsx src/index.ts",
+    "init": "tsx src/index.ts init",
+    "test:connection": "tsx src/index.ts test",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write src"
+  },
+  "dependencies": {
+    "@linear/sdk": "^26.0.0",
+    "fastify": "^4.25.0",
+    "tsx": "^4.7.0",
+    "dotenv": "^16.3.1",
+    "nanoid": "^5.0.4",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "eslint": "^8.55.0",
+    "@typescript-eslint/eslint-plugin": "^6.14.0",
+    "@typescript-eslint/parser": "^6.14.0",
+    "prettier": "^3.1.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
