@@ -230,6 +230,26 @@ export class SecurityValidator {
     args: string[] = []
   ): { valid: boolean; sanitized?: { command: string; args: string[] }; error?: string } {
     try {
+      // SECURITY: Check for injection attempts in command
+      const commandInjectionCheck = this.detectInjectionAttempts(command);
+      if (commandInjectionCheck.detected && commandInjectionCheck.severity === 'high') {
+        return {
+          valid: false,
+          error: `Command contains security threats: ${commandInjectionCheck.threats.join(', ')}`
+        };
+      }
+
+      // SECURITY: Check for injection attempts in arguments
+      for (const arg of args) {
+        const argInjectionCheck = this.detectInjectionAttempts(arg);
+        if (argInjectionCheck.detected && argInjectionCheck.severity === 'high') {
+          return {
+            valid: false,
+            error: `Argument contains security threats: ${argInjectionCheck.threats.join(', ')}`
+          };
+        }
+      }
+
       // Extract base command
       const baseCommand = command.split(' ')[0].toLowerCase();
 
@@ -238,6 +258,20 @@ export class SecurityValidator {
         return {
           valid: false,
           error: `Command '${baseCommand}' is blocked for security reasons`
+        };
+      }
+
+      // Only allow allowlisted commands for security
+      const allowedCommands = new Set([
+        'git', 'npm', 'node', 'python', 'python3', 'pip', 'pip3',
+        'ls', 'cd', 'pwd', 'mkdir', 'touch', 'cat', 'echo',
+        'claude', 'claude-code'
+      ]);
+
+      if (!allowedCommands.has(baseCommand)) {
+        return {
+          valid: false,
+          error: `Command '${baseCommand}' is not in the allowed command list`
         };
       }
 
@@ -256,9 +290,19 @@ export class SecurityValidator {
         };
       }
 
-      // Sanitize arguments
+      // SECURITY: Strict sanitization - reject instead of sanitize if dangerous chars found
+      for (const arg of args) {
+        if (/[;&|`$(){}]/.test(arg)) {
+          return {
+            valid: false,
+            error: `Argument contains forbidden shell metacharacters: ${arg}`
+          };
+        }
+      }
+
+      // Sanitize arguments (only safe operations)
       const sanitizedArgs = args.map(arg => 
-        arg.replace(/[;&|`$()]/g, '') // Remove shell metacharacters
+        arg.replace(/\0/g, '') // Remove null bytes
            .substring(0, 500) // Limit length
       );
 

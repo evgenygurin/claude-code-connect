@@ -6,8 +6,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { TestingAgent } from "./agent.js";
 import type { IntegrationConfig, Logger } from "../core/types.js";
 import { mockIntegrationConfig, createMockLogger } from "./mocks.js";
-import { writeFile, mkdir, rm } from "fs/promises";
+import { writeFile, mkdir, rm, readFile } from "fs/promises";
 import { join } from "path";
+import { glob } from "glob";
 
 // Mock fs/promises for file system operations
 vi.mock("fs/promises", () => ({
@@ -38,8 +39,12 @@ describe("TestingAgent", () => {
     testingAgent = new TestingAgent(config, loggerSpy);
     
     // Setup mocks
-    mockGlob = vi.mocked(require("glob").glob);
-    mockReadFile = vi.mocked(require("fs/promises").readFile);
+    mockGlob = vi.mocked(glob);
+    mockReadFile = vi.mocked(readFile);
+    
+    // Set default return values
+    mockGlob.mockResolvedValue([]);
+    mockReadFile.mockResolvedValue('export class MockClass {}');
   });
 
   afterEach(() => {

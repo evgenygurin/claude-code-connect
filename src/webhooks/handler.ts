@@ -6,10 +6,10 @@ import { z } from "zod";
 import type { 
   LinearWebhookEvent, 
   ProcessedEvent, 
-  LinearEventType, 
   IntegrationConfig, 
   Logger 
 } from "../core/types.js";
+import { LinearEventType } from "../core/types.js";
 import type { Issue, Comment, User } from "@linear/sdk";
 
 /**
@@ -32,49 +32,21 @@ const WebhookEventSchema = z.object({
 });
 
 /**
- * Issue data schema
+ * Issue data schema - very flexible to handle both webhook payloads and SDK objects
  */
-const IssueSchema = z.object({
-  id: z.string(),
-  identifier: z.string(),
-  title: z.string(),
-  description: z.string().optional(),
-  url: z.string(),
-  state: z.object({
-    id: z.string(),
-    name: z.string(),
-    type: z.string()
-  }),
-  assignee: z.object({
-    id: z.string(),
-    name: z.string()
-  }).optional(),
-  creator: z.object({
-    id: z.string(),
-    name: z.string()
-  }),
-  team: z.object({
-    id: z.string(),
-    name: z.string(),
-    key: z.string()
-  }),
-  createdAt: z.string(),
-  updatedAt: z.string()
+const IssueSchema = z.any().refine((data) => {
+  return data && typeof data === 'object' && data.id && data.identifier && data.title;
+}, {
+  message: "Issue must have id, identifier, and title"
 });
 
 /**
- * Comment data schema
+ * Comment data schema - very flexible to handle both webhook payloads and SDK objects
  */
-const CommentSchema = z.object({
-  id: z.string(),
-  body: z.string(),
-  user: z.object({
-    id: z.string(),
-    name: z.string()
-  }),
-  issue: IssueSchema,
-  createdAt: z.string(),
-  updatedAt: z.string()
+const CommentSchema = z.any().refine((data) => {
+  return data && typeof data === 'object' && data.id && data.body && data.user;
+}, {
+  message: "Comment must have id, body, and user"
 });
 
 /**
