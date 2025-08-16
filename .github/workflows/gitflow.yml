@@ -1,0 +1,152 @@
+name: Git Flow CI/CD
+
+on:
+  push:
+    branches: [ dev, stage, prod ]
+  pull_request:
+    branches: [ dev, stage, prod ]
+
+jobs:
+  # Development environment (dev branch)
+  dev-ci:
+    name: Development CI
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev' || github.base_ref == 'dev'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run tests
+      run: npm test
+      
+    - name: Type check
+      run: npm run typecheck
+      
+    - name: Lint code
+      run: npm run lint
+      
+    - name: Build
+      run: npm run build
+
+  # Staging environment (stage branch)
+  stage-ci:
+    name: Staging CI + Deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/stage' || github.base_ref == 'stage'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run full test suite
+      run: npm test -- --coverage
+      
+    - name: Build for staging
+      run: npm run build
+      
+    - name: Deploy to staging
+      run: |
+        echo "🚀 Deploying to STAGING environment..."
+        echo "Stage deployment commands здесь"
+
+  # Production environment (prod branch) - ТРЕБУЕТ РУЧНОГО ПОДТВЕРЖДЕНИЯ
+  prod-ci:
+    name: Production CI + Deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/prod' || github.base_ref == 'prod'
+    environment: 
+      name: production
+      url: https://claude-code-connect.production.com
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run production tests
+      run: npm test -- --coverage --reporter=verbose
+      
+    - name: Security audit
+      run: npm audit --audit-level moderate
+      
+    - name: Build for production
+      run: npm run build
+      
+    - name: 🛑 MANUAL APPROVAL REQUIRED
+      run: |
+        echo "⚠️  PRODUCTION DEPLOYMENT"
+        echo "👥 Requires manual approval in GitHub UI"
+        echo "🔒 2 reviewers must approve this deployment"
+        
+    - name: Deploy to production
+      run: |
+        echo "🚀 Deploying to PRODUCTION environment..."
+        echo "Production deployment commands здесь"
+
+  # Validate PR rules
+  pr-validation:
+    name: PR Validation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Validate branch flow
+      run: |
+        BASE="${{ github.base_ref }}"
+        HEAD="${{ github.head_ref }}"
+        
+        echo "PR: $HEAD → $BASE"
+        
+        # Проверяем правильность git flow
+        case "$BASE" in
+          "dev")
+            echo "✅ PR в dev ветку разрешён"
+            ;;
+          "stage")
+            if [[ "$HEAD" == "dev" ]]; then
+              echo "✅ dev → stage разрешён"
+            else
+              echo "❌ В stage можно мержить только из dev!"
+              exit 1
+            fi
+            ;;
+          "prod")
+            if [[ "$HEAD" == "stage" ]]; then
+              echo "✅ stage → prod разрешён"
+            else
+              echo "❌ В prod можно мержить только из stage!"
+              exit 1
+            fi
+            ;;
+          *)
+            echo "⚠️  Неизвестная целевая ветка: $BASE"
+            ;;
+        esac
