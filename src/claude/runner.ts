@@ -2,9 +2,7 @@
  * Claude Code SDK runner
  */
 
-import { query, type SDKUserMessage } from "@anthropic-ai/claude-code";
-import type { Issue, Comment } from "@linear/sdk";
-import { nanoid } from "nanoid";
+import { query } from "@anthropic-ai/claude-code";
 import { EventEmitter } from "events";
 import type { 
   ClaudeSession, 
@@ -237,4 +235,3 @@ and update the issue status as needed.
     return Array.from(this.activeSessions.keys());
   }
 }
-

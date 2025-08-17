@@ -38,9 +38,9 @@
     "format": "prettier --write src"
   },
   "dependencies": {
-    "@anthropic-ai/claude-code": "^latest",
+    "@anthropic-ai/claude-code": "latest",
     "@linear/sdk": "^26.0.0",
-    "@tacticlaunch/mcp-linear": "^latest",
+    "@tacticlaunch/mcp-linear": "latest",
     "better-sqlite3": "^9.0.0",
     "dotenv": "^16.3.1",
     "fastify": "^4.25.0",

@@ -5,6 +5,7 @@
 import { EventEmitter } from "events";
 import { promises as fs } from "fs";
 import { join } from "path";
+import type { Timeout } from "node:timers";
 import type { 
   IntegrationConfig, 
   Logger,
@@ -94,7 +95,7 @@ export class SecurityMonitor extends EventEmitter {
   private securityAgent: SecurityAgent;
   private metrics: SecurityMetrics[] = [];
   private alerts: SecurityAlert[] = [];
-  private metricsInterval?: NodeJS.Timeout;
+  private metricsInterval?: Timeout;
   private isMonitoring = false;
 
   constructor(

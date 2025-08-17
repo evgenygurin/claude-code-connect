@@ -3,8 +3,9 @@
  */
 
 import { z } from "zod";
-import { resolve, join, relative } from "path";
+import { resolve, relative } from "path";
 import { promises as fs } from "fs";
+import type { ErrnoException } from "node:errors";
 
 /**
  * Secure session ID schema - only alphanumeric and safe characters
@@ -345,7 +346,7 @@ export class SecurityValidator {
           };
         }
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        if ((error as ErrnoException).code === 'ENOENT') {
           // Directory doesn't exist - this might be OK for new sessions
           return { valid: true };
         }

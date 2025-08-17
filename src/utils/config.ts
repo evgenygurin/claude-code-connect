@@ -99,12 +99,13 @@ function parseEnvValue(value: string, configKey: string): any {
       return value.toLowerCase() === "true" || value === "1";
     
     case "webhookPort":
-    case "timeoutMinutes":
+    case "timeoutMinutes": {
       const numValue = parseInt(value, 10);
       if (isNaN(numValue)) {
         throw new Error(`Invalid number value for ${configKey}: ${value}`);
       }
       return numValue;
+    }
     
     default:
       return value;

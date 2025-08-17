@@ -442,13 +442,14 @@ export class SecurityAgent {
         sanitized = sanitized.replace(/\\/g, '/');
         break;
         
-      case 'command':
+      case 'command': {
         // Check for blocked commands
         const command = sanitized.split(' ')[0].toLowerCase();
         if (this.securityConfig.blockedCommands.includes(command)) {
           throw new Error(`Blocked command: ${command}`);
         }
         break;
+      }
         
       case 'issue_description':
         // Remove script tags and other potentially dangerous content

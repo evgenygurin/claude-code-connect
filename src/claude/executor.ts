@@ -5,13 +5,11 @@
 import { spawn, ChildProcess } from "child_process";
 import { promises as fs } from "fs";
 import { join, resolve } from "path";
-import { nanoid } from "nanoid";
 import type { 
   ClaudeExecutionContext, 
   ClaudeExecutionResult, 
   GitCommit, 
-  Logger,
-  SessionStatus 
+  Logger
 } from "../core/types.js";
 
 /**
