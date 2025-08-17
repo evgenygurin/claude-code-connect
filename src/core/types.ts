@@ -2,7 +2,7 @@
  * Core types for Claude Code + Linear native integration
  */
 
-import type { Issue, Comment, Team, User, WorkflowState } from "@linear/sdk";
+import type { Issue, Comment, User } from "@linear/sdk";
 
 /**
  * Integration configuration

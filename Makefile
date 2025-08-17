@@ -1,12 +1,34 @@
 # Claude Code Connect - Makefile
-.PHONY: help install dev build start test lint format typecheck clean init test-connection logs
+.PHONY: help install dev build start test lint format typecheck clean init test-connection logs quick-start check-setup show-config
 
 # Default target
 .DEFAULT_GOAL := help
 
 ## Help - Show available commands
 help:
-	@echo "Commands: dev build test quality init clean status"
+	@echo "🚀 Claude Code Connect - Доступные команды:"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "🎯 БЫСТРЫЙ СТАРТ:"
+	@echo "  quick-start     Полная автоматическая настройка и запуск"
+	@echo "  check-setup     Проверить готовность системы"
+	@echo "  show-config     Показать текущую конфигурацию"
+	@echo ""
+	@echo "🔧 РАЗРАБОТКА:"
+	@echo "  dev             Запуск dev сервера с auto-reload"
+	@echo "  build           Компиляция TypeScript"
+	@echo "  start           Запуск production сервера"
+	@echo ""
+	@echo "🧪 ТЕСТИРОВАНИЕ:"
+	@echo "  test-connection Проверка Linear API подключения"
+	@echo "  test            Запуск тестов"
+	@echo "  quality         Все проверки качества (lint + types + format)"
+	@echo ""
+	@echo "🛠️  УТИЛИТЫ:"
+	@echo "  logs            Показать логи сервера"
+	@echo "  clean           Очистить build артефакты"
+	@echo "  status          Git статус"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "💡 Для первого запуска: make quick-start"
 
 ## Install - Install dependencies
 install:
@@ -80,3 +102,32 @@ dev-setup: install init
 
 ## Quick - All checks
 quick: quality test
+
+## Quick Start - Быстрая настройка и запуск
+quick-start:
+	@echo "🚀 Запуск быстрой настройки Claude Code Connect..."
+	@chmod +x scripts/quick-start.sh
+	@./scripts/quick-start.sh
+
+## Check Setup - Проверить готовность к запуску
+check-setup:
+	@echo "🔍 Проверка готовности системы..."
+	@echo "Node.js: $$(node --version 2>/dev/null || echo 'НЕ УСТАНОВЛЕН')"
+	@echo "npm: $$(npm --version 2>/dev/null || echo 'НЕ УСТАНОВЛЕН')"
+	@echo "Claude Code: $$(claude --version 2>/dev/null || echo 'НЕ УСТАНОВЛЕН')"
+	@echo "Git: $$(git --version 2>/dev/null || echo 'НЕ УСТАНОВЛЕН')"
+	@echo ".env файл: $$([ -f .env ] && echo '✅ Найден' || echo '❌ Отсутствует')"
+	@echo "Зависимости: $$([ -d node_modules ] && echo '✅ Установлены' || echo '❌ Не установлены')"
+
+## Show Config - Показать текущую конфигурацию
+show-config:
+	@echo "📊 Текущая конфигурация:"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@if [ -f .env ]; then \
+		echo "🔑 LINEAR_API_TOKEN: $$(grep LINEAR_API_TOKEN .env | cut -d'=' -f2 | cut -c1-20)..."; \
+		echo "🏢 LINEAR_ORGANIZATION_ID: $$(grep LINEAR_ORGANIZATION_ID .env | cut -d'=' -f2)"; \
+		echo "📁 PROJECT_ROOT_DIR: $$(grep PROJECT_ROOT_DIR .env | cut -d'=' -f2)"; \
+		echo "🌐 WEBHOOK_PORT: $$(grep WEBHOOK_PORT .env | cut -d'=' -f2 || echo '3005')"; \
+	else \
+		echo "❌ .env файл не найден"; \
+	fi

@@ -2,9 +2,7 @@
  * Claude Code SDK runner
  */
 
-import { query, type SDKUserMessage } from "@anthropic-ai/claude-code";
-import type { Issue, Comment } from "@linear/sdk";
-import { nanoid } from "nanoid";
+import { query } from "@anthropic-ai/claude-code";
 import { EventEmitter } from "events";
 import type {
   ClaudeSession,
@@ -176,24 +174,48 @@ Linear API directly. Use these tools to get information about the issue, create 
 and update the issue status as needed.
       `.trim();
 
+      // Convert messages to async iterable
+      async function* messageIterable() {
+        for (const message of messages) {
+          yield message;
+        }
+      }
+
       // Execute Claude Code SDK query
-      const response = await query({
-        messages,
-        systemPrompt,
-        mcpConfig,
-        allowedTools,
-        signal,
+      const response = query({
+        prompt: messageIterable(),
+        options: {
+          customSystemPrompt: systemPrompt,
+          mcpServers: mcpConfig,
+          allowedTools,
+          abortController: new AbortController(),
+        },
       });
 
-      // Extract output from response
-      const output = response.messages
-        .filter((msg) => msg.role === "assistant")
-        .map((msg) => msg.content)
-        .join("\n\n");
+      // Collect output from response stream
+      const outputParts: string[] = [];
+      let messageCount = 0;
+      
+      for await (const message of response) {
+        messageCount++;
+        if (message.type === "assistant" && message.message.content) {
+          if (typeof message.message.content === 'string') {
+            outputParts.push(message.message.content);
+          } else if (Array.isArray(message.message.content)) {
+            for (const block of message.message.content) {
+              if (block.type === 'text') {
+                outputParts.push(block.text);
+              }
+            }
+          }
+        }
+      }
+
+      const output = outputParts.join("\n\n");
 
       this.logger.debug("Claude Code SDK query completed", {
         sessionId: session.id,
-        responseMessages: response.messages.length,
+        responseMessages: messageCount,
         outputLength: output.length,
       });
 

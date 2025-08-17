@@ -70,8 +70,10 @@ export class StreamingPrompt {
       this.issue.description || "No description provided";
 
     const message: SDKUserMessage = {
-      role: "user",
-      content: `
+      type: "user",
+      message: {
+        role: "user",
+        content: `
 # Linear Issue: ${this.issue.identifier} - ${this.issue.title}
 
 ## Issue Description
@@ -122,7 +124,10 @@ When you're done:
 ---
 
 **Important**: Focus on delivering working, tested code that addresses the issue requirements. Be thorough but efficient.
-      `.trim(),
+        `.trim(),
+      },
+      parent_tool_use_id: null,
+      session_id: this.session.id,
     };
 
     this.messages.push(message);
@@ -135,14 +140,19 @@ When you're done:
     if (!this.triggerComment) return;
 
     const message: SDKUserMessage = {
-      role: "user",
-      content: `
+      type: "user",
+      message: {
+        role: "user",
+        content: `
 ## New Instructions from Comment
 
 ${this.triggerComment.body}
 
 Please incorporate these instructions into your work on this issue.
-      `.trim(),
+        `.trim(),
+      },
+      parent_tool_use_id: null,
+      session_id: this.session.id,
     };
 
     this.messages.push(message);
@@ -153,14 +163,19 @@ Please incorporate these instructions into your work on this issue.
    */
   async addProgressUpdate(progress: string): Promise<void> {
     const message: SDKUserMessage = {
-      role: "user",
-      content: `
+      type: "user",
+      message: {
+        role: "user",
+        content: `
 ## Progress Update
 
 ${progress}
 
 Please continue your work with this additional information.
-      `.trim(),
+        `.trim(),
+      },
+      parent_tool_use_id: null,
+      session_id: this.session.id,
     };
 
     this.messages.push(message);
@@ -176,12 +191,17 @@ Please continue your work with this additional information.
    */
   async addSystemMessage(content: string): Promise<void> {
     const message: SDKUserMessage = {
-      role: "user",
-      content: `
+      type: "user",
+      message: {
+        role: "user",
+        content: `
 ## System Message
 
 ${content}
-      `.trim(),
+        `.trim(),
+      },
+      parent_tool_use_id: null,
+      session_id: this.session.id,
     };
 
     this.messages.push(message);

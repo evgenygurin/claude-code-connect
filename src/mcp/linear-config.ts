@@ -2,7 +2,7 @@
  * MCP Linear configuration
  */
 
-import type { MCPConfig } from "@anthropic-ai/claude-code";
+import type { McpServerConfig } from "@anthropic-ai/claude-code";
 import type { IntegrationConfig } from "../core/types.js";
 
 /**
@@ -64,7 +64,7 @@ export const DEFAULT_LINEAR_MCP_TOOLS = [
 export function createLinearMCPConfig(
   config: IntegrationConfig,
   additionalTools: string[] = [],
-): MCPConfig {
+): Record<string, McpServerConfig> {
   return {
     linear: {
       type: "stdio",

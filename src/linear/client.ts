@@ -6,7 +6,6 @@ import {
   LinearClient as LinearSDK,
   Issue,
   Comment,
-  Team,
   User,
   WorkflowState,
 } from "@linear/sdk";
@@ -110,7 +109,7 @@ export class LinearClient {
             },
           },
         },
-        orderBy: "updatedAt",
+        orderBy: "updatedAt" as any,
       });
 
       return issues.nodes;

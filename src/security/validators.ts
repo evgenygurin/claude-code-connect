@@ -435,7 +435,7 @@ export class SecurityValidator {
           };
         }
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        if ((error as { code?: string }).code === "ENOENT") {
           // Directory doesn't exist - this might be OK for new sessions
           return { valid: true };
         }

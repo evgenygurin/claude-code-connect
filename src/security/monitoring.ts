@@ -99,7 +99,7 @@ export class SecurityMonitor extends EventEmitter {
   private securityAgent: SecurityAgent;
   private metrics: SecurityMetrics[] = [];
   private alerts: SecurityAlert[] = [];
-  private metricsInterval?: NodeJS.Timeout;
+  private metricsInterval?: ReturnType<typeof setInterval>;
   private isMonitoring = false;
 
   constructor(

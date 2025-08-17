@@ -5,13 +5,11 @@
 import { spawn, ChildProcess } from "child_process";
 import { promises as fs } from "fs";
 import { join, resolve } from "path";
-import { nanoid } from "nanoid";
 import type {
   ClaudeExecutionContext,
   ClaudeExecutionResult,
   GitCommit,
   Logger,
-  SessionStatus,
 } from "../core/types.js";
 
 /**
@@ -120,7 +118,7 @@ export class ClaudeExecutor {
         sessionId: session.id,
       });
 
-      const process = spawn(claudePath, args, {
+      const claudeProcess = spawn(claudePath, args, {
         cwd: workingDir,
         stdio: "pipe",
         env: {
@@ -132,24 +130,24 @@ export class ClaudeExecutor {
       });
 
       // Track process for potential cancellation
-      this.activeProcesses.set(session.id, process);
+      this.activeProcesses.set(session.id, claudeProcess);
 
       let output = "";
       let errorOutput = "";
 
-      process.stdout?.on("data", (data) => {
+      claudeProcess.stdout?.on("data", (data) => {
         const chunk = data.toString();
         output += chunk;
         this.logger.debug("Claude stdout", { sessionId: session.id, chunk });
       });
 
-      process.stderr?.on("data", (data) => {
+      claudeProcess.stderr?.on("data", (data) => {
         const chunk = data.toString();
         errorOutput += chunk;
         this.logger.debug("Claude stderr", { sessionId: session.id, chunk });
       });
 
-      process.on("close", (code) => {
+      claudeProcess.on("close", (code) => {
         this.activeProcesses.delete(session.id);
 
         this.logger.debug("Claude process finished", {
@@ -164,7 +162,7 @@ export class ClaudeExecutor {
         });
       });
 
-      process.on("error", (error) => {
+      claudeProcess.on("error", (error) => {
         this.activeProcesses.delete(session.id);
 
         this.logger.error("Claude process error", error, {
@@ -181,11 +179,11 @@ export class ClaudeExecutor {
             this.logger.warn("Claude process timeout, killing", {
               sessionId: session.id,
             });
-            process.kill("SIGTERM");
+            claudeProcess.kill("SIGTERM");
 
             setTimeout(() => {
               if (this.activeProcesses.has(session.id)) {
-                process.kill("SIGKILL");
+                claudeProcess.kill("SIGKILL");
               }
             }, 5000);
           }
@@ -193,7 +191,7 @@ export class ClaudeExecutor {
         30 * 60 * 1000,
       ); // 30 minutes
 
-      process.on("close", () => {
+      claudeProcess.on("close", () => {
         clearTimeout(timeout);
       });
     });
@@ -331,11 +329,11 @@ When you're done:
       const { spawn } = await import("child_process");
 
       return new Promise((resolve, reject) => {
-        const process = spawn("git", ["clone", source, target], {
+        const gitProcess = spawn("git", ["clone", source, target], {
           stdio: "pipe",
         });
 
-        process.on("close", (code) => {
+        gitProcess.on("close", (code) => {
           if (code === 0) {
             resolve();
           } else {
@@ -343,7 +341,7 @@ When you're done:
           }
         });
 
-        process.on("error", reject);
+        gitProcess.on("error", reject);
       });
     } catch (error) {
       this.logger.error("Failed to copy project files", error as Error, {
@@ -367,12 +365,12 @@ When you're done:
       const { spawn } = await import("child_process");
 
       return new Promise((resolve, reject) => {
-        const process = spawn("git", ["init"], {
+        const gitProcess = spawn("git", ["init"], {
           cwd: workingDir,
           stdio: "pipe",
         });
 
-        process.on("close", (code) => {
+        gitProcess.on("close", (code) => {
           if (code === 0) {
             resolve();
           } else {
@@ -380,7 +378,7 @@ When you're done:
           }
         });
 
-        process.on("error", reject);
+        gitProcess.on("error", reject);
       });
     }
   }
@@ -393,7 +391,7 @@ When you're done:
       const { spawn } = await import("child_process");
 
       return new Promise((resolve) => {
-        const process = spawn(
+        const gitProcess = spawn(
           "git",
           [
             "log",
@@ -409,11 +407,11 @@ When you're done:
         );
 
         let output = "";
-        process.stdout?.on("data", (data) => {
+        gitProcess.stdout?.on("data", (data) => {
           output += data.toString();
         });
 
-        process.on("close", () => {
+        gitProcess.on("close", () => {
           const commits: GitCommit[] = [];
           const lines = output
             .trim()
@@ -436,7 +434,7 @@ When you're done:
           resolve(commits);
         });
 
-        process.on("error", () => {
+        gitProcess.on("error", () => {
           resolve([]);
         });
       });
@@ -453,17 +451,17 @@ When you're done:
       const { spawn } = await import("child_process");
 
       return new Promise((resolve) => {
-        const process = spawn("git", ["diff", "--name-only", "HEAD~1"], {
+        const gitProcess = spawn("git", ["diff", "--name-only", "HEAD~1"], {
           cwd: workingDir,
           stdio: "pipe",
         });
 
         let output = "";
-        process.stdout?.on("data", (data) => {
+        gitProcess.stdout?.on("data", (data) => {
           output += data.toString();
         });
 
-        process.on("close", () => {
+        gitProcess.on("close", () => {
           const files = output
             .trim()
             .split("\n")
@@ -471,7 +469,7 @@ When you're done:
           resolve(files);
         });
 
-        process.on("error", () => {
+        gitProcess.on("error", () => {
           resolve([]);
         });
       });
