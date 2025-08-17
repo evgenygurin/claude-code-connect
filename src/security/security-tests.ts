@@ -663,7 +663,24 @@ export class SecurityTestSuite {
           workingDir: "/tmp/test",
           startedAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
           lastActivityAt: new Date(),
-          metadata: {},
+          metadata: {
+            createdBy: "test-user",
+            organizationId: "test-org",
+            projectScope: ["/tmp/test"],
+            permissions: {
+              canRead: true,
+              canWrite: true,
+              canExecute: true,
+              canNetwork: false,
+              canModifyFileSystem: true
+            }
+          },
+          securityContext: {
+            allowedPaths: ["/tmp/test"],
+            maxMemoryMB: 512,
+            maxExecutionTimeMs: 600000,
+            isolatedEnvironment: true
+          },
         };
 
         const sessionResult =

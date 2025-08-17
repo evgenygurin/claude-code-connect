@@ -14,7 +14,7 @@
 
 ```text
 Server Status: ✅ Running (port 3006)
-Ngrok Tunnel: ✅ Active (https://b4cdb20185ed.ngrok-free.app)
+Ngrok Tunnel: ✅ Active (https://fleet-krill-widely.ngrok-free.app)
 Total Sessions Created: 2
 - TEST-1: claude/test-1-test-claude-integration
 - PERF-456: claude/perf-456-api-performance-issues
@@ -57,16 +57,16 @@ npm run start:dev
 ### 4. Настрой внешний доступ (ngrok)
 
 ```bash
-ngrok http 3006
+ngrok http --url=fleet-krill-widely.ngrok-free.app 3006
 ```
 
-Скопируй публичный URL (например: <https://abc123.ngrok-free.app>)
+Используй статичный URL: <https://fleet-krill-widely.ngrok-free.app>
 
 ### 5. Создай webhook в Linear
 
 1. Иди в Linear Settings → API → Webhooks
 2. Create New Webhook:
-   - **URL**: `https://твой-ngrok-url.ngrok-free.app/webhooks/linear`
+   - **URL**: `https://fleet-krill-widely.ngrok-free.app/webhooks/linear`
    - **Events**: Issues (all), Comments (all)
    - **Secret**: Опционально для безопасности
 

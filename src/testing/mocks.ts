@@ -37,7 +37,7 @@ export const mockUser: User = {
  * Mock Linear agent user (Claude)
  */
 export const mockAgentUser: User = {
-  id: "agent-456",
+  id: "test-agent-id",
   name: "Claude Agent",
   email: "claude@example.com",
   displayName: "Claude AI Assistant",
@@ -242,13 +242,31 @@ export const mockSessionCreated: ClaudeSession = {
   issueIdentifier: mockIssue.identifier,
   status: SessionStatusValues.CREATED,
   branchName: "claude/dev-123-fix-authentication-bug",
-  workingDir: "/test/project/.claude-sessions/session-test-123",
+  workingDir: "/tmp/claude-sessions/session-test-123",
   startedAt: new Date("2024-01-01T12:00:00Z"),
   lastActivityAt: new Date("2024-01-01T12:00:00Z"),
   metadata: {
+    createdBy: mockUser.id,
+    organizationId: "test-org-123",
+    projectScope: ["/test/project"],
+    permissions: {
+      canRead: true,
+      canWrite: true,
+      canExecute: true,
+      canNetwork: false,
+      canModifyFileSystem: true
+    },
     triggerCommentId: mockComment.id,
     issueTitle: mockIssue.title,
-    issueUrl: mockIssue.url,
+    triggerEventType: "comment"
+  },
+  securityContext: {
+    allowedPaths: ["/tmp/claude-sessions/session-test-123", "/test/project"],
+    maxMemoryMB: 512,
+    maxExecutionTimeMs: 600000,
+    isolatedEnvironment: true,
+    allowedEndpoints: ["api.linear.app", "claude.ai"],
+    allowedEnvVars: ["PATH", "NODE_ENV", "LINEAR_API_TOKEN"]
   },
 };
 
@@ -273,22 +291,6 @@ export const mockSessionCompleted: ClaudeSession = {
   lastActivityAt: new Date("2024-01-01T13:00:00Z"),
   metadata: {
     ...mockSessionCreated.metadata,
-    executionResult: {
-      success: true,
-      output: "Authentication bug fixed successfully",
-      filesModified: ["src/auth/login.ts", "tests/auth.test.ts"],
-      commits: [
-        {
-          hash: "abc123def",
-          message: "fix(auth): handle special characters in email validation",
-          author: "Claude Agent",
-          timestamp: new Date("2024-01-01T12:45:00Z"),
-          files: ["src/auth/login.ts"],
-        },
-      ],
-      duration: 1800000, // 30 minutes
-      exitCode: 0,
-    },
   },
 };
 

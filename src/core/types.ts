@@ -35,7 +35,61 @@ export interface IntegrationConfig {
 }
 
 /**
- * Claude session information
+ * Session permissions for security control
+ */
+export interface SessionPermissions {
+  /** Can read files */
+  canRead: boolean;
+  /** Can write files */
+  canWrite: boolean;
+  /** Can execute commands */
+  canExecute: boolean;
+  /** Can access network */
+  canNetwork: boolean;
+  /** Can create/delete files */
+  canModifyFileSystem: boolean;
+}
+
+/**
+ * Validated session metadata
+ */
+export interface SessionMetadata {
+  /** User/actor who created the session */
+  createdBy: string;
+  /** Organization ID */
+  organizationId: string;
+  /** Project scope restrictions */
+  projectScope: string[];
+  /** Session permissions */
+  permissions: SessionPermissions;
+  /** Trigger comment ID (if applicable) */
+  triggerCommentId?: string;
+  /** Issue title for reference */
+  issueTitle?: string;
+  /** Original event type that triggered session */
+  triggerEventType?: string;
+}
+
+/**
+ * Security context for session isolation
+ */
+export interface SessionSecurityContext {
+  /** Allowed file paths for operations */
+  allowedPaths: string[];
+  /** Maximum memory usage in MB */
+  maxMemoryMB: number;
+  /** Maximum execution time in milliseconds */
+  maxExecutionTimeMs: number;
+  /** Enable isolated environment */
+  isolatedEnvironment: boolean;
+  /** Allowed network endpoints (if any) */
+  allowedEndpoints?: string[];
+  /** Environment variables allowlist */
+  allowedEnvVars?: string[];
+}
+
+/**
+ * Claude session information with enhanced security
  */
 export interface ClaudeSession {
   /** Unique session ID */
@@ -48,7 +102,7 @@ export interface ClaudeSession {
   status: SessionStatus;
   /** Git branch name for this session (if created) */
   branchName?: string;
-  /** Working directory for this session */
+  /** Isolated working directory - /tmp/claude-sessions/{sessionId} */
   workingDir: string;
   /** Claude process ID (if running) */
   processId?: number;
@@ -60,8 +114,10 @@ export interface ClaudeSession {
   lastActivityAt: Date;
   /** Error message if session failed */
   error?: string;
-  /** Session metadata */
-  metadata: Record<string, unknown>;
+  /** Validated session metadata */
+  metadata: SessionMetadata;
+  /** Security context for isolation */
+  securityContext: SessionSecurityContext;
 }
 
 /**

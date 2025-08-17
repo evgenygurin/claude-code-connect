@@ -44,10 +44,8 @@ export function setupCryptoMock() {
     timingSafeEqual: vi.fn().mockReturnValue(true),
   };
 
-  vi.mock("crypto", () => ({
-    default: mockCrypto,
-    ...mockCrypto,
-  }));
+  // Mock crypto module for ES6 imports
+  vi.mock("crypto", () => mockCrypto);
 
   return mockCrypto;
 }

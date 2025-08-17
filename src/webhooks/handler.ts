@@ -3,6 +3,8 @@
  */
 
 import { z } from "zod";
+import { RateLimiterMemory } from "rate-limiter-flexible";
+import * as crypto from "crypto";
 import type {
   LinearWebhookEvent,
   ProcessedEvent,
@@ -71,6 +73,19 @@ const CommentSchema = z.any().refine(
 export class LinearWebhookHandler {
   private config: IntegrationConfig;
   private logger: Logger;
+  
+  // Rate limiters for DoS protection
+  private webhookRateLimiter = new RateLimiterMemory({
+    keyPrefix: 'webhook_processing',
+    points: 10, // 10 webhooks
+    duration: 60, // per minute
+  });
+
+  private orgRateLimiter = new RateLimiterMemory({
+    keyPrefix: 'org_webhook',
+    points: 50, // 50 webhooks per org
+    duration: 60, // per minute
+  });
 
   constructor(config: IntegrationConfig, logger: Logger) {
     this.config = config;
@@ -110,6 +125,24 @@ export class LinearWebhookHandler {
       action: event.action,
       organizationId: event.organizationId,
     });
+
+    // Rate limiting protection - CRITICAL for DoS prevention
+    try {
+      // Rate limit by organization
+      await this.orgRateLimiter.consume(event.organizationId);
+      
+      // Rate limit by actor (if available)
+      if (event.actor?.id) {
+        await this.webhookRateLimiter.consume(event.actor.id);
+      }
+    } catch (rateLimitError) {
+      this.logger.warn('Rate limit exceeded', {
+        organizationId: event.organizationId,
+        actorId: event.actor?.id,
+        error: rateLimitError,
+      });
+      return null;
+    }
 
     // Filter by organization
     if (event.organizationId !== this.config.linearOrganizationId) {
@@ -279,11 +312,22 @@ export class LinearWebhookHandler {
     action: string,
     _actor: User,
   ): Promise<{ should: boolean; reason?: string }> {
-    // Don't trigger for our own comments (DISABLED FOR TESTING)
-    // TODO: Implement proper bot detection vs human detection
-    // if (this.config.agentUserId && _actor.id === this.config.agentUserId) {
-    //   return { should: false, reason: "Self-created comment" };
-    // }
+    // Don't trigger for our own comments - CRITICAL SECURITY
+    if (this.config.agentUserId && _actor.id === this.config.agentUserId) {
+      return { should: false, reason: "Self-created comment" };
+    }
+
+    // Additional bot detection patterns
+    if ('service' in _actor && _actor.service && typeof _actor.service === 'string' && _actor.service.includes('claude')) {
+      return { should: false, reason: "Bot service detected" };
+    }
+
+    // Check for bot-like display names
+    const actorName = _actor.name || _actor.displayName || '';
+    const botPatterns = ['claude', 'bot', 'automation', 'ai assistant'];
+    if (botPatterns.some(pattern => actorName.toLowerCase().includes(pattern))) {
+      return { should: false, reason: "Bot actor detected" };
+    }
 
     // Only trigger on comment creation or update
     if (action !== "create" && action !== "update") {
@@ -306,16 +350,21 @@ export class LinearWebhookHandler {
     const lowercaseText = text.toLowerCase();
 
     // Common agent mention patterns
+    // NOTE: Only specific request patterns to avoid false positives
     const patterns = [
       "@claude",
-      "@agent",
+      "@agent", 
       "claude",
       "ai assistant",
+      "please help",
       "help with",
-      "implement",
+      "help me",
+      "need help",
+      "can you help",
       "fix this",
       "work on",
-      "analyze",
+      "implement",
+      "analyze", 
       "review",
       "check",
       "optimize",
@@ -323,14 +372,6 @@ export class LinearWebhookHandler {
       "test",
       "debug",
       "refactor",
-      "bug",
-      "fix",
-      "help",
-      "please help",
-      "document",
-      "documentation",
-      "readme",
-      "guide",
       "performance",
       "slow",
       "memory",
@@ -358,7 +399,6 @@ export class LinearWebhookHandler {
     }
 
     try {
-      const crypto = require("crypto");
       const expectedSignature = crypto
         .createHmac("sha256", this.config.webhookSecret)
         .update(payload)

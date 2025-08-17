@@ -93,7 +93,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
       expect(session.issueId).toBe(mockIssueAssignedToAgent.id);
       expect(session.issueIdentifier).toBe(mockIssueAssignedToAgent.identifier);
       expect(session.branchName).toContain("claude/");
-      expect(session.workingDir).toContain(".claude-sessions");
+      expect(session.workingDir).toContain("/tmp/claude-sessions");
 
       // 4. Start session execution
       const executionResult = await sessionManager.startSession(

@@ -5,7 +5,7 @@
 ### 🚀 Готовая информация для настройки
 
 ```text
-Webhook URL: https://b4cdb20185ed.ngrok-free.app/webhooks/linear
+Webhook URL: https://fleet-krill-widely.ngrok-free.app/webhooks/linear
 Webhook Secret: Используй секрет из .env файла
 Events: Issues (все), Comments (все)
 ```
@@ -20,7 +20,7 @@ Events: Issues (все), Comments (все)
 
    ```text
    Name: Claude Code Integration
-   URL: https://b4cdb20185ed.ngrok-free.app/webhooks/linear
+   URL: https://fleet-krill-widely.ngrok-free.app/webhooks/linear
    Secret: [Используй секрет из .env файла]
    ```
 
@@ -39,7 +39,7 @@ Events: Issues (все), Comments (все)
 ### 1. Проверь статус сервера
 
 ```bash
-curl https://b4cdb20185ed.ngrok-free.app/health
+curl https://fleet-krill-widely.ngrok-free.app/health
 ```
 
 ### 2. Создай тестовую задачу в Linear
@@ -81,10 +81,10 @@ tail -f logs/integration.log
 ### Endpoints для мониторинга
 
 ```text
-Health: https://b4cdb20185ed.ngrok-free.app/health
-Config: https://b4cdb20185ed.ngrok-free.app/config
-Sessions: https://b4cdb20185ed.ngrok-free.app/sessions
-Stats: https://b4cdb20185ed.ngrok-free.app/stats
+Health: https://fleet-krill-widely.ngrok-free.app/health
+Config: https://fleet-krill-widely.ngrok-free.app/config
+Sessions: https://fleet-krill-widely.ngrok-free.app/sessions
+Stats: https://fleet-krill-widely.ngrok-free.app/stats
 ```
 
 ### Проверка webhook'ов
@@ -111,7 +111,7 @@ Stats: https://b4cdb20185ed.ngrok-free.app/stats
 
 ### Webhook не работает
 
-1. Проверь URL доступен: `curl https://b4cdb20185ed.ngrok-free.app/health`
+1. Проверь URL доступен: `curl https://fleet-krill-widely.ngrok-free.app/health`
 2. Проверь события в Linear webhook settings
 3. Проверь логи: `tail -f logs/integration.log`
 

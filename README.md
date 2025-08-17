@@ -101,12 +101,12 @@ npm run test:connection
 1. Start ngrok tunnel:
 
 ```bash
-ngrok http 3006
+ngrok http --url=fleet-krill-widely.ngrok-free.app 3006
 ```
 
 1. Configure webhook in Linear:
    - Go to Settings → API → Webhooks
-   - Create new webhook with URL: `https://your-ngrok-url.ngrok-free.app/webhooks/linear`
+   - Create new webhook with URL: `https://fleet-krill-widely.ngrok-free.app/webhooks/linear`
    - Select events: Issues (all), Comments (all)
 
 ## 🎮 Usage
