@@ -421,7 +421,7 @@ export class HealthChecker {
 
 1. **Linear API Rate Limits**:
 
-   ```
+   ```text
    WARNING: Linear API имеет лимиты (100 req/min для большинства endpoints)
    SOLUTION: Implement exponential backoff и request queuing
    ```
@@ -436,7 +436,7 @@ export class HealthChecker {
 
 3. **Disk Space Growth**:
 
-   ```
+   ```text
    WARNING: Session logs и git repositories могут быстро расти
    IMPLEMENT: Automatic cleanup старых sessions
    ```
