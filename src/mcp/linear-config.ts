@@ -84,7 +84,7 @@ export function getLinearAllowedTools(
   additionalTools: string[] = [],
 ): string[] {
   // Standard Claude tools
-  const standardTools = ["Read", "Edit", "Task", "Bash"];
+  const standardTools = ["Read", "Edit", "Task", "Bash", "Claude"];
 
   // Combine standard tools, default Linear tools, and additional tools
   return [...standardTools, ...DEFAULT_LINEAR_MCP_TOOLS, ...additionalTools];
