@@ -10,7 +10,7 @@ import type {
   IntegrationConfig,
   Logger,
 } from "../core/types.js";
-import { LinearEventType } from "../core/types.js";
+import { LinearEventTypeValues } from "../core/types.js";
 import type { Issue, Comment, User } from "@linear/sdk";
 import { SecurityAgent, SecuritySeverity } from "./security-agent.js";
 import { SecurityValidator, SecurityUtils } from "./validators.js";
@@ -410,7 +410,7 @@ export class EnhancedLinearWebhookHandler {
       }
 
       const processedEvent: ProcessedEvent = {
-        type: LinearEventType.ISSUE_UPDATE,
+        type: LinearEventTypeValues.ISSUE_UPDATE,
         action: event.action,
         issue: issue as any, // Type assertion needed for Linear SDK compatibility
         actor: event.actor as User,
@@ -483,9 +483,11 @@ export class EnhancedLinearWebhookHandler {
       );
 
       if (injectionCheck.detected) {
+        const issue = await comment.issue;
+
         this.logger.warn("Potential injection attempt in comment", {
           commentId: comment.id,
-          issueId: comment.issue.id,
+          issueId: issue.id,
           threats: injectionCheck.threats,
           severity: injectionCheck.severity,
           sourceIp,
@@ -511,7 +513,7 @@ export class EnhancedLinearWebhookHandler {
       }
 
       const processedEvent: ProcessedEvent = {
-        type: LinearEventType.COMMENT_CREATE,
+        type: LinearEventTypeValues.COMMENT_CREATE,
         action: event.action,
         issue: comment.issue as any, // Type assertion needed for Linear SDK compatibility
         comment: comment as any, // Type assertion needed for Linear SDK compatibility

@@ -18,7 +18,7 @@ import type {
   IntegrationConfig,
   Logger,
 } from "../core/types.js";
-import { SessionStatus } from "../core/types.js";
+import { SessionStatusValues } from "../core/types.js";
 import { LinearWebhookHandler } from "../webhooks/handler.js";
 import { SessionManager } from "../sessions/manager.js";
 import {
@@ -71,7 +71,7 @@ export class MockWebhookServer extends EventEmitter {
 
     // Cancel all active sessions
     for (const session of this.activeSessions.values()) {
-      if (session.status === SessionStatus.RUNNING) {
+      if (session.status === SessionStatusValues.RUNNING) {
         await this.sessionManager.cancelSession(session.id);
       }
     }
@@ -158,7 +158,7 @@ export class MockWebhookServer extends EventEmitter {
     // Update session to running
     await this.sessionManager.updateSessionStatus(
       session.id,
-      SessionStatus.RUNNING,
+      SessionStatusValues.RUNNING,
     );
 
     // Simulate execution time
@@ -172,12 +172,12 @@ export class MockWebhookServer extends EventEmitter {
     if (result.success) {
       await this.sessionManager.updateSessionStatus(
         session.id,
-        SessionStatus.COMPLETED,
+        SessionStatusValues.COMPLETED,
       );
     } else {
       await this.sessionManager.updateSessionStatus(
         session.id,
-        SessionStatus.FAILED,
+        SessionStatusValues.FAILED,
       );
     }
 
@@ -221,7 +221,7 @@ export class MockWebhookServer extends EventEmitter {
    */
   private generateExecutionResult(
     agentType: string,
-    event: ProcessedEvent,
+    _event: ProcessedEvent,
   ): ClaudeExecutionResult {
     const baseResult = {
       success: true,
@@ -389,10 +389,10 @@ export class MockWebhookServer extends EventEmitter {
       (e) => e.shouldTrigger,
     ).length;
     const activeSessions = Array.from(this.activeSessions.values()).filter(
-      (s) => s.status === SessionStatus.RUNNING,
+      (s) => s.status === SessionStatusValues.RUNNING,
     ).length;
     const completedSessions = Array.from(this.activeSessions.values()).filter(
-      (s) => s.status === SessionStatus.COMPLETED,
+      (s) => s.status === SessionStatusValues.COMPLETED,
     ).length;
 
     return {
@@ -438,7 +438,7 @@ export class WebhookTestScenarioBuilder {
     const issue = createMockIssue({
       title: "Implement user authentication service",
       description: "Create JWT-based authentication with refresh tokens",
-      assignee: mockAgentUser,
+      assignee: mockAgentUser as any,
     });
 
     const event = createMockWebhookEvent({
@@ -464,7 +464,7 @@ export class WebhookTestScenarioBuilder {
 
     const comment = createMockComment({
       body: mentionText,
-      issue,
+      issue: issue as any,
     });
 
     const event = createMockWebhookEvent({
@@ -488,7 +488,7 @@ export class WebhookTestScenarioBuilder {
 
     const comment = createMockComment({
       body: "@claude urgent bug fix needed - memory leak causing server crashes in production",
-      issue,
+      issue: issue as any,
     });
 
     const event = createMockWebhookEvent({
@@ -512,7 +512,7 @@ export class WebhookTestScenarioBuilder {
 
     const comment = createMockComment({
       body: "@claude add comprehensive tests for the API gateway including unit, integration, and load tests",
-      issue,
+      issue: issue as any,
     });
 
     const event = createMockWebhookEvent({
@@ -537,7 +537,7 @@ export class WebhookTestScenarioBuilder {
 
     const comment = createMockComment({
       body: "@claude optimize the API performance - current response times are unacceptable for production",
-      issue,
+      issue: issue as any,
     });
 
     const event = createMockWebhookEvent({
@@ -562,22 +562,22 @@ export class WebhookTestScenarioBuilder {
 
     const analysisComment = createMockComment({
       body: "@claude analyze the current auth system and design OAuth2 architecture",
-      issue,
+      issue: issue as any,
     });
 
     const implementationComment = createMockComment({
       body: "@claude implement the OAuth2 system based on the analysis",
-      issue,
+      issue: issue as any,
     });
 
     const testingComment = createMockComment({
       body: "@claude add comprehensive tests for OAuth2 including edge cases",
-      issue,
+      issue: issue as any,
     });
 
     const docComment = createMockComment({
       body: "@claude document the OAuth2 API and integration guide",
-      issue,
+      issue: issue as any,
     });
 
     return {

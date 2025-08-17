@@ -67,7 +67,7 @@ export interface ClaudeSession {
 /**
  * Session status enum
  */
-export const SessionStatus = {
+export const SessionStatusValues = {
   /** Session created but not started */
   CREATED: "created",
   /** Session running */
@@ -80,12 +80,13 @@ export const SessionStatus = {
   CANCELLED: "cancelled",
 } as const;
 
-export type SessionStatus = (typeof SessionStatus)[keyof typeof SessionStatus];
+export type SessionStatus =
+  (typeof SessionStatusValues)[keyof typeof SessionStatusValues];
 
 /**
  * Linear webhook event types we handle
  */
-export const LinearEventType = {
+export const LinearEventTypeValues = {
   /** Issue created */
   ISSUE_CREATE: "Issue",
   /** Issue updated (status, assignment, etc.) */
@@ -97,7 +98,7 @@ export const LinearEventType = {
 } as const;
 
 export type LinearEventType =
-  (typeof LinearEventType)[keyof typeof LinearEventType];
+  (typeof LinearEventTypeValues)[keyof typeof LinearEventTypeValues];
 
 /**
  * Linear webhook event payload

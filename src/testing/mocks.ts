@@ -5,7 +5,6 @@
 import type {
   LinearWebhookEvent,
   ClaudeSession,
-  SessionStatus,
   ProcessedEvent,
   ClaudeExecutionResult,
   ClaudeExecutionContext,
@@ -13,7 +12,7 @@ import type {
   Logger,
 } from "../core/types.js";
 import type { Issue, Comment, User, Team, WorkflowState } from "@linear/sdk";
-import { SessionStatus as SessionStatusEnum } from "../core/types.js";
+import { SessionStatusValues } from "../core/types.js";
 import { vi } from "vitest";
 
 /**
@@ -32,7 +31,7 @@ export const mockUser: User = {
   createdAt: new Date("2024-01-01T00:00:00Z"),
   updatedAt: new Date("2024-01-01T00:00:00Z"),
   archivedAt: null,
-} as User;
+} as unknown as User;
 
 /**
  * Mock Linear agent user (Claude)
@@ -50,7 +49,7 @@ export const mockAgentUser: User = {
   createdAt: new Date("2024-01-01T00:00:00Z"),
   updatedAt: new Date("2024-01-01T00:00:00Z"),
   archivedAt: null,
-} as User;
+} as unknown as User;
 
 /**
  * Mock Linear team
@@ -66,7 +65,7 @@ export const mockTeam: Team = {
   createdAt: new Date("2024-01-01T00:00:00Z"),
   updatedAt: new Date("2024-01-01T00:00:00Z"),
   archivedAt: null,
-} as Team;
+} as unknown as Team;
 
 /**
  * Mock Linear workflow state
@@ -82,7 +81,7 @@ export const mockWorkflowState: WorkflowState = {
   createdAt: new Date("2024-01-01T00:00:00Z"),
   updatedAt: new Date("2024-01-01T00:00:00Z"),
   archivedAt: null,
-} as WorkflowState;
+} as unknown as WorkflowState;
 
 /**
  * Mock Linear issue
@@ -112,7 +111,7 @@ export const mockIssue: Issue = {
   autoClosedAt: null,
   snoozedUntilAt: null,
   triagedAt: null,
-} as Issue;
+} as unknown as Issue;
 
 /**
  * Mock Linear issue assigned to agent
@@ -125,7 +124,7 @@ export const mockIssueAssignedToAgent: Issue = {
   description:
     "Create a new endpoint for user profile updates. @claude please implement this with proper validation",
   assignee: mockAgentUser,
-} as Issue;
+} as unknown as Issue;
 
 /**
  * Mock Linear comment
@@ -140,7 +139,7 @@ export const mockComment: Comment = {
   updatedAt: new Date("2024-01-01T14:00:00Z"),
   archivedAt: null,
   editedAt: null,
-} as Comment;
+} as unknown as Comment;
 
 /**
  * Mock Linear comment without agent mention
@@ -149,7 +148,7 @@ export const mockCommentNoMention: Comment = {
   ...mockComment,
   id: "comment-no-mention",
   body: "This is a regular comment without any agent mention. Just discussing the issue with the team.",
-} as Comment;
+} as unknown as Comment;
 
 /**
  * Mock Linear webhook event - Issue created
@@ -241,7 +240,7 @@ export const mockSessionCreated: ClaudeSession = {
   id: "session-test-123",
   issueId: mockIssue.id,
   issueIdentifier: mockIssue.identifier,
-  status: SessionStatusEnum.CREATED,
+  status: SessionStatusValues.CREATED,
   branchName: "claude/dev-123-fix-authentication-bug",
   workingDir: "/test/project/.claude-sessions/session-test-123",
   startedAt: new Date("2024-01-01T12:00:00Z"),
@@ -258,7 +257,7 @@ export const mockSessionCreated: ClaudeSession = {
  */
 export const mockSessionRunning: ClaudeSession = {
   ...mockSessionCreated,
-  status: SessionStatusEnum.RUNNING,
+  status: SessionStatusValues.RUNNING,
   processId: 12345,
   lastActivityAt: new Date("2024-01-01T12:30:00Z"),
 };
@@ -268,7 +267,7 @@ export const mockSessionRunning: ClaudeSession = {
  */
 export const mockSessionCompleted: ClaudeSession = {
   ...mockSessionCreated,
-  status: SessionStatusEnum.COMPLETED,
+  status: SessionStatusValues.COMPLETED,
   processId: 12345,
   completedAt: new Date("2024-01-01T13:00:00Z"),
   lastActivityAt: new Date("2024-01-01T13:00:00Z"),
@@ -298,7 +297,7 @@ export const mockSessionCompleted: ClaudeSession = {
  */
 export const mockSessionFailed: ClaudeSession = {
   ...mockSessionCreated,
-  status: SessionStatusEnum.FAILED,
+  status: SessionStatusValues.FAILED,
   processId: 12345,
   error: "Failed to execute: git repository not found",
   lastActivityAt: new Date("2024-01-01T12:15:00Z"),
@@ -485,7 +484,7 @@ export function createMockIssue(overrides: Partial<Issue> = {}): Issue {
   return {
     ...mockIssue,
     ...overrides,
-  } as Issue;
+  } as unknown as Issue;
 }
 
 /**
@@ -495,5 +494,5 @@ export function createMockComment(overrides: Partial<Comment> = {}): Comment {
   return {
     ...mockComment,
     ...overrides,
-  } as Comment;
+  } as unknown as Comment;
 }

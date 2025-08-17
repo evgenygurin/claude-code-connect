@@ -63,7 +63,7 @@ export const DEFAULT_LINEAR_MCP_TOOLS = [
  */
 export function createLinearMCPConfig(
   config: IntegrationConfig,
-  additionalTools: string[] = [],
+  _additionalTools: string[] = [],
 ): Record<string, McpServerConfig> {
   return {
     linear: {

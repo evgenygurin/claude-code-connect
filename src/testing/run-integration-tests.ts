@@ -14,10 +14,8 @@
  */
 
 import {
-  MockWebhookServer,
   WebhookTestScenarioBuilder,
   WebhookIntegrationTestRunner,
-  WebhookTestValidators,
 } from "./mock-webhook-server.js";
 import { mockIntegrationConfig } from "./mocks.js";
 
@@ -287,7 +285,7 @@ async function runAllScenarios(
 
   console.log("🧪 Running all integration test scenarios...\n");
 
-  for (const [key, scenario] of Object.entries(TEST_SCENARIOS)) {
+  for (const [key] of Object.entries(TEST_SCENARIOS)) {
     const success = await runScenario(runner, key, verbose);
     if (success) {
       passed++;

@@ -8,12 +8,7 @@ import Fastify, {
   FastifyReply,
 } from "fastify";
 import { join } from "path";
-import type {
-  IntegrationConfig,
-  Logger,
-  SessionStorage,
-  EventHandlers,
-} from "../core/types.js";
+import type { IntegrationConfig, Logger } from "../core/types.js";
 import { LinearClient } from "../linear/client.js";
 import { SessionManager } from "../sessions/manager.js";
 import { LinearWebhookHandler } from "../webhooks/handler.js";
@@ -90,7 +85,7 @@ export class IntegrationServer {
     // Health check endpoint
     this.app.get(
       "/health",
-      async (request: FastifyRequest, reply: FastifyReply) => {
+      async (_request: FastifyRequest, _reply: FastifyReply) => {
         return {
           status: "healthy",
           timestamp: new Date().toISOString(),

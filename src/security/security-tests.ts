@@ -3,12 +3,7 @@
  * Comprehensive security test scenarios and validation
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import {
-  SecurityAgent,
-  SecuritySeverity,
-  SecurityEventType,
-} from "./security-agent.js";
+import { SecurityAgent } from "./security-agent.js";
 import { SecurityValidator, SecurityUtils } from "./validators.js";
 import { SecurityMonitor } from "./monitoring.js";
 import type {

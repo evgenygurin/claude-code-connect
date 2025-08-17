@@ -4,26 +4,26 @@
 
 import type {
   ProcessedEvent,
-  LinearEventType,
   EventHandlers,
   IntegrationConfig,
   Logger,
 } from "../core/types.js";
+import { LinearEventTypeValues } from "../core/types.js";
 import { LinearClient } from "../linear/client.js";
-import { AgentSessionManager } from "../sessions/manager.js";
+import { SessionManager } from "../sessions/manager.js";
 
 /**
  * Default event handlers implementation
  */
 export class DefaultEventHandlers implements EventHandlers {
   private linearClient: LinearClient;
-  private sessionManager: AgentSessionManager;
+  private sessionManager: SessionManager;
   private config: IntegrationConfig;
   private logger: Logger;
 
   constructor(
     linearClient: LinearClient,
-    sessionManager: AgentSessionManager,
+    sessionManager: SessionManager,
     config: IntegrationConfig,
     logger: Logger,
   ) {
@@ -80,8 +80,8 @@ export class DefaultEventHandlers implements EventHandlers {
     });
 
     try {
-      // Use the new AgentSessionManager to process issue assignment
-      await this.sessionManager.processIssueAssigned(issue, actor);
+      // Create a new session for the assigned issue
+      await this.sessionManager.createSession(issue);
 
       this.logger.info("Issue assignment handled successfully", {
         issueId: issue.id,
@@ -119,8 +119,8 @@ export class DefaultEventHandlers implements EventHandlers {
     });
 
     try {
-      // Use the new AgentSessionManager to process comment mention
-      await this.sessionManager.processCommentMention(issue, comment, actor);
+      // Create a new session for the comment mention
+      await this.sessionManager.createSession(issue, comment);
 
       this.logger.info("Comment mention handled successfully", {
         issueId: issue.id,
@@ -145,15 +145,16 @@ export class DefaultEventHandlers implements EventHandlers {
    */
   async onIssueStatusChange(event: ProcessedEvent): Promise<void> {
     const { issue, actor } = event;
+    const state = await issue.state;
 
     this.logger.info("Handling issue status change", {
       issueId: issue.id,
-      newStatus: issue.state.name,
+      newStatus: state.name,
       changedBy: actor.name,
     });
 
     // Check if issue was moved to completed/cancelled by someone else
-    if (issue.state.type === "completed" || issue.state.type === "canceled") {
+    if (state.type === "completed" || state.type === "canceled") {
       const session = await this.sessionManager.getSessionByIssue(issue.id);
 
       if (
@@ -163,7 +164,7 @@ export class DefaultEventHandlers implements EventHandlers {
         this.logger.info("Cancelling session due to issue status change", {
           issueId: issue.id,
           sessionId: session.id,
-          newStatus: issue.state.type,
+          newStatus: state.type,
         });
 
         await this.sessionManager.cancelSession(session.id);
@@ -232,12 +233,12 @@ export class EventRouter {
 
     try {
       switch (event.type) {
-        case LinearEventType.ISSUE_UPDATE:
+        case LinearEventTypeValues.ISSUE_UPDATE:
           await this.routeIssueEvent(event);
           break;
 
-        case LinearEventType.COMMENT_CREATE:
-        case LinearEventType.COMMENT_UPDATE:
+        case LinearEventTypeValues.COMMENT_CREATE:
+        case LinearEventTypeValues.COMMENT_UPDATE:
           await this.routeCommentEvent(event);
           break;
 

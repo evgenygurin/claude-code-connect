@@ -9,7 +9,7 @@ import type {
   IntegrationConfig,
   Logger,
 } from "../core/types.js";
-import { LinearEventType } from "../core/types.js";
+import { LinearEventTypeValues } from "../core/types.js";
 import type { Issue, Comment, User } from "@linear/sdk";
 
 /**
@@ -147,7 +147,7 @@ export class LinearWebhookHandler {
       const issue = IssueSchema.parse(event.data) as unknown as Issue;
 
       const processedEvent: ProcessedEvent = {
-        type: LinearEventType.ISSUE_UPDATE,
+        type: LinearEventTypeValues.ISSUE_UPDATE,
         action: event.action,
         issue,
         actor: event.actor as User,
@@ -188,10 +188,12 @@ export class LinearWebhookHandler {
     try {
       const comment = CommentSchema.parse(event.data) as unknown as Comment;
 
+      const issue = await comment.issue;
+
       const processedEvent: ProcessedEvent = {
-        type: LinearEventType.COMMENT_CREATE,
+        type: LinearEventTypeValues.COMMENT_CREATE,
         action: event.action,
-        issue: comment.issue as Issue,
+        issue: issue,
         comment: comment,
         actor: event.actor as User,
         shouldTrigger: false,
@@ -209,8 +211,8 @@ export class LinearWebhookHandler {
 
       this.logger.debug("Comment event processed", {
         commentId: comment.id,
-        issueId: comment.issue.id,
-        issueIdentifier: comment.issue.identifier,
+        issueId: issue.id,
+        issueIdentifier: issue.identifier,
         action: event.action,
         shouldTrigger: processedEvent.shouldTrigger,
         reason: processedEvent.triggerReason,
@@ -237,8 +239,11 @@ export class LinearWebhookHandler {
     }
 
     // Issue assignment to agent
-    if (action === "update" && issue.assignee?.id === this.config.agentUserId) {
-      return { should: true, reason: "Issue assigned to agent" };
+    if (action === "update" && issue.assignee) {
+      const assignee = await issue.assignee;
+      if (assignee?.id === this.config.agentUserId) {
+        return { should: true, reason: "Issue assigned to agent" };
+      }
     }
 
     // Issue creation with agent mention in description

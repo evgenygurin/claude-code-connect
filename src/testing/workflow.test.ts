@@ -11,14 +11,11 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type {
-  LinearWebhookEvent,
-  ProcessedEvent,
-  ClaudeSession,
   ClaudeExecutionResult,
   IntegrationConfig,
-  Logger,
+  ClaudeSession,
 } from "../core/types.js";
-import { SessionStatus } from "../core/types.js";
+import { SessionStatusValues } from "../core/types.js";
 import { LinearWebhookHandler } from "../webhooks/handler.js";
 import { SessionManager } from "../sessions/manager.js";
 import { ClaudeExecutor } from "../claude/executor.js";
@@ -28,15 +25,13 @@ import {
   mockAgentUser,
   mockIssue,
   mockIssueAssignedToAgent,
-  mockComment,
   mockWebhookEventIssueAssigned,
-  mockWebhookEventCommentMention,
-  mockSessionCreated,
   mockExecutionResultSuccess,
   createMockLogger,
   createMockWebhookEvent,
   createMockIssue,
   createMockComment,
+  mockSessionCreated,
 } from "./mocks.js";
 
 /**
@@ -94,7 +89,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
         processedEvent!.comment,
       );
 
-      expect(session.status).toBe(SessionStatus.CREATED);
+      expect(session.status).toBe(SessionStatusValues.CREATED);
       expect(session.issueId).toBe(mockIssueAssignedToAgent.id);
       expect(session.issueIdentifier).toBe(mockIssueAssignedToAgent.identifier);
       expect(session.branchName).toContain("claude/");
@@ -113,7 +108,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
 
       // 5. Verify session completed successfully
       const completedSession = await sessionManager.getSession(session.id);
-      expect(completedSession?.status).toBe(SessionStatus.COMPLETED);
+      expect(completedSession?.status).toBe(SessionStatusValues.COMPLETED);
       expect(completedSession?.completedAt).toBeDefined();
 
       // 6. Verify execution was logged properly
@@ -374,9 +369,9 @@ describe("Claude Code + Linear Integration Workflow", () => {
       );
 
       expect(sessions).toHaveLength(3);
-      expect(sessions.every((s) => s.status === SessionStatus.CREATED)).toBe(
-        true,
-      );
+      expect(
+        sessions.every((s) => s.status === SessionStatusValues.CREATED),
+      ).toBe(true);
 
       // 3. Start all sessions concurrently
       const executionPromises = sessions.map((session) => {
@@ -398,7 +393,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
 
       const allSessions = await sessionManager.listSessions();
       expect(
-        allSessions.filter((s) => s.status === SessionStatus.COMPLETED),
+        allSessions.filter((s) => s.status === SessionStatusValues.COMPLETED),
       ).toHaveLength(3);
     });
   });
@@ -416,7 +411,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
       const oldSession = {
         ...mockSessionCreated,
         id: "old-session",
-        status: SessionStatus.COMPLETED,
+        status: SessionStatusValues.COMPLETED,
         completedAt: oldDate,
         lastActivityAt: oldDate,
       };
@@ -424,7 +419,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
       const recentSession = {
         ...mockSessionCreated,
         id: "recent-session",
-        status: SessionStatus.COMPLETED,
+        status: SessionStatusValues.COMPLETED,
         completedAt: recentDate,
         lastActivityAt: recentDate,
       };
@@ -432,7 +427,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
       const activeSession = {
         ...mockSessionCreated,
         id: "active-session",
-        status: SessionStatus.RUNNING,
+        status: SessionStatusValues.RUNNING,
       };
 
       // Mock storage methods
@@ -482,7 +477,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
 
       // 4. Verify session is marked as failed
       const failedSession = await sessionManager.getSession(session.id);
-      expect(failedSession?.status).toBe(SessionStatus.FAILED);
+      expect(failedSession?.status).toBe(SessionStatusValues.FAILED);
       expect(failedSession?.error).toContain("Session timeout");
 
       // 5. Test cancellation
@@ -497,10 +492,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
       });
 
       // Start session in background
-      const executionPromise = sessionManager.startSession(
-        cancelableSession.id,
-        timeoutIssue,
-      );
+      sessionManager.startSession(cancelableSession.id, timeoutIssue);
 
       // Cancel session
       const cancelled = await sessionManager.cancelSession(
@@ -512,7 +504,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
       const cancelledSession = await sessionManager.getSession(
         cancelableSession.id,
       );
-      expect(cancelledSession?.status).toBe(SessionStatus.CANCELLED);
+      expect(cancelledSession?.status).toBe(SessionStatusValues.CANCELLED);
     });
 
     it("should provide comprehensive session statistics", async () => {
@@ -521,33 +513,37 @@ describe("Claude Code + Linear Integration Workflow", () => {
         {
           ...mockSessionCreated,
           id: "running-1",
-          status: SessionStatus.RUNNING,
+          status: SessionStatusValues.RUNNING,
         },
         {
           ...mockSessionCreated,
           id: "running-2",
-          status: SessionStatus.RUNNING,
+          status: SessionStatusValues.RUNNING,
         },
         {
           ...mockSessionCreated,
           id: "completed-1",
-          status: SessionStatus.COMPLETED,
+          status: SessionStatusValues.COMPLETED,
         },
         {
           ...mockSessionCreated,
           id: "completed-2",
-          status: SessionStatus.COMPLETED,
+          status: SessionStatusValues.COMPLETED,
         },
         {
           ...mockSessionCreated,
           id: "completed-3",
-          status: SessionStatus.COMPLETED,
+          status: SessionStatusValues.COMPLETED,
         },
-        { ...mockSessionCreated, id: "failed-1", status: SessionStatus.FAILED },
+        {
+          ...mockSessionCreated,
+          id: "failed-1",
+          status: SessionStatusValues.FAILED,
+        },
         {
           ...mockSessionCreated,
           id: "cancelled-1",
-          status: SessionStatus.CANCELLED,
+          status: SessionStatusValues.CANCELLED,
         },
       ];
 
@@ -633,7 +629,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
       expect(result.error).toContain("Claude process failed");
 
       const failedSession = await sessionManager.getSession(session.id);
-      expect(failedSession?.status).toBe(SessionStatus.FAILED);
+      expect(failedSession?.status).toBe(SessionStatusValues.FAILED);
       expect(failedSession?.error).toContain("Claude process failed");
     });
 

@@ -147,7 +147,7 @@ export class ClaudeRunner extends EventEmitter {
     streamingPrompt: StreamingPrompt,
     mcpConfig: any,
     allowedTools: string[],
-    signal: AbortSignal,
+    _signal: AbortSignal,
   ): Promise<{ output: string }> {
     try {
       this.logger.debug("Starting Claude Code SDK query", {
@@ -175,11 +175,11 @@ and update the issue status as needed.
       `.trim();
 
       // Convert messages to async iterable
-      async function* messageIterable() {
+      const messageIterable = async function* () {
         for (const message of messages) {
           yield message;
         }
-      }
+      };
 
       // Execute Claude Code SDK query
       const response = query({
@@ -195,15 +195,15 @@ and update the issue status as needed.
       // Collect output from response stream
       const outputParts: string[] = [];
       let messageCount = 0;
-      
+
       for await (const message of response) {
         messageCount++;
         if (message.type === "assistant" && message.message.content) {
-          if (typeof message.message.content === 'string') {
+          if (typeof message.message.content === "string") {
             outputParts.push(message.message.content);
           } else if (Array.isArray(message.message.content)) {
             for (const block of message.message.content) {
-              if (block.type === 'text') {
+              if (block.type === "text") {
                 outputParts.push(block.text);
               }
             }

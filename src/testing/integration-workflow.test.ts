@@ -13,7 +13,7 @@ import {
   WebhookTestValidators,
 } from "./mock-webhook-server.js";
 import type { IntegrationConfig } from "../core/types.js";
-import { mockIntegrationConfig } from "./mocks.js";
+import { mockIntegrationConfig, mockIssueAssignedToAgent } from "./mocks.js";
 
 describe("Complete Integration Workflow Tests", () => {
   let testRunner: WebhookIntegrationTestRunner;
@@ -68,8 +68,7 @@ describe("Complete Integration Workflow Tests", () => {
     });
 
     it("should complete comment mention → bug fix workflow", async () => {
-      const { issue, comment, event } =
-        WebhookTestScenarioBuilder.createBugFixScenario();
+      const { event } = WebhookTestScenarioBuilder.createBugFixScenario();
 
       const result = await testRunner.runScenario("Bug Fix Workflow", [event], {
         triggeredEvents: 1,
@@ -96,8 +95,7 @@ describe("Complete Integration Workflow Tests", () => {
     });
 
     it("should complete testing agent workflow", async () => {
-      const { issue, comment, event } =
-        WebhookTestScenarioBuilder.createTestingScenario();
+      const { event } = WebhookTestScenarioBuilder.createTestingScenario();
 
       const result = await testRunner.runScenario(
         "Testing Agent Workflow",
@@ -126,8 +124,7 @@ describe("Complete Integration Workflow Tests", () => {
     });
 
     it("should complete performance optimization workflow", async () => {
-      const { issue, comment, event } =
-        WebhookTestScenarioBuilder.createPerformanceScenario();
+      const { event } = WebhookTestScenarioBuilder.createPerformanceScenario();
 
       const result = await testRunner.runScenario(
         "Performance Optimization Workflow",
@@ -154,8 +151,7 @@ describe("Complete Integration Workflow Tests", () => {
 
   describe("Multi-Agent Coordination Workflows", () => {
     it("should coordinate multiple agents for complex feature development", async () => {
-      const { issue, comments, events } =
-        WebhookTestScenarioBuilder.createMultiAgentScenario();
+      const { events } = WebhookTestScenarioBuilder.createMultiAgentScenario();
 
       const result = await testRunner.runScenario(
         "Multi-Agent OAuth2 Implementation",
@@ -394,7 +390,7 @@ describe("Complete Integration Workflow Tests", () => {
       ];
 
       for (const test of agentTests) {
-        const { issue, comment, event } =
+        const { event } =
           WebhookTestScenarioBuilder.createCommentMentionScenario(test.comment);
 
         const result = await testRunner.runScenario(
@@ -432,7 +428,7 @@ describe("Complete Integration Workflow Tests", () => {
       await server.start();
 
       try {
-        const { issue, event } =
+        const { event } =
           WebhookTestScenarioBuilder.createIssueAssignmentScenario();
 
         // Send webhook and track session lifecycle
@@ -449,7 +445,7 @@ describe("Complete Integration Workflow Tests", () => {
         // Verify session details
         const sessions = server.getSessions();
         expect(sessions).toHaveLength(1);
-        expect(sessions[0].issueId).toBe(issue.id);
+        expect(sessions[0].issueId).toBe(mockIssueAssignedToAgent.id);
         expect(sessions[0].id).toBe(result.session?.id);
       } finally {
         await server.stop();
@@ -484,7 +480,7 @@ describe("Complete Integration Workflow Tests", () => {
       };
 
       const secureRunner = new WebhookIntegrationTestRunner(secureConfig);
-      const { issue, event } =
+      const { event } =
         WebhookTestScenarioBuilder.createIssueAssignmentScenario();
 
       const result = await secureRunner.runScenario(

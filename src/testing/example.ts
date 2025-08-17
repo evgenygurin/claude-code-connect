@@ -78,7 +78,7 @@ export async function demonstrateTestingAgent(): Promise<void> {
       // Show first few scenarios
       if (rec.scenarios.length > 0) {
         console.log(`   🎭 Key scenarios:`);
-        rec.scenarios.slice(0, 2).forEach((scenario, sIndex) => {
+        rec.scenarios.slice(0, 2).forEach((scenario, _sIndex) => {
           console.log(`      • ${scenario.description} (${scenario.type})`);
         });
       }

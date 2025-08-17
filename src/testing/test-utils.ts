@@ -3,7 +3,7 @@
  * Single source of truth for common test patterns
  */
 
-import { vi } from "vitest";
+import { vi, expect } from "vitest";
 import type { IntegrationConfig, Logger } from "../core/types.js";
 
 /**

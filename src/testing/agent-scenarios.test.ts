@@ -11,13 +11,9 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type {
-  LinearWebhookEvent,
-  ProcessedEvent,
-  ClaudeSession,
   ClaudeExecutionResult,
   IntegrationConfig,
 } from "../core/types.js";
-import { SessionStatus } from "../core/types.js";
 import { LinearWebhookHandler } from "../webhooks/handler.js";
 import { SessionManager } from "../sessions/manager.js";
 import { ClaudeExecutor } from "../claude/executor.js";
@@ -790,7 +786,7 @@ describe("Specialized Claude Code Agent Scenarios", () => {
       ];
 
       // 3. Execute coordinated workflow
-      const sessions: ClaudeSession[] = [];
+      const sessions: any[] = [];
       const results: ClaudeExecutionResult[] = [];
 
       for (const request of agentRequests) {

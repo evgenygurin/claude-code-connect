@@ -4,7 +4,7 @@
  * Comprehensive security testing suite with reporting
  */
 
-import { SecurityTestSuite, runSecurityTests } from "./security-tests.js";
+import { SecurityTestSuite } from "./security-tests.js";
 import { SecurityAgent } from "./security-agent.js";
 import { SecurityValidator } from "./validators.js";
 import { SecurityMonitor } from "./monitoring.js";

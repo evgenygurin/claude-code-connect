@@ -3,7 +3,7 @@
  */
 
 import { z } from "zod";
-import { resolve, join, relative } from "path";
+import { resolve, relative } from "path";
 import { promises as fs } from "fs";
 
 /**

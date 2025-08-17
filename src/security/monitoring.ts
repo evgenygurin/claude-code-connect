@@ -627,9 +627,17 @@ export class SecurityMonitor extends EventEmitter {
 
     // Generate trends data
     const trends = {
-      securityEvents: this.generateTrendData(recentMetrics, "securityEvents"),
-      memoryUsage: this.generateTrendData(recentMetrics, "memoryUsageMB"),
-      activeSessions: this.generateTrendData(recentMetrics, "activeSessions"),
+      securityEvents: this.generateTrendData(
+        recentMetrics,
+        "securityEvents",
+      ).map((item) => ({ date: item.date, count: item.value })),
+      memoryUsage: this.generateTrendData(recentMetrics, "memoryUsageMB").map(
+        (item) => ({ date: item.date, usage: item.value }),
+      ),
+      activeSessions: this.generateTrendData(
+        recentMetrics,
+        "activeSessions",
+      ).map((item) => ({ date: item.date, count: item.value })),
     };
 
     // Generate recommendations

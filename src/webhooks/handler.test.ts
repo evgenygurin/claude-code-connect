@@ -3,25 +3,10 @@
  * Generated and enhanced by TestingAgent
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { LinearWebhookHandler } from "./handler.js";
-import { LinearEventType } from "../core/types.js";
-import type {
-  IntegrationConfig,
-  Logger,
-  LinearWebhookEvent,
-  ProcessedEvent,
-} from "../core/types.js";
-import type { Issue, Comment, User } from "@linear/sdk";
+import { LinearEventTypeValues } from "../core/types.js";
 import {
-  mockIntegrationConfig,
-  mockLogger,
-  mockUser,
-  mockAgentUser,
-  mockIssue,
-  mockIssueAssignedToAgent,
-  mockComment,
-  mockCommentNoMention,
   mockWebhookEventIssueCreated,
   mockWebhookEventIssueAssigned,
   mockWebhookEventCommentMention,
@@ -31,7 +16,11 @@ import {
   createMockWebhookEvent,
   createMockIssue,
   createMockComment,
-  createMockLogger,
+  mockIssue,
+  mockUser,
+  mockAgentUser,
+  mockIssueAssignedToAgent,
+  mockComment,
 } from "../testing/mocks.js";
 
 import {
@@ -145,7 +134,7 @@ describe("LinearWebhookHandler", () => {
       );
 
       expect(result).toBeDefined();
-      expect(result?.type).toBe(LinearEventType.ISSUE_UPDATE);
+      expect(result?.type).toBe(LinearEventTypeValues.ISSUE_UPDATE);
       expect(result?.action).toBe("update");
       expect(result?.issue.id).toBe(mockIssueAssignedToAgent.id);
     });
@@ -186,7 +175,7 @@ describe("LinearWebhookHandler", () => {
       );
 
       expect(result).toBeDefined();
-      expect(result?.type).toBe(LinearEventType.ISSUE_UPDATE);
+      expect(result?.type).toBe(LinearEventTypeValues.ISSUE_UPDATE);
     });
 
     it("should handle Comment events", async () => {
@@ -195,7 +184,7 @@ describe("LinearWebhookHandler", () => {
       );
 
       expect(result).toBeDefined();
-      expect(result?.type).toBe(LinearEventType.COMMENT_CREATE);
+      expect(result?.type).toBe(LinearEventTypeValues.COMMENT_CREATE);
     });
 
     it("should ignore unhandled event types", async () => {
@@ -216,7 +205,7 @@ describe("LinearWebhookHandler", () => {
 
     it("should handle processing errors gracefully", async () => {
       const malformedEvent = createMockWebhookEvent({
-        data: "invalid-data-format", // Should be an object
+        data: { invalid: "data-format" }, // Malformed data object
       });
 
       const result = await webhookHandler.processWebhook(malformedEvent);
@@ -240,7 +229,7 @@ describe("LinearWebhookHandler", () => {
       );
 
       expect(result).toBeDefined();
-      expect(result?.type).toBe(LinearEventType.ISSUE_UPDATE);
+      expect(result?.type).toBe(LinearEventTypeValues.ISSUE_UPDATE);
       expect(result?.action).toBe("create");
       expect(result?.issue.id).toBe(mockIssue.id);
       expect(result?.actor.id).toBe(mockUser.id);
@@ -324,7 +313,7 @@ describe("LinearWebhookHandler", () => {
       );
 
       expect(result).toBeDefined();
-      expect(result?.type).toBe(LinearEventType.COMMENT_CREATE);
+      expect(result?.type).toBe(LinearEventTypeValues.COMMENT_CREATE);
       expect(result?.action).toBe("create");
       expect(result?.comment?.id).toBe(mockComment.id);
       expect(result?.issue.id).toBe(mockIssue.id);

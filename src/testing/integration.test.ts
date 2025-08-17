@@ -7,8 +7,6 @@ import { TestingAgent } from "./agent.js";
 import { TestingAgentCLI } from "./cli.js";
 import type { IntegrationConfig } from "../core/types.js";
 import { mockIntegrationConfig, createMockLogger } from "./mocks.js";
-import { writeFile, mkdir, rm } from "fs/promises";
-import { join } from "path";
 
 // Mock file system operations
 vi.mock("fs/promises", () => ({
@@ -70,7 +68,7 @@ describe("Testing Agent Integration", () => {
 
       // Mock file content for analysis
       const sessionManagerContent = `
-        import type { ClaudeSession, SessionStorage } from "../core/types.js";
+        import type {ClaudeSession, SessionStorage, SessionStatusValues} from "../core/types.js";
 
         export class SessionManager {
           private storage: SessionStorage;
@@ -93,7 +91,7 @@ describe("Testing Agent Integration", () => {
             const session = {
               id: sessionId,
               issueId: issue.id,
-              status: SessionStatus.CREATED,
+              status: SessionStatusValues.CREATED,
               // ... more session setup
             };
             
@@ -108,16 +106,16 @@ describe("Testing Agent Integration", () => {
               throw new Error("Session not found");
             }
             
-            if (session.status === SessionStatus.RUNNING) {
+            if (session.status === SessionStatusValues.RUNNING) {
               throw new Error("Session already running");
             }
             
             try {
               const result = await this.executor.execute(context);
-              await this.updateSessionStatus(sessionId, SessionStatus.COMPLETED);
+              await this.updateSessionStatus(sessionId, SessionStatusValues.COMPLETED);
               return result;
             } catch (error) {
-              await this.updateSessionStatus(sessionId, SessionStatus.FAILED);
+              await this.updateSessionStatus(sessionId, SessionStatusValues.FAILED);
               throw error;
             }
           }
@@ -126,7 +124,7 @@ describe("Testing Agent Integration", () => {
 
       const webhookHandlerContent = `
         import { z } from "zod";
-        import type { LinearWebhookEvent, ProcessedEvent } from "../core/types.js";
+        import type {LinearWebhookEvent, ProcessedEvent, SessionStatusValues} from "../core/types.js";
 
         export class LinearWebhookHandler {
           constructor(config: IntegrationConfig, logger: Logger) {

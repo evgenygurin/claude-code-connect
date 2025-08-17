@@ -2,17 +2,10 @@
  * Testing Agent for analyzing codebase and generating test recommendations
  */
 
-import { readdir, readFile, stat } from "fs/promises";
+import { readFile } from "fs/promises";
 import { join, relative } from "path";
 import { glob } from "glob";
-import type {
-  IntegrationConfig,
-  Logger,
-  ClaudeSession,
-  SessionStatus,
-  LinearWebhookEvent,
-  ProcessedEvent,
-} from "../core/types.js";
+import type { IntegrationConfig, Logger } from "../core/types.js";
 
 /**
  * Test coverage analysis result
@@ -565,8 +558,8 @@ describe("${componentName}", () => {
    */
   private generateClassTestTemplate(
     className: string,
-    scenarios: TestScenario[],
-    analysis: CodeAnalysis,
+    _scenarios: TestScenario[],
+    _analysis: CodeAnalysis,
   ): string {
     let template = `  describe("instantiation", () => {
     it("should create instance with valid config", () => {
@@ -583,7 +576,7 @@ describe("${componentName}", () => {
 `;
 
     // Add method tests based on analysis
-    if (analysis.asyncFunctions.length > 0) {
+    if (_analysis.asyncFunctions.length > 0) {
       template += `  describe("async operations", () => {
     beforeEach(() => {
       instance = new ${className}(mockConfig, mockLogger);
@@ -611,8 +604,8 @@ describe("${componentName}", () => {
    */
   private generateFunctionTestTemplate(
     functionName: string,
-    scenarios: TestScenario[],
-    analysis: CodeAnalysis,
+    _scenarios: TestScenario[],
+    _analysis: CodeAnalysis,
   ): string {
     return `  describe("${functionName}", () => {
     it("should execute successfully with valid input", () => {
