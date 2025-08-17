@@ -10,11 +10,12 @@ import type {
   EventHandlers 
 } from "../core/types.js";
 import { LinearClient } from "../linear/client.js";
-import { SessionManager } from "../sessions/manager.js";
+import { AgentSessionManager } from "../sessions/manager.js";
 import { LinearWebhookHandler } from "../webhooks/handler.js";
 import { EventRouter, DefaultEventHandlers } from "../webhooks/router.js";
 import { createSessionStorage } from "../sessions/storage.js";
 import { createLogger } from "../utils/logger.js";
+import { LinearReporter } from "../linear/reporter.js";
 
 /**
  * Webhook request body type
@@ -35,9 +36,10 @@ export class IntegrationServer {
   private config: IntegrationConfig;
   private logger: Logger;
   private linearClient: LinearClient;
-  private sessionManager: SessionManager;
+  private sessionManager: AgentSessionManager;
   private webhookHandler: LinearWebhookHandler;
   private eventRouter: EventRouter;
+  private linearReporter: LinearReporter;
   private isStarted = false;
 
   constructor(config: IntegrationConfig) {
@@ -51,8 +53,19 @@ export class IntegrationServer {
     // Initialize components
     this.linearClient = new LinearClient(config, this.logger);
     
-    const storage = createSessionStorage("memory", this.logger); // Can be made configurable
-    this.sessionManager = new SessionManager(config, this.logger, storage);
+    // Use SQLite storage for production
+    const storage = createSessionStorage("sqlite", this.logger);
+    
+    // Create Linear reporter
+    this.linearReporter = new LinearReporter(this.linearClient, this.logger);
+    
+    // Create session manager with new architecture
+    this.sessionManager = new AgentSessionManager(
+      config,
+      this.logger,
+      storage,
+      this.linearClient
+    );
     
     this.webhookHandler = new LinearWebhookHandler(config, this.logger);
     
