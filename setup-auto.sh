@@ -7,7 +7,7 @@ echo "=================================================="
 echo "🔄 Освобождаем порты..."
 pkill -f "tsx.*src/index.ts" 2>/dev/null || true
 pkill -f "cyrus" 2>/dev/null || true
-lsof -ti:3005,3006,3456 | xargs kill -9 2>/dev/null || true
+lsof -ti:3006,3456 | xargs kill -9 2>/dev/null || true
 
 sleep 2
 
@@ -21,7 +21,7 @@ cat > .env << 'EOF'
 # Linear API Configuration  
 LINEAR_API_TOKEN=lin_api_YOUR_TOKEN_HERE
 LINEAR_WEBHOOK_SECRET=your_webhook_secret_here
-LINEAR_ORGANIZATION_ID=auto
+LINEAR_ORGANIZATION_ID=87cba77e-b503-411e-b068-034d3436ff6c
 
 # Project Configuration
 PROJECT_ROOT_DIR=/Users/laptop/dev/claude-code-connect
@@ -29,7 +29,7 @@ DEFAULT_BRANCH=main
 CREATE_BRANCHES=true
 
 # Server Configuration  
-WEBHOOK_PORT=3005
+WEBHOOK_PORT=3006
 SESSION_TIMEOUT_MINUTES=30
 
 # Claude Configuration
@@ -87,13 +87,13 @@ fi
 echo ""
 echo "🎉 ГОТОВО!"
 echo "=================================================="
-echo "✅ Сервер запущен на http://localhost:3005"
-echo "✅ Webhook endpoint: http://localhost:3005/webhooks/linear"  
-echo "✅ Management API: http://localhost:3005/"
+echo "✅ Сервер запущен на http://localhost:3006"
+echo "✅ Webhook endpoint: http://localhost:3006/webhooks/linear"  
+echo "✅ Management API: http://localhost:3006/"
 echo ""
 echo "📋 Что дальше:"
 echo "1. Добавь свой LINEAR_API_TOKEN в .env файл"
-echo "2. Настрой webhook в Linear на http://localhost:3005/webhooks/linear"
+echo "2. Настрой webhook в Linear на http://localhost:3006/webhooks/linear"
 echo "3. Создай issue в Linear и назначь на себя"
 echo ""
 echo "🛑 Чтобы остановить сервер: kill $SERVER_PID"

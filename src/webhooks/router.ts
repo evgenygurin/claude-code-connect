@@ -11,6 +11,22 @@ import type {
 import { LinearEventTypeValues } from "../core/types.js";
 import { LinearClient } from "../linear/client.js";
 import { SessionManager } from "../sessions/manager.js";
+import type { User } from "@linear/sdk";
+
+/**
+ * Helper to get actor name safely
+ */
+function getActorName(
+  actor: User | { id: string; name?: string; service?: string; type?: string },
+): string {
+  if ("name" in actor && actor.name) {
+    return actor.name;
+  }
+  if ("service" in actor && actor.service) {
+    return actor.service;
+  }
+  return "Unknown";
+}
 
 /**
  * Default event handlers implementation
@@ -76,7 +92,7 @@ export class DefaultEventHandlers implements EventHandlers {
     this.logger.info("Handling issue assignment", {
       issueId: issue.id,
       identifier: issue.identifier,
-      assignedBy: actor.name,
+      assignedBy: getActorName(actor),
     });
 
     try {
@@ -115,7 +131,7 @@ export class DefaultEventHandlers implements EventHandlers {
     this.logger.info("Handling comment mention", {
       issueId: issue.id,
       commentId: comment.id,
-      mentionedBy: actor.name,
+      mentionedBy: getActorName(actor),
     });
 
     try {
@@ -150,7 +166,7 @@ export class DefaultEventHandlers implements EventHandlers {
     this.logger.info("Handling issue status change", {
       issueId: issue.id,
       newStatus: state.name,
-      changedBy: actor.name,
+      changedBy: getActorName(actor),
     });
 
     // Check if issue was moved to completed/cancelled by someone else

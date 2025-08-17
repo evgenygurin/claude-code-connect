@@ -59,7 +59,7 @@ describe("LinearWebhookHandler", () => {
       expect(result).toBeDefined();
       expect(result?.action).toBe("create");
       expect(result?.type).toBe("Issue");
-      expect(result?.organizationId).toBe("org-test-123");
+      expect(result?.organizationId).toBe("test-org-id");
     });
 
     it("should log successful validation", () => {
@@ -70,7 +70,7 @@ describe("LinearWebhookHandler", () => {
         {
           type: "Issue",
           action: "create",
-          organizationId: "org-test-123",
+          organizationId: "test-org-id",
         },
       );
     });
@@ -115,7 +115,7 @@ describe("LinearWebhookHandler", () => {
         },
         type: "Issue",
         data: {},
-        organizationId: "org-test-123",
+        organizationId: "test-org-id",
         webhookId: "webhook-123",
         createdAt: "2024-01-01T00:00:00Z",
       };
@@ -147,7 +147,7 @@ describe("LinearWebhookHandler", () => {
         {
           type: "Issue",
           action: "create",
-          organizationId: "org-test-123",
+          organizationId: "test-org-id",
         },
       );
     });

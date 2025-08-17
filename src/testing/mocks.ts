@@ -159,7 +159,7 @@ export const mockWebhookEventIssueCreated: LinearWebhookEvent = {
   type: "Issue",
   data: mockIssue,
   url: "https://linear.app/team/issue/dev-123",
-  organizationId: "org-test-123",
+  organizationId: "test-org-id",
   webhookId: "webhook-789",
   createdAt: "2024-01-01T10:00:00Z",
 };
@@ -173,7 +173,7 @@ export const mockWebhookEventIssueAssigned: LinearWebhookEvent = {
   type: "Issue",
   data: mockIssueAssignedToAgent,
   url: "https://linear.app/team/issue/dev-124",
-  organizationId: "org-test-123",
+  organizationId: "test-org-id",
   webhookId: "webhook-789",
   createdAt: "2024-01-01T11:00:00Z",
 };
@@ -187,7 +187,7 @@ export const mockWebhookEventCommentMention: LinearWebhookEvent = {
   type: "Comment",
   data: mockComment,
   url: "https://linear.app/comment/def456",
-  organizationId: "org-test-123",
+  organizationId: "test-org-id",
   webhookId: "webhook-789",
   createdAt: "2024-01-01T14:00:00Z",
 };
@@ -201,7 +201,7 @@ export const mockWebhookEventCommentNoMention: LinearWebhookEvent = {
   type: "Comment",
   data: mockCommentNoMention,
   url: "https://linear.app/comment/no-mention",
-  organizationId: "org-test-123",
+  organizationId: "test-org-id",
   webhookId: "webhook-789",
   createdAt: "2024-01-01T15:00:00Z",
 };
@@ -360,7 +360,7 @@ export const mockExecutionContext: ClaudeExecutionContext = {
   branchName: mockSessionRunning.branchName,
   config: {
     linearApiToken: "test-token",
-    linearOrganizationId: "org-test-123",
+    linearOrganizationId: "test-org-id",
     claudeExecutablePath: "claude",
     webhookPort: 3000,
     projectRootDir: "/test/project",
@@ -382,7 +382,7 @@ export const mockExecutionContext: ClaudeExecutionContext = {
  */
 export const mockIntegrationConfig: IntegrationConfig = {
   linearApiToken: "lin_api_test_token_123456789",
-  linearOrganizationId: "org-test-123",
+  linearOrganizationId: "test-org-id",
   claudeExecutablePath: "claude",
   webhookPort: 3000,
   webhookSecret: "webhook-secret-test-123",

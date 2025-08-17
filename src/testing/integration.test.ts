@@ -32,18 +32,21 @@ describe("Testing Agent Integration", () => {
   let mockWriteFile: any;
   let mockMkdir: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     loggerSpy = createMockLogger();
     config = { ...mockIntegrationConfig };
     testingAgent = new TestingAgent(config, loggerSpy);
     cli = new TestingAgentCLI(config);
 
-    // Setup mocks
-    mockGlob = vi.mocked(require("glob").glob);
-    mockReadFile = vi.mocked(require("fs/promises").readFile);
-    mockWriteFile = vi.mocked(require("fs/promises").writeFile);
-    mockMkdir = vi.mocked(require("fs/promises").mkdir);
+    // Setup mocks from vi.mock()
+    const { glob } = await import("glob");
+    const fs = await import("fs/promises");
+
+    mockGlob = vi.mocked(glob);
+    mockReadFile = vi.mocked(fs.readFile);
+    mockWriteFile = vi.mocked(fs.writeFile);
+    mockMkdir = vi.mocked(fs.mkdir);
 
     // Mock successful file operations
     mockWriteFile.mockResolvedValue(undefined);

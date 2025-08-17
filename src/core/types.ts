@@ -107,7 +107,14 @@ export interface LinearWebhookEvent {
   /** Event action (create, update, remove) */
   action: "create" | "update" | "remove";
   /** Event actor (user who triggered) */
-  actor: User;
+  actor:
+    | User
+    | {
+        id: string;
+        name?: string;
+        service?: string;
+        type?: string;
+      };
   /** Event type */
   type: string;
   /** Event data */

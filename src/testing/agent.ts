@@ -230,7 +230,9 @@ export class TestingAgent {
     const allFiles: string[] = [];
     for (const pattern of patterns) {
       const files = await glob(pattern);
-      allFiles.push(...files.map((file) => relative(this.projectRoot, file)));
+      if (files && Array.isArray(files)) {
+        allFiles.push(...files.map((file) => relative(this.projectRoot, file)));
+      }
     }
 
     return allFiles;

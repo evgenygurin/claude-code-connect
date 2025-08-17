@@ -60,7 +60,15 @@ describe("Configuration", () => {
   });
 
   it("should validate required fields", () => {
-    expect(() => loadConfig()).toThrow("Configuration validation failed");
+    // Clear required environment variables
+    delete process.env.LINEAR_API_TOKEN;
+    delete process.env.LINEAR_ORGANIZATION_ID;
+    delete process.env.PROJECT_ROOT_DIR;
+
+    // Use non-existent .env path to prevent loading actual .env file
+    expect(() => loadConfig("/non/existent/path/.env")).toThrow(
+      "Configuration validation failed",
+    );
   });
 
   it("should use default values", () => {

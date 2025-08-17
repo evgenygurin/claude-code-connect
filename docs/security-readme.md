@@ -358,25 +358,25 @@ const securityAgent = new SecurityAgent(config, logger, customSecurityConfig);
 
 ### Common Issues
 
-**"Webhook signature validation failed"**
+**"Webhook signature validation failed"**.
 
 - Verify `LINEAR_WEBHOOK_SECRET` is correctly configured
 - Check webhook signature format (should be `sha256=...`)
 - Ensure payload is not modified in transit
 
-**"Rate limit exceeded"**
+**"Rate limit exceeded"**.
 
 - Check if legitimate traffic is being rate limited
 - Adjust rate limiting configuration if needed
 - Investigate potential DDoS attacks
 
-**"Session validation failed"**
+**"Session validation failed"**.
 
 - Check session ID format and generation
 - Verify session timeout configuration
 - Review session storage and retrieval logic
 
-**"Command blocked by security policy"**
+**"Command blocked by security policy"**.
 
 - Review blocked commands configuration
 - Ensure legitimate commands are allowlisted

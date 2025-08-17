@@ -396,19 +396,19 @@ The generated tests provide a foundation, but should be enhanced with:
 
 ### Common Issues
 
-**"No testable components found"**
+**"No testable components found"**.
 
 - Ensure file exports classes or functions
 - Check TypeScript syntax is valid
 - Verify file is in src/ directory
 
-**"Permission denied" errors**
+**"Permission denied" errors**.
 
 - Check file system permissions
 - Ensure project root directory is accessible
 - Verify glob patterns are correct
 
-**"Mock import errors"**
+**"Mock import errors"**.
 
 - Update import paths in generated tests
 - Ensure all dependencies are installed

@@ -16,7 +16,6 @@ import type {
 } from "../core/types.js";
 import { LinearWebhookHandler } from "../webhooks/handler.js";
 import { SessionManager } from "../sessions/manager.js";
-import { ClaudeExecutor } from "../claude/executor.js";
 import {
   mockIntegrationConfig,
   mockUser,
@@ -26,11 +25,19 @@ import {
   createMockIssue,
   createMockComment,
 } from "./mocks.js";
+import { createMockExecutor } from "./test-utils.js";
+
+// Setup mock executor
+const mockExecutor = createMockExecutor();
+
+// Mock ClaudeExecutor at module level
+vi.mock("../claude/executor.js", () => ({
+  ClaudeExecutor: vi.fn(() => mockExecutor),
+}));
 
 describe("Specialized Claude Code Agent Scenarios", () => {
   let webhookHandler: LinearWebhookHandler;
   let sessionManager: SessionManager;
-  let claudeExecutor: ClaudeExecutor;
   let config: IntegrationConfig;
   let logger: ReturnType<typeof createMockLogger>;
 
@@ -41,7 +48,6 @@ describe("Specialized Claude Code Agent Scenarios", () => {
 
     webhookHandler = new LinearWebhookHandler(config, logger);
     sessionManager = new SessionManager(config, logger);
-    claudeExecutor = new ClaudeExecutor(logger);
   });
 
   describe("Code Analysis Agent", () => {
@@ -114,7 +120,7 @@ describe("Specialized Claude Code Agent Scenarios", () => {
         exitCode: 0,
       };
 
-      vi.spyOn(claudeExecutor, "execute").mockResolvedValue(analysisResult);
+      mockExecutor.execute.mockResolvedValue(analysisResult);
 
       // 3. Execute analysis session
       const session = await sessionManager.createSession(analysisIssue);
@@ -163,9 +169,7 @@ describe("Specialized Claude Code Agent Scenarios", () => {
         exitCode: 0,
       };
 
-      vi.spyOn(claudeExecutor, "execute").mockResolvedValue(
-        complexAnalysisResult,
-      );
+      mockExecutor.execute.mockResolvedValue(complexAnalysisResult);
 
       const analysisIssue = createMockIssue({
         title: "Architecture Review Q4 2024",
@@ -279,7 +283,7 @@ describe("Specialized Claude Code Agent Scenarios", () => {
         exitCode: 0,
       };
 
-      vi.spyOn(claudeExecutor, "execute").mockResolvedValue(bugFixResult);
+      mockExecutor.execute.mockResolvedValue(bugFixResult);
 
       // 3. Execute bug fix session
       const session = await sessionManager.createSession(
@@ -341,7 +345,7 @@ describe("Specialized Claude Code Agent Scenarios", () => {
         exitCode: 0,
       };
 
-      vi.spyOn(claudeExecutor, "execute").mockResolvedValue(securityFixResult);
+      mockExecutor.execute.mockResolvedValue(securityFixResult);
 
       const session = await sessionManager.createSession(
         securityBugIssue,
@@ -439,7 +443,7 @@ describe("Specialized Claude Code Agent Scenarios", () => {
         exitCode: 0,
       };
 
-      vi.spyOn(claudeExecutor, "execute").mockResolvedValue(testingResult);
+      mockExecutor.execute.mockResolvedValue(testingResult);
 
       const session = await sessionManager.createSession(
         testingIssue,
@@ -517,7 +521,7 @@ describe("Specialized Claude Code Agent Scenarios", () => {
           exitCode: 0,
         };
 
-        vi.mocked(claudeExecutor.execute).mockResolvedValueOnce(mockResult);
+        mockExecutor.execute.mockResolvedValueOnce(mockResult);
 
         const session = await sessionManager.createSession(issue, comment);
         const result = await sessionManager.startSession(
@@ -605,7 +609,7 @@ describe("Specialized Claude Code Agent Scenarios", () => {
         exitCode: 0,
       };
 
-      vi.spyOn(claudeExecutor, "execute").mockResolvedValue(docResult);
+      mockExecutor.execute.mockResolvedValue(docResult);
 
       const session = await sessionManager.createSession(docIssue, docComment);
       const result = await sessionManager.startSession(
@@ -705,7 +709,7 @@ describe("Specialized Claude Code Agent Scenarios", () => {
         exitCode: 0,
       };
 
-      vi.spyOn(claudeExecutor, "execute").mockResolvedValue(perfResult);
+      mockExecutor.execute.mockResolvedValue(perfResult);
 
       const session = await sessionManager.createSession(
         perfIssue,
@@ -812,7 +816,7 @@ describe("Specialized Claude Code Agent Scenarios", () => {
           exitCode: 0,
         };
 
-        vi.mocked(claudeExecutor.execute).mockResolvedValueOnce(mockResult);
+        mockExecutor.execute.mockResolvedValueOnce(mockResult);
 
         const session = await sessionManager.createSession(
           complexFeature,

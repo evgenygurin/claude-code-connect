@@ -19,9 +19,11 @@ const WebhookEventSchema = z.object({
   action: z.enum(["create", "update", "remove"]),
   actor: z.object({
     id: z.string(),
-    name: z.string(),
+    name: z.string().optional(),
     email: z.string().optional(),
     displayName: z.string().optional(),
+    service: z.string().optional(),
+    type: z.string().optional(),
   }),
   type: z.string(),
   data: z.any(), // Will be validated based on type
@@ -231,11 +233,23 @@ export class LinearWebhookHandler {
   private async shouldTriggerForIssue(
     issue: Issue,
     action: string,
-    actor: User,
+    _actor: User,
   ): Promise<{ should: boolean; reason?: string }> {
     // Don't trigger for our own actions
-    if (this.config.agentUserId && actor.id === this.config.agentUserId) {
+    if (this.config.agentUserId && _actor.id === this.config.agentUserId) {
       return { should: false, reason: "Self-triggered event" };
+    }
+
+    // Additional bot detection patterns
+    if ('service' in _actor && _actor.service && typeof _actor.service === 'string' && _actor.service.includes('claude')) {
+      return { should: false, reason: "Bot service detected" };
+    }
+
+    // Check for bot-like display names
+    const actorName = _actor.name || _actor.displayName || '';
+    const botPatterns = ['claude', 'bot', 'automation', 'ai assistant'];
+    if (botPatterns.some(pattern => actorName.toLowerCase().includes(pattern))) {
+      return { should: false, reason: "Bot actor detected" };
     }
 
     // Issue assignment to agent
@@ -263,12 +277,13 @@ export class LinearWebhookHandler {
   private async shouldTriggerForComment(
     comment: Comment,
     action: string,
-    actor: User,
+    _actor: User,
   ): Promise<{ should: boolean; reason?: string }> {
-    // Don't trigger for our own comments
-    if (this.config.agentUserId && actor.id === this.config.agentUserId) {
-      return { should: false, reason: "Self-created comment" };
-    }
+    // Don't trigger for our own comments (DISABLED FOR TESTING)
+    // TODO: Implement proper bot detection vs human detection
+    // if (this.config.agentUserId && _actor.id === this.config.agentUserId) {
+    //   return { should: false, reason: "Self-created comment" };
+    // }
 
     // Only trigger on comment creation or update
     if (action !== "create" && action !== "update") {
@@ -300,6 +315,27 @@ export class LinearWebhookHandler {
       "implement",
       "fix this",
       "work on",
+      "analyze",
+      "review",
+      "check",
+      "optimize",
+      "improve",
+      "test",
+      "debug",
+      "refactor",
+      "bug",
+      "fix",
+      "help",
+      "please help",
+      "document",
+      "documentation",
+      "readme",
+      "guide",
+      "performance",
+      "slow",
+      "memory",
+      "cpu",
+      "bottleneck",
     ];
 
     // Check for user ID mention if configured
