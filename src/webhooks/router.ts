@@ -10,20 +10,20 @@ import type {
   Logger 
 } from "../core/types.js";
 import { LinearClient } from "../linear/client.js";
-import { SessionManager } from "../sessions/manager.js";
+import { AgentSessionManager } from "../sessions/manager.js";
 
 /**
  * Default event handlers implementation
  */
 export class DefaultEventHandlers implements EventHandlers {
   private linearClient: LinearClient;
-  private sessionManager: SessionManager;
+  private sessionManager: AgentSessionManager;
   private config: IntegrationConfig;
   private logger: Logger;
 
   constructor(
     linearClient: LinearClient,
-    sessionManager: SessionManager,
+    sessionManager: AgentSessionManager,
     config: IntegrationConfig,
     logger: Logger
   ) {
@@ -31,6 +31,32 @@ export class DefaultEventHandlers implements EventHandlers {
     this.sessionManager = sessionManager;
     this.config = config;
     this.logger = logger;
+    
+    // Set up session event listeners
+    this.setupSessionEventListeners();
+  }
+
+  /**
+   * Set up session event listeners
+   */
+  private setupSessionEventListeners(): void {
+    // Listen for session completion
+    this.sessionManager.on("session:completed", (session, result) => {
+      this.onSessionComplete(session, result).catch(error => {
+        this.logger.error("Failed to handle session completion event", error as Error, {
+          sessionId: session.id
+        });
+      });
+    });
+    
+    // Listen for session failure
+    this.sessionManager.on("session:failed", (session, error) => {
+      this.onSessionError(session, error).catch(err => {
+        this.logger.error("Failed to handle session error event", err as Error, {
+          sessionId: session.id
+        });
+      });
+    });
   }
 
   /**
@@ -46,44 +72,11 @@ export class DefaultEventHandlers implements EventHandlers {
     });
 
     try {
-      // Check if already has active session
-      const existingSession = await this.sessionManager.getSessionByIssue(issue.id);
-      if (existingSession) {
-        this.logger.info("Issue already has active session", {
-          issueId: issue.id,
-          sessionId: existingSession.id,
-          status: existingSession.status
-        });
-        return;
-      }
-
-      // Move issue to "started" status
-      await this.linearClient.moveIssueToStarted(issue);
-
-      // Create progress comment
-      const progressComment = await this.linearClient.createProgressComment(
-        {
-          id: "temp",
-          issueId: issue.id,
-          issueIdentifier: issue.identifier,
-          status: "created" as any,
-          workingDir: "",
-          startedAt: new Date(),
-          lastActivityAt: new Date(),
-          metadata: {}
-        },
-        "🚀 **Starting work on this issue**\n\nI've been assigned to work on this issue and will begin analysis shortly."
-      );
-
-      // Create session
-      const session = await this.sessionManager.createSession(issue);
-
-      // Start session execution
-      await this.sessionManager.startSession(session.id, issue);
-
+      // Use the new AgentSessionManager to process issue assignment
+      await this.sessionManager.processIssueAssigned(issue, actor);
+      
       this.logger.info("Issue assignment handled successfully", {
-        issueId: issue.id,
-        sessionId: session.id
+        issueId: issue.id
       });
     } catch (error) {
       this.logger.error("Failed to handle issue assignment", error as Error, {
@@ -116,33 +109,12 @@ export class DefaultEventHandlers implements EventHandlers {
     });
 
     try {
-      // Check if has existing session
-      let session = await this.sessionManager.getSessionByIssue(issue.id);
+      // Use the new AgentSessionManager to process comment mention
+      await this.sessionManager.processCommentMention(issue, comment, actor);
       
-      if (!session) {
-        // Create new session
-        session = await this.sessionManager.createSession(issue, comment);
-        
-        // Create acknowledgment comment
-        await this.linearClient.createProgressComment(
-          session,
-          "👋 **Acknowledged**\n\nI see you've mentioned me! Let me analyze your request and get started."
-        );
-      } else {
-        // Update existing session with new comment context
-        await this.linearClient.createProgressComment(
-          session,
-          "💬 **New instructions received**\n\nI'll incorporate your latest comment into my work."
-        );
-      }
-
-      // Start or restart session with comment context
-      await this.sessionManager.startSession(session.id, issue, comment);
-
       this.logger.info("Comment mention handled successfully", {
         issueId: issue.id,
-        commentId: comment.id,
-        sessionId: session.id
+        commentId: comment.id
       });
     } catch (error) {
       this.logger.error("Failed to handle comment mention", error as Error, {
@@ -174,7 +146,7 @@ export class DefaultEventHandlers implements EventHandlers {
     if (issue.state.type === "completed" || issue.state.type === "canceled") {
       const session = await this.sessionManager.getSessionByIssue(issue.id);
       
-      if (session && session.status === "running") {
+      if (session && (session.status === "created" || session.status === "running")) {
         this.logger.info("Cancelling session due to issue status change", {
           issueId: issue.id,
           sessionId: session.id,
@@ -182,11 +154,6 @@ export class DefaultEventHandlers implements EventHandlers {
         });
 
         await this.sessionManager.cancelSession(session.id);
-        
-        await this.linearClient.createProgressComment(
-          session,
-          `⏹️ **Session cancelled**\n\nWork was stopped because the issue was moved to "${issue.state.name}" status.`
-        );
       }
     }
   }
@@ -201,52 +168,8 @@ export class DefaultEventHandlers implements EventHandlers {
       success: result.success
     });
 
-    try {
-      if (result.success) {
-        // Move issue to completed
-        const issue = await this.linearClient.getIssue(session.issueId);
-        if (issue) {
-          await this.linearClient.moveIssueToCompleted(issue);
-        }
-
-        // Create completion comment
-        let completionMessage = "✅ **Work completed successfully!**\n\n";
-        
-        if (result.commits.length > 0) {
-          completionMessage += "**Changes made:**\n";
-          for (const commit of result.commits) {
-            completionMessage += `- ${commit.message}\n`;
-          }
-          completionMessage += "\n";
-        }
-
-        if (result.filesModified.length > 0) {
-          completionMessage += "**Files modified:**\n";
-          for (const file of result.filesModified) {
-            completionMessage += `- \`${file}\`\n`;
-          }
-          completionMessage += "\n";
-        }
-
-        if (session.branchName) {
-          completionMessage += `**Branch:** \`${session.branchName}\`\n\n`;
-        }
-
-        completionMessage += `**Duration:** ${Math.round(result.duration / 1000)}s`;
-
-        await this.linearClient.createProgressComment(session, completionMessage);
-      } else {
-        // Create error comment
-        await this.linearClient.createProgressComment(
-          session,
-          `❌ **Work failed**\n\n**Error:** ${result.error || "Unknown error"}\n\n**Duration:** ${Math.round(result.duration / 1000)}s`
-        );
-      }
-    } catch (error) {
-      this.logger.error("Failed to handle session completion", error as Error, {
-        sessionId: session.id
-      });
-    }
+    // The LinearReporter now handles reporting results to Linear
+    // This method is kept for backward compatibility and additional custom logic
   }
 
   /**
@@ -258,16 +181,8 @@ export class DefaultEventHandlers implements EventHandlers {
       issueId: session.issueId
     });
 
-    try {
-      await this.linearClient.createProgressComment(
-        session,
-        `💥 **Session error**\n\n**Error:** ${error.message}\n\nPlease check the logs for more details.`
-      );
-    } catch (commentError) {
-      this.logger.error("Failed to create error comment", commentError as Error, {
-        sessionId: session.id
-      });
-    }
+    // The LinearReporter now handles reporting errors to Linear
+    // This method is kept for backward compatibility and additional custom logic
   }
 }
 
