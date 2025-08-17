@@ -1,10 +1,10 @@
 /**
  * Comprehensive Testing Workflow for Claude Code + Linear Integration
- * 
+ *
  * This file provides complete end-to-end testing scenarios that validate:
  * - Linear webhook event processing
  * - Event routing and agent triggering
- * - Session management lifecycle  
+ * - Session management lifecycle
  * - Multi-agent coordination
  * - Session cleanup and monitoring
  */
@@ -16,7 +16,7 @@ import type {
   ClaudeSession,
   ClaudeExecutionResult,
   IntegrationConfig,
-  Logger
+  Logger,
 } from "../core/types.js";
 import { SessionStatus } from "../core/types.js";
 import { LinearWebhookHandler } from "../webhooks/handler.js";
@@ -36,7 +36,7 @@ import {
   createMockLogger,
   createMockWebhookEvent,
   createMockIssue,
-  createMockComment
+  createMockComment,
 } from "./mocks.js";
 
 /**
@@ -53,14 +53,16 @@ describe("Claude Code + Linear Integration Workflow", () => {
     vi.clearAllMocks();
     logger = createMockLogger();
     config = { ...mockIntegrationConfig };
-    
+
     webhookHandler = new LinearWebhookHandler(config, logger);
     sessionManager = new SessionManager(config, logger);
     claudeExecutor = new ClaudeExecutor(logger);
 
     // Mock executor methods
-    vi.spyOn(claudeExecutor, 'execute').mockResolvedValue(mockExecutionResultSuccess);
-    vi.spyOn(claudeExecutor, 'cancelSession').mockResolvedValue(true);
+    vi.spyOn(claudeExecutor, "execute").mockResolvedValue(
+      mockExecutionResultSuccess,
+    );
+    vi.spyOn(claudeExecutor, "cancelSession").mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -74,12 +76,13 @@ describe("Claude Code + Linear Integration Workflow", () => {
         action: "update",
         type: "Issue",
         data: mockIssueAssignedToAgent,
-        actor: mockUser
+        actor: mockUser,
       });
 
       // 2. Process webhook event
-      const processedEvent = await webhookHandler.processWebhook(assignmentEvent);
-      
+      const processedEvent =
+        await webhookHandler.processWebhook(assignmentEvent);
+
       expect(processedEvent).toBeDefined();
       expect(processedEvent!.shouldTrigger).toBe(true);
       expect(processedEvent!.triggerReason).toBe("Issue assigned to agent");
@@ -88,7 +91,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
       // 3. Create session for the triggered event
       const session = await sessionManager.createSession(
         processedEvent!.issue,
-        processedEvent!.comment
+        processedEvent!.comment,
       );
 
       expect(session.status).toBe(SessionStatus.CREATED);
@@ -101,7 +104,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
       const executionResult = await sessionManager.startSession(
         session.id,
         processedEvent!.issue,
-        processedEvent!.comment
+        processedEvent!.comment,
       );
 
       expect(executionResult.success).toBe(true);
@@ -117,15 +120,15 @@ describe("Claude Code + Linear Integration Workflow", () => {
       expect(logger.infoCalls).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            message: "Session created"
+            message: "Session created",
           }),
           expect.objectContaining({
-            message: "Starting session execution"
+            message: "Starting session execution",
           }),
           expect.objectContaining({
-            message: "Session execution completed"
-          })
-        ])
+            message: "Session execution completed",
+          }),
+        ]),
       );
     });
 
@@ -134,13 +137,13 @@ describe("Claude Code + Linear Integration Workflow", () => {
       const bugIssue = createMockIssue({
         title: "Authentication bug with special characters",
         description: "Users can't login when email contains '+' symbols",
-        state: { name: "In Progress", type: "started" } as any
+        state: { name: "In Progress", type: "started" } as any,
       });
 
       // 2. Create comment mentioning Claude for bug fix
       const bugFixComment = createMockComment({
         body: "@claude please investigate this authentication issue. The bug affects users with '+' symbols in email addresses. Need to fix the validation logic.",
-        issue: bugIssue
+        issue: bugIssue,
       });
 
       // 3. Process comment mention webhook
@@ -148,7 +151,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
         action: "create",
         type: "Comment",
         data: bugFixComment,
-        actor: mockUser
+        actor: mockUser,
       });
 
       const processedEvent = await webhookHandler.processWebhook(commentEvent);
@@ -158,21 +161,28 @@ describe("Claude Code + Linear Integration Workflow", () => {
       expect(processedEvent?.comment?.body).toContain("@claude");
 
       // 4. Create and execute bug fix session
-      const session = await sessionManager.createSession(bugIssue, bugFixComment);
-      const result = await sessionManager.startSession(session.id, bugIssue, bugFixComment);
+      const session = await sessionManager.createSession(
+        bugIssue,
+        bugFixComment,
+      );
+      const result = await sessionManager.startSession(
+        session.id,
+        bugIssue,
+        bugFixComment,
+      );
 
       expect(result.success).toBe(true);
-      expect(result.filesModified.some(f => f.includes("auth"))).toBe(true);
-      
+      expect(result.filesModified.some((f) => f.includes("auth"))).toBe(true);
+
       // 5. Verify bug fix execution context
       expect(claudeExecutor.execute).toHaveBeenCalledWith(
         expect.objectContaining({
           issue: bugIssue,
           triggerComment: bugFixComment,
           session: expect.objectContaining({
-            issueId: bugIssue.id
-          })
-        })
+            issueId: bugIssue.id,
+          }),
+        }),
       );
     });
 
@@ -180,23 +190,25 @@ describe("Claude Code + Linear Integration Workflow", () => {
       // 1. Create feature issue that needs testing
       const featureIssue = createMockIssue({
         title: "Implement user profile API endpoint",
-        description: "New API endpoint for updating user profiles with validation",
-        state: { name: "Ready for Testing", type: "started" } as any
+        description:
+          "New API endpoint for updating user profiles with validation",
+        state: { name: "Ready for Testing", type: "started" } as any,
       });
 
       // 2. Simulate label change to "needs-testing"
       const labelChangeEvent = createMockWebhookEvent({
-        action: "update", 
+        action: "update",
         type: "Issue",
         data: {
           ...featureIssue,
-          labels: [{ name: "needs-testing", color: "#f59e0b" }]
+          labels: [{ name: "needs-testing", color: "#f59e0b" }],
         },
-        actor: mockUser
+        actor: mockUser,
       });
 
       // 3. Process label change (would need custom logic in webhook handler)
-      const processedEvent = await webhookHandler.processWebhook(labelChangeEvent);
+      const processedEvent =
+        await webhookHandler.processWebhook(labelChangeEvent);
 
       // For this test, we'll simulate the testing agent trigger
       if (processedEvent) {
@@ -208,7 +220,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
 
       // 4. Create testing session
       const testingSession = await sessionManager.createSession(featureIssue);
-      
+
       // Mock testing-specific execution result
       const testingResult: ClaudeExecutionResult = {
         success: true,
@@ -216,24 +228,29 @@ describe("Claude Code + Linear Integration Workflow", () => {
         filesModified: [
           "tests/api/profile.test.ts",
           "tests/integration/profile-api.test.ts",
-          "tests/validation/profile-validation.test.ts"
+          "tests/validation/profile-validation.test.ts",
         ],
-        commits: [{
-          hash: "test123",
-          message: "test: add comprehensive profile API tests",
-          author: "Claude Testing Agent",
-          timestamp: new Date(),
-          files: ["tests/api/profile.test.ts"]
-        }],
+        commits: [
+          {
+            hash: "test123",
+            message: "test: add comprehensive profile API tests",
+            author: "Claude Testing Agent",
+            timestamp: new Date(),
+            files: ["tests/api/profile.test.ts"],
+          },
+        ],
         duration: 900000, // 15 minutes
-        exitCode: 0
+        exitCode: 0,
       };
 
       vi.mocked(claudeExecutor.execute).mockResolvedValueOnce(testingResult);
 
-      const result = await sessionManager.startSession(testingSession.id, featureIssue);
+      const result = await sessionManager.startSession(
+        testingSession.id,
+        featureIssue,
+      );
 
-      expect(result.filesModified.every(f => f.includes("test"))).toBe(true);
+      expect(result.filesModified.every((f) => f.includes("test"))).toBe(true);
       expect(result.commits[0].message).toContain("test:");
     });
   });
@@ -243,61 +260,65 @@ describe("Claude Code + Linear Integration Workflow", () => {
       // 1. Complex feature request
       const complexFeature = createMockIssue({
         title: "Implement OAuth2 authentication flow",
-        description: "@claude analyze the current auth system and implement OAuth2 integration with Google and GitHub providers. Ensure comprehensive testing coverage.",
-        assignee: mockAgentUser
+        description:
+          "@claude analyze the current auth system and implement OAuth2 integration with Google and GitHub providers. Ensure comprehensive testing coverage.",
+        assignee: mockAgentUser,
       });
 
       // 2. Analysis Phase - Issue Assignment
       const analysisEvent = createMockWebhookEvent({
         action: "update",
-        type: "Issue", 
+        type: "Issue",
         data: complexFeature,
-        actor: mockUser
+        actor: mockUser,
       });
 
-      const analysisProcessed = await webhookHandler.processWebhook(analysisEvent);
+      const analysisProcessed =
+        await webhookHandler.processWebhook(analysisEvent);
       expect(analysisProcessed?.shouldTrigger).toBe(true);
 
       // 3. Implementation Phase - Comment with specific instructions
       const implementationComment = createMockComment({
         body: "@claude based on the analysis, please implement the OAuth2 flow. Focus on Google and GitHub providers with proper error handling.",
-        issue: complexFeature
+        issue: complexFeature,
       });
 
       const implementationEvent = createMockWebhookEvent({
         action: "create",
         type: "Comment",
         data: implementationComment,
-        actor: mockUser
+        actor: mockUser,
       });
 
-      const implementationProcessed = await webhookHandler.processWebhook(implementationEvent);
+      const implementationProcessed =
+        await webhookHandler.processWebhook(implementationEvent);
       expect(implementationProcessed?.shouldTrigger).toBe(true);
 
       // 4. Testing Phase - Label change to trigger testing
       const testingTriggerComment = createMockComment({
         body: "@claude implementation looks good, please add comprehensive tests for the OAuth2 flow including edge cases",
-        issue: complexFeature
+        issue: complexFeature,
       });
 
       // 5. Simulate coordinated execution
       const sessions: ClaudeSession[] = [];
 
       // Analysis session
-      const analysisSession = await sessionManager.createSession(complexFeature);
+      const analysisSession =
+        await sessionManager.createSession(complexFeature);
       sessions.push(analysisSession);
 
       // Implementation session
       const implementationSession = await sessionManager.createSession(
-        complexFeature, 
-        implementationComment
+        complexFeature,
+        implementationComment,
       );
       sessions.push(implementationSession);
 
       // Testing session
       const testingSession = await sessionManager.createSession(
         complexFeature,
-        testingTriggerComment
+        testingTriggerComment,
       );
       sessions.push(testingSession);
 
@@ -305,19 +326,22 @@ describe("Claude Code + Linear Integration Workflow", () => {
       const results: ClaudeExecutionResult[] = [];
 
       for (const session of sessions) {
-        const result = await sessionManager.startSession(session.id, complexFeature);
+        const result = await sessionManager.startSession(
+          session.id,
+          complexFeature,
+        );
         results.push(result);
       }
 
       // 7. Verify coordinated results
       expect(results).toHaveLength(3);
-      expect(results.every(r => r.success)).toBe(true);
+      expect(results.every((r) => r.success)).toBe(true);
 
       // Each phase should modify different types of files
-      const allModifiedFiles = results.flatMap(r => r.filesModified);
-      expect(allModifiedFiles.some(f => f.includes("auth"))).toBe(true); // Implementation
-      expect(allModifiedFiles.some(f => f.includes("test"))).toBe(true); // Testing
-      expect(allModifiedFiles.some(f => f.includes("doc"))).toBe(true);  // Analysis/docs
+      const allModifiedFiles = results.flatMap((r) => r.filesModified);
+      expect(allModifiedFiles.some((f) => f.includes("auth"))).toBe(true); // Implementation
+      expect(allModifiedFiles.some((f) => f.includes("test"))).toBe(true); // Testing
+      expect(allModifiedFiles.some((f) => f.includes("doc"))).toBe(true); // Analysis/docs
 
       // 8. Verify sessions were managed properly
       const sessionStats = await sessionManager.getStats();
@@ -330,31 +354,35 @@ describe("Claude Code + Linear Integration Workflow", () => {
         createMockIssue({
           id: "issue-1",
           identifier: "DEV-001",
-          title: "Fix memory leak in image processing"
+          title: "Fix memory leak in image processing",
         }),
         createMockIssue({
-          id: "issue-2", 
+          id: "issue-2",
           identifier: "DEV-002",
-          title: "Add rate limiting to API endpoints"
+          title: "Add rate limiting to API endpoints",
         }),
         createMockIssue({
           id: "issue-3",
-          identifier: "DEV-003", 
-          title: "Update documentation for new features"
-        })
+          identifier: "DEV-003",
+          title: "Update documentation for new features",
+        }),
       ];
 
       // 2. Create sessions for all issues
       const sessions = await Promise.all(
-        issues.map(issue => sessionManager.createSession(issue))
+        issues.map((issue) => sessionManager.createSession(issue)),
       );
 
       expect(sessions).toHaveLength(3);
-      expect(sessions.every(s => s.status === SessionStatus.CREATED)).toBe(true);
+      expect(sessions.every((s) => s.status === SessionStatus.CREATED)).toBe(
+        true,
+      );
 
       // 3. Start all sessions concurrently
-      const executionPromises = sessions.map(session => {
-        const correspondingIssue = issues.find(i => i.id === session.issueId)!;
+      const executionPromises = sessions.map((session) => {
+        const correspondingIssue = issues.find(
+          (i) => i.id === session.issueId,
+        )!;
         return sessionManager.startSession(session.id, correspondingIssue);
       });
 
@@ -362,14 +390,16 @@ describe("Claude Code + Linear Integration Workflow", () => {
 
       // 4. Verify all sessions completed successfully
       expect(results).toHaveLength(3);
-      expect(results.every(r => r.success)).toBe(true);
+      expect(results.every((r) => r.success)).toBe(true);
 
       // 5. Verify sessions are tracked separately
       const activeSessions = await sessionManager.listActiveSessions();
       expect(activeSessions).toHaveLength(0); // All should be completed
 
       const allSessions = await sessionManager.listSessions();
-      expect(allSessions.filter(s => s.status === SessionStatus.COMPLETED)).toHaveLength(3);
+      expect(
+        allSessions.filter((s) => s.status === SessionStatus.COMPLETED),
+      ).toHaveLength(3);
     });
   });
 
@@ -388,46 +418,52 @@ describe("Claude Code + Linear Integration Workflow", () => {
         id: "old-session",
         status: SessionStatus.COMPLETED,
         completedAt: oldDate,
-        lastActivityAt: oldDate
+        lastActivityAt: oldDate,
       };
 
       const recentSession = {
         ...mockSessionCreated,
-        id: "recent-session", 
+        id: "recent-session",
         status: SessionStatus.COMPLETED,
         completedAt: recentDate,
-        lastActivityAt: recentDate
+        lastActivityAt: recentDate,
       };
 
       const activeSession = {
         ...mockSessionCreated,
         id: "active-session",
-        status: SessionStatus.RUNNING
+        status: SessionStatus.RUNNING,
       };
 
       // Mock storage methods
-      vi.spyOn(sessionManager['storage'], 'list').mockResolvedValue([
+      vi.spyOn(sessionManager["storage"], "list").mockResolvedValue([
         oldSession,
-        recentSession, 
-        activeSession
+        recentSession,
+        activeSession,
       ]);
 
-      vi.spyOn(sessionManager['storage'], 'delete').mockResolvedValue();
+      vi.spyOn(sessionManager["storage"], "delete").mockResolvedValue();
 
       // 2. Clean up sessions older than 7 days
       const cleanedCount = await sessionManager.cleanupOldSessions(7);
 
       // 3. Verify only old completed sessions were cleaned
       expect(cleanedCount).toBe(1); // Only oldSession should be cleaned
-      expect(sessionManager['storage'].delete).toHaveBeenCalledWith("old-session");
-      expect(sessionManager['storage'].delete).not.toHaveBeenCalledWith("recent-session");
-      expect(sessionManager['storage'].delete).not.toHaveBeenCalledWith("active-session");
+      expect(sessionManager["storage"].delete).toHaveBeenCalledWith(
+        "old-session",
+      );
+      expect(sessionManager["storage"].delete).not.toHaveBeenCalledWith(
+        "recent-session",
+      );
+      expect(sessionManager["storage"].delete).not.toHaveBeenCalledWith(
+        "active-session",
+      );
     });
 
     it("should handle session timeout and cancellation", async () => {
       // 1. Create session
       const timeoutIssue = createMockIssue({
-        title: "Long running task that might timeout"
+        title: "Long running task that might timeout",
       });
 
       const session = await sessionManager.createSession(timeoutIssue);
@@ -435,13 +471,13 @@ describe("Claude Code + Linear Integration Workflow", () => {
       // 2. Mock executor to simulate long-running process
       vi.mocked(claudeExecutor.execute).mockImplementation(async () => {
         // Simulate long execution
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
         throw new Error("Session timeout");
       });
 
       // 3. Attempt to start session (should fail)
       await expect(
-        sessionManager.startSession(session.id, timeoutIssue)
+        sessionManager.startSession(session.id, timeoutIssue),
       ).rejects.toThrow("Session timeout");
 
       // 4. Verify session is marked as failed
@@ -450,40 +486,72 @@ describe("Claude Code + Linear Integration Workflow", () => {
       expect(failedSession?.error).toContain("Session timeout");
 
       // 5. Test cancellation
-      const cancelableSession = await sessionManager.createSession(timeoutIssue);
-      
+      const cancelableSession =
+        await sessionManager.createSession(timeoutIssue);
+
       // Simulate running session
       vi.mocked(claudeExecutor.execute).mockImplementation(async () => {
         // Long running task
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         return mockExecutionResultSuccess;
       });
 
       // Start session in background
-      const executionPromise = sessionManager.startSession(cancelableSession.id, timeoutIssue);
+      const executionPromise = sessionManager.startSession(
+        cancelableSession.id,
+        timeoutIssue,
+      );
 
       // Cancel session
-      const cancelled = await sessionManager.cancelSession(cancelableSession.id);
+      const cancelled = await sessionManager.cancelSession(
+        cancelableSession.id,
+      );
       expect(cancelled).toBe(true);
 
       // Verify cancellation
-      const cancelledSession = await sessionManager.getSession(cancelableSession.id);
+      const cancelledSession = await sessionManager.getSession(
+        cancelableSession.id,
+      );
       expect(cancelledSession?.status).toBe(SessionStatus.CANCELLED);
     });
 
     it("should provide comprehensive session statistics", async () => {
       // 1. Create sessions in various states
       const sessions = [
-        { ...mockSessionCreated, id: "running-1", status: SessionStatus.RUNNING },
-        { ...mockSessionCreated, id: "running-2", status: SessionStatus.RUNNING },
-        { ...mockSessionCreated, id: "completed-1", status: SessionStatus.COMPLETED },
-        { ...mockSessionCreated, id: "completed-2", status: SessionStatus.COMPLETED },
-        { ...mockSessionCreated, id: "completed-3", status: SessionStatus.COMPLETED },
+        {
+          ...mockSessionCreated,
+          id: "running-1",
+          status: SessionStatus.RUNNING,
+        },
+        {
+          ...mockSessionCreated,
+          id: "running-2",
+          status: SessionStatus.RUNNING,
+        },
+        {
+          ...mockSessionCreated,
+          id: "completed-1",
+          status: SessionStatus.COMPLETED,
+        },
+        {
+          ...mockSessionCreated,
+          id: "completed-2",
+          status: SessionStatus.COMPLETED,
+        },
+        {
+          ...mockSessionCreated,
+          id: "completed-3",
+          status: SessionStatus.COMPLETED,
+        },
         { ...mockSessionCreated, id: "failed-1", status: SessionStatus.FAILED },
-        { ...mockSessionCreated, id: "cancelled-1", status: SessionStatus.CANCELLED }
+        {
+          ...mockSessionCreated,
+          id: "cancelled-1",
+          status: SessionStatus.CANCELLED,
+        },
       ];
 
-      vi.spyOn(sessionManager['storage'], 'list').mockResolvedValue(sessions);
+      vi.spyOn(sessionManager["storage"], "list").mockResolvedValue(sessions);
 
       // 2. Get statistics
       const stats = await sessionManager.getStats();
@@ -512,10 +580,11 @@ describe("Claude Code + Linear Integration Workflow", () => {
 
       // 2. Test webhook from wrong organization
       const wrongOrgEvent = createMockWebhookEvent({
-        organizationId: "wrong-org-id"
+        organizationId: "wrong-org-id",
       });
 
-      const processedWrongOrg = await webhookHandler.processWebhook(wrongOrgEvent);
+      const processedWrongOrg =
+        await webhookHandler.processWebhook(wrongOrgEvent);
       expect(processedWrongOrg).toBeNull();
 
       // 3. Verify error logging
@@ -524,19 +593,21 @@ describe("Claude Code + Linear Integration Workflow", () => {
 
     it("should handle session creation failures", async () => {
       // 1. Mock storage failure
-      vi.spyOn(sessionManager['storage'], 'save').mockRejectedValue(
-        new Error("Storage unavailable")
+      vi.spyOn(sessionManager["storage"], "save").mockRejectedValue(
+        new Error("Storage unavailable"),
       );
 
       // 2. Attempt to create session
-      await expect(
-        sessionManager.createSession(mockIssue)
-      ).rejects.toThrow("Storage unavailable");
+      await expect(sessionManager.createSession(mockIssue)).rejects.toThrow(
+        "Storage unavailable",
+      );
 
       // 3. Verify error was logged
-      expect(logger.errorCalls.some(call => 
-        call.message.includes("Storage unavailable")
-      )).toBe(true);
+      expect(
+        logger.errorCalls.some((call) =>
+          call.message.includes("Storage unavailable"),
+        ),
+      ).toBe(true);
     });
 
     it("should handle Claude execution failures", async () => {
@@ -548,7 +619,7 @@ describe("Claude Code + Linear Integration Workflow", () => {
         filesModified: [],
         commits: [],
         duration: 5000,
-        exitCode: 1
+        exitCode: 1,
       };
 
       vi.mocked(claudeExecutor.execute).mockResolvedValue(executionError);
@@ -601,12 +672,18 @@ describe("Claude Code + Linear Integration Workflow", () => {
         .update(payload)
         .digest("hex");
 
-      const isValid = secureHandler.verifySignature(payload, `sha256=${validSignature}`);
+      const isValid = secureHandler.verifySignature(
+        payload,
+        `sha256=${validSignature}`,
+      );
       expect(isValid).toBe(true);
 
       // 3. Test invalid signature
       const invalidSignature = "sha256=invalid-signature";
-      const isInvalid = secureHandler.verifySignature(payload, invalidSignature);
+      const isInvalid = secureHandler.verifySignature(
+        payload,
+        invalidSignature,
+      );
       expect(isInvalid).toBe(false);
     });
 
@@ -623,9 +700,11 @@ describe("Claude Code + Linear Integration Workflow", () => {
       expect(result).toBe(true);
 
       // 3. Verify warning was logged
-      expect(logger.warnCalls.some(call =>
-        call.message.includes("No webhook secret configured")
-      )).toBe(true);
+      expect(
+        logger.warnCalls.some((call) =>
+          call.message.includes("No webhook secret configured"),
+        ),
+      ).toBe(true);
     });
   });
 
@@ -634,17 +713,17 @@ describe("Claude Code + Linear Integration Workflow", () => {
       const testCases = [
         "@claude please help",
         "Claude, can you implement this?",
-        "AI assistant needed here", 
+        "AI assistant needed here",
         "Help with this implementation",
         "Fix this bug please",
-        "Work on this feature"
+        "Work on this feature",
       ];
 
       for (const testCase of testCases) {
         const comment = createMockComment({ body: testCase });
         const event = createMockWebhookEvent({
           type: "Comment",
-          data: comment
+          data: comment,
         });
 
         const processed = await webhookHandler.processWebhook(event);
@@ -658,14 +737,14 @@ describe("Claude Code + Linear Integration Workflow", () => {
         "This is a regular comment",
         "Discussing the issue with team",
         "Status update: in progress",
-        "Meeting scheduled for tomorrow"
+        "Meeting scheduled for tomorrow",
       ];
 
       for (const testCase of nonMentionCases) {
         const comment = createMockComment({ body: testCase });
         const event = createMockWebhookEvent({
-          type: "Comment", 
-          data: comment
+          type: "Comment",
+          data: comment,
         });
 
         const processed = await webhookHandler.processWebhook(event);

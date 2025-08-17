@@ -20,7 +20,7 @@ const ENV_MAPPING = {
   webhookPort: "WEBHOOK_PORT",
   claudeExecutablePath: "CLAUDE_EXECUTABLE_PATH",
   timeoutMinutes: "SESSION_TIMEOUT_MINUTES",
-  debug: "DEBUG"
+  debug: "DEBUG",
 } as const;
 
 /**
@@ -32,7 +32,7 @@ const DEFAULT_CONFIG: Partial<IntegrationConfig> = {
   webhookPort: 3000,
   claudeExecutablePath: "claude",
   timeoutMinutes: 30,
-  debug: false
+  debug: false,
 };
 
 /**
@@ -63,7 +63,7 @@ export function loadConfig(configPath?: string): IntegrationConfig {
  */
 function loadDotEnv(configPath?: string): void {
   const envPath = configPath || join(process.cwd(), ".env");
-  
+
   if (!existsSync(envPath)) {
     return;
   }
@@ -97,7 +97,7 @@ function parseEnvValue(value: string, configKey: string): any {
     case "createBranches":
     case "debug":
       return value.toLowerCase() === "true" || value === "1";
-    
+
     case "webhookPort":
     case "timeoutMinutes":
       const numValue = parseInt(value, 10);
@@ -105,7 +105,7 @@ function parseEnvValue(value: string, configKey: string): any {
         throw new Error(`Invalid number value for ${configKey}: ${value}`);
       }
       return numValue;
-    
+
     default:
       return value;
   }
@@ -120,8 +120,8 @@ function validateConfig(config: Partial<IntegrationConfig>): void {
   // Required fields
   const required = [
     "linearApiToken",
-    "linearOrganizationId", 
-    "projectRootDir"
+    "linearOrganizationId",
+    "projectRootDir",
   ] as const;
 
   for (const field of required) {
@@ -132,11 +132,16 @@ function validateConfig(config: Partial<IntegrationConfig>): void {
 
   // Validate paths
   if (config.projectRootDir && !existsSync(config.projectRootDir)) {
-    errors.push(`Project root directory does not exist: ${config.projectRootDir}`);
+    errors.push(
+      `Project root directory does not exist: ${config.projectRootDir}`,
+    );
   }
 
   // Validate port
-  if (config.webhookPort && (config.webhookPort < 1 || config.webhookPort > 65535)) {
+  if (
+    config.webhookPort &&
+    (config.webhookPort < 1 || config.webhookPort > 65535)
+  ) {
     errors.push(`Invalid webhook port: ${config.webhookPort}`);
   }
 
@@ -146,7 +151,9 @@ function validateConfig(config: Partial<IntegrationConfig>): void {
   }
 
   if (errors.length > 0) {
-    throw new Error(`Configuration validation failed:\n${errors.map(e => `  - ${e}`).join("\n")}`);
+    throw new Error(
+      `Configuration validation failed:\n${errors.map((e) => `  - ${e}`).join("\n")}`,
+    );
   }
 }
 

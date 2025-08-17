@@ -1,6 +1,6 @@
 /**
  * Mock Webhook Server for Testing Linear Integration
- * 
+ *
  * This module provides a complete testing framework that simulates:
  * - Linear webhook events
  * - HTTP server webhook endpoints
@@ -16,7 +16,7 @@ import type {
   ClaudeSession,
   ClaudeExecutionResult,
   IntegrationConfig,
-  Logger
+  Logger,
 } from "../core/types.js";
 import { SessionStatus } from "../core/types.js";
 import { LinearWebhookHandler } from "../webhooks/handler.js";
@@ -28,7 +28,7 @@ import {
   createMockWebhookEvent,
   createMockIssue,
   createMockComment,
-  createMockLogger
+  createMockLogger,
 } from "./mocks.js";
 
 /**
@@ -58,7 +58,7 @@ export class MockWebhookServer extends EventEmitter {
     this.isRunning = true;
     this.logger.info("Mock webhook server started", {
       port: this.config.webhookPort,
-      organizationId: this.config.linearOrganizationId
+      organizationId: this.config.linearOrganizationId,
     });
     this.emit("server:started");
   }
@@ -68,17 +68,17 @@ export class MockWebhookServer extends EventEmitter {
    */
   async stop(): Promise<void> {
     this.isRunning = false;
-    
+
     // Cancel all active sessions
     for (const session of this.activeSessions.values()) {
       if (session.status === SessionStatus.RUNNING) {
         await this.sessionManager.cancelSession(session.id);
       }
     }
-    
+
     this.activeSessions.clear();
     this.processedEvents = [];
-    
+
     this.logger.info("Mock webhook server stopped");
     this.emit("server:stopped");
   }
@@ -98,14 +98,14 @@ export class MockWebhookServer extends EventEmitter {
     this.logger.info("Webhook received", {
       type: event.type,
       action: event.action,
-      organizationId: event.organizationId
+      organizationId: event.organizationId,
     });
 
     this.emit("webhook:received", event);
 
     // 1. Process webhook event
     const processedEvent = await this.webhookHandler.processWebhook(event);
-    
+
     if (!processedEvent) {
       this.emit("webhook:ignored", event);
       return { processed: null };
@@ -118,7 +118,7 @@ export class MockWebhookServer extends EventEmitter {
     if (processedEvent.shouldTrigger) {
       const session = await this.sessionManager.createSession(
         processedEvent.issue,
-        processedEvent.comment
+        processedEvent.comment,
       );
 
       this.activeSessions.set(session.id, session);
@@ -127,7 +127,7 @@ export class MockWebhookServer extends EventEmitter {
       // 3. Start session execution (mocked)
       const executionResult = await this.simulateClaudeExecution(
         session,
-        processedEvent
+        processedEvent,
       );
 
       this.emit("session:completed", session, executionResult);
@@ -135,7 +135,7 @@ export class MockWebhookServer extends EventEmitter {
       return {
         processed: processedEvent,
         session,
-        executionResult
+        executionResult,
       };
     }
 
@@ -147,19 +147,22 @@ export class MockWebhookServer extends EventEmitter {
    */
   private async simulateClaudeExecution(
     session: ClaudeSession,
-    event: ProcessedEvent
+    event: ProcessedEvent,
   ): Promise<ClaudeExecutionResult> {
     this.logger.info("Simulating Claude execution", {
       sessionId: session.id,
       issueId: event.issue.id,
-      eventType: event.type
+      eventType: event.type,
     });
 
     // Update session to running
-    await this.sessionManager.updateSessionStatus(session.id, SessionStatus.RUNNING);
-    
+    await this.sessionManager.updateSessionStatus(
+      session.id,
+      SessionStatus.RUNNING,
+    );
+
     // Simulate execution time
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     // Determine agent type and generate appropriate result
     const agentType = this.determineAgentType(event);
@@ -167,9 +170,15 @@ export class MockWebhookServer extends EventEmitter {
 
     // Update session based on result
     if (result.success) {
-      await this.sessionManager.updateSessionStatus(session.id, SessionStatus.COMPLETED);
+      await this.sessionManager.updateSessionStatus(
+        session.id,
+        SessionStatus.COMPLETED,
+      );
     } else {
-      await this.sessionManager.updateSessionStatus(session.id, SessionStatus.FAILED);
+      await this.sessionManager.updateSessionStatus(
+        session.id,
+        SessionStatus.FAILED,
+      );
     }
 
     return result;
@@ -179,7 +188,11 @@ export class MockWebhookServer extends EventEmitter {
    * Determine the type of Claude agent based on the event
    */
   private determineAgentType(event: ProcessedEvent): string {
-    const content = (event.comment?.body || event.issue.description || "").toLowerCase();
+    const content = (
+      event.comment?.body ||
+      event.issue.description ||
+      ""
+    ).toLowerCase();
 
     if (content.includes("analyze") || content.includes("review")) {
       return "analysis";
@@ -208,136 +221,156 @@ export class MockWebhookServer extends EventEmitter {
    */
   private generateExecutionResult(
     agentType: string,
-    event: ProcessedEvent
+    event: ProcessedEvent,
   ): ClaudeExecutionResult {
     const baseResult = {
       success: true,
       duration: Math.floor(Math.random() * 1800000) + 300000, // 5-30 minutes
-      exitCode: 0
+      exitCode: 0,
     };
 
     switch (agentType) {
       case "analysis":
         return {
           ...baseResult,
-          output: "Code analysis completed. Found 3 optimization opportunities and 2 potential issues.",
+          output:
+            "Code analysis completed. Found 3 optimization opportunities and 2 potential issues.",
           filesModified: [
             "analysis/code-review.md",
-            "analysis/recommendations.md"
+            "analysis/recommendations.md",
           ],
-          commits: [{
-            hash: "analysis123",
-            message: "analysis: code review and recommendations",
-            author: "Claude Analysis Agent",
-            timestamp: new Date(),
-            files: ["analysis/code-review.md"]
-          }]
+          commits: [
+            {
+              hash: "analysis123",
+              message: "analysis: code review and recommendations",
+              author: "Claude Analysis Agent",
+              timestamp: new Date(),
+              files: ["analysis/code-review.md"],
+            },
+          ],
         };
 
       case "testing":
         return {
           ...baseResult,
-          output: "Test suite created with 85% coverage. Added 42 test cases including edge cases.",
+          output:
+            "Test suite created with 85% coverage. Added 42 test cases including edge cases.",
           filesModified: [
             "tests/unit/component.test.ts",
             "tests/integration/api.test.ts",
-            "tests/fixtures/test-data.ts"
+            "tests/fixtures/test-data.ts",
           ],
-          commits: [{
-            hash: "test456",
-            message: "test: comprehensive test suite for new features",
-            author: "Claude Testing Agent",
-            timestamp: new Date(),
-            files: ["tests/unit/component.test.ts"]
-          }]
+          commits: [
+            {
+              hash: "test456",
+              message: "test: comprehensive test suite for new features",
+              author: "Claude Testing Agent",
+              timestamp: new Date(),
+              files: ["tests/unit/component.test.ts"],
+            },
+          ],
         };
 
       case "bugfix":
         return {
           ...baseResult,
-          output: "Bug fixed successfully. Root cause: improper input validation. Added comprehensive validation and tests.",
+          output:
+            "Bug fixed successfully. Root cause: improper input validation. Added comprehensive validation and tests.",
           filesModified: [
             "src/utils/validation.ts",
             "src/api/endpoints.ts",
-            "tests/validation.test.ts"
+            "tests/validation.test.ts",
           ],
-          commits: [{
-            hash: "fix789",
-            message: "fix: resolve input validation bug in API endpoints",
-            author: "Claude Bug Fix Agent",
-            timestamp: new Date(),
-            files: ["src/utils/validation.ts"]
-          }]
+          commits: [
+            {
+              hash: "fix789",
+              message: "fix: resolve input validation bug in API endpoints",
+              author: "Claude Bug Fix Agent",
+              timestamp: new Date(),
+              files: ["src/utils/validation.ts"],
+            },
+          ],
         };
 
       case "documentation":
         return {
           ...baseResult,
-          output: "Documentation updated with comprehensive API reference, examples, and migration guide.",
+          output:
+            "Documentation updated with comprehensive API reference, examples, and migration guide.",
           filesModified: [
             "docs/api/reference.md",
             "docs/examples/usage.md",
-            "README.md"
+            "README.md",
           ],
-          commits: [{
-            hash: "docs012",
-            message: "docs: update API documentation and examples",
-            author: "Claude Documentation Agent",
-            timestamp: new Date(),
-            files: ["docs/api/reference.md"]
-          }]
+          commits: [
+            {
+              hash: "docs012",
+              message: "docs: update API documentation and examples",
+              author: "Claude Documentation Agent",
+              timestamp: new Date(),
+              files: ["docs/api/reference.md"],
+            },
+          ],
         };
 
       case "performance":
         return {
           ...baseResult,
-          output: "Performance optimized. Reduced response time by 60% through caching and query optimization.",
+          output:
+            "Performance optimized. Reduced response time by 60% through caching and query optimization.",
           filesModified: [
             "src/cache/redis-cache.ts",
             "src/database/optimized-queries.ts",
-            "performance/benchmark-results.md"
+            "performance/benchmark-results.md",
           ],
-          commits: [{
-            hash: "perf345",
-            message: "perf: optimize response times with caching and query improvements",
-            author: "Claude Performance Agent",
-            timestamp: new Date(),
-            files: ["src/cache/redis-cache.ts"]
-          }]
+          commits: [
+            {
+              hash: "perf345",
+              message:
+                "perf: optimize response times with caching and query improvements",
+              author: "Claude Performance Agent",
+              timestamp: new Date(),
+              files: ["src/cache/redis-cache.ts"],
+            },
+          ],
         };
 
       case "implementation":
         return {
           ...baseResult,
-          output: "Feature implemented successfully with proper error handling and logging.",
+          output:
+            "Feature implemented successfully with proper error handling and logging.",
           filesModified: [
             "src/features/new-feature.ts",
             "src/api/new-endpoints.ts",
-            "src/types/feature-types.ts"
+            "src/types/feature-types.ts",
           ],
-          commits: [{
-            hash: "feat678",
-            message: "feat: implement new feature with comprehensive error handling",
-            author: "Claude Implementation Agent",
-            timestamp: new Date(),
-            files: ["src/features/new-feature.ts"]
-          }]
+          commits: [
+            {
+              hash: "feat678",
+              message:
+                "feat: implement new feature with comprehensive error handling",
+              author: "Claude Implementation Agent",
+              timestamp: new Date(),
+              files: ["src/features/new-feature.ts"],
+            },
+          ],
         };
 
       default:
         return {
           ...baseResult,
           output: "Task completed successfully with appropriate changes.",
-          filesModified: [
-            "src/general/changes.ts"
+          filesModified: ["src/general/changes.ts"],
+          commits: [
+            {
+              hash: "general901",
+              message: "chore: general improvements and updates",
+              author: "Claude General Agent",
+              timestamp: new Date(),
+              files: ["src/general/changes.ts"],
+            },
           ],
-          commits: [{
-            hash: "general901",
-            message: "chore: general improvements and updates",
-            author: "Claude General Agent",
-            timestamp: new Date(),
-            files: ["src/general/changes.ts"]
-          }]
         };
     }
   }
@@ -352,18 +385,22 @@ export class MockWebhookServer extends EventEmitter {
     activeSessions: number;
     completedSessions: number;
   } {
-    const triggeredEvents = this.processedEvents.filter(e => e.shouldTrigger).length;
-    const activeSessions = Array.from(this.activeSessions.values())
-      .filter(s => s.status === SessionStatus.RUNNING).length;
-    const completedSessions = Array.from(this.activeSessions.values())
-      .filter(s => s.status === SessionStatus.COMPLETED).length;
+    const triggeredEvents = this.processedEvents.filter(
+      (e) => e.shouldTrigger,
+    ).length;
+    const activeSessions = Array.from(this.activeSessions.values()).filter(
+      (s) => s.status === SessionStatus.RUNNING,
+    ).length;
+    const completedSessions = Array.from(this.activeSessions.values()).filter(
+      (s) => s.status === SessionStatus.COMPLETED,
+    ).length;
 
     return {
       isRunning: this.isRunning,
       totalEvents: this.processedEvents.length,
       triggeredEvents,
       activeSessions,
-      completedSessions
+      completedSessions,
     };
   }
 
@@ -401,14 +438,14 @@ export class WebhookTestScenarioBuilder {
     const issue = createMockIssue({
       title: "Implement user authentication service",
       description: "Create JWT-based authentication with refresh tokens",
-      assignee: mockAgentUser
+      assignee: mockAgentUser,
     });
 
     const event = createMockWebhookEvent({
       action: "update",
       type: "Issue",
       data: issue,
-      actor: mockUser
+      actor: mockUser,
     });
 
     return { issue, event };
@@ -417,22 +454,24 @@ export class WebhookTestScenarioBuilder {
   /**
    * Create comment mention scenario
    */
-  static createCommentMentionScenario(mentionText: string = "@claude please help with this issue") {
+  static createCommentMentionScenario(
+    mentionText: string = "@claude please help with this issue",
+  ) {
     const issue = createMockIssue({
       title: "Bug in payment processing",
-      description: "Users experiencing payment failures"
+      description: "Users experiencing payment failures",
     });
 
     const comment = createMockComment({
       body: mentionText,
-      issue
+      issue,
     });
 
     const event = createMockWebhookEvent({
       action: "create",
       type: "Comment",
       data: comment,
-      actor: mockUser
+      actor: mockUser,
     });
 
     return { issue, comment, event };
@@ -444,19 +483,19 @@ export class WebhookTestScenarioBuilder {
   static createBugFixScenario() {
     const issue = createMockIssue({
       title: "CRITICAL: Memory leak in image processing",
-      description: "Server crashes after processing 100+ images"
+      description: "Server crashes after processing 100+ images",
     });
 
     const comment = createMockComment({
       body: "@claude urgent bug fix needed - memory leak causing server crashes in production",
-      issue
+      issue,
     });
 
     const event = createMockWebhookEvent({
       action: "create",
       type: "Comment",
       data: comment,
-      actor: mockUser
+      actor: mockUser,
     });
 
     return { issue, comment, event };
@@ -468,19 +507,19 @@ export class WebhookTestScenarioBuilder {
   static createTestingScenario() {
     const issue = createMockIssue({
       title: "Add comprehensive tests for API gateway",
-      description: "New API gateway needs thorough testing coverage"
+      description: "New API gateway needs thorough testing coverage",
     });
 
     const comment = createMockComment({
       body: "@claude add comprehensive tests for the API gateway including unit, integration, and load tests",
-      issue
+      issue,
     });
 
     const event = createMockWebhookEvent({
       action: "create",
       type: "Comment",
       data: comment,
-      actor: mockUser
+      actor: mockUser,
     });
 
     return { issue, comment, event };
@@ -492,19 +531,20 @@ export class WebhookTestScenarioBuilder {
   static createPerformanceScenario() {
     const issue = createMockIssue({
       title: "API response times too slow",
-      description: "Average response time is 3 seconds, need to optimize to under 500ms"
+      description:
+        "Average response time is 3 seconds, need to optimize to under 500ms",
     });
 
     const comment = createMockComment({
       body: "@claude optimize the API performance - current response times are unacceptable for production",
-      issue
+      issue,
     });
 
     const event = createMockWebhookEvent({
       action: "create",
       type: "Comment",
       data: comment,
-      actor: mockUser
+      actor: mockUser,
     });
 
     return { issue, comment, event };
@@ -516,38 +556,64 @@ export class WebhookTestScenarioBuilder {
   static createMultiAgentScenario() {
     const issue = createMockIssue({
       title: "Implement complete OAuth2 authentication system",
-      description: "Build OAuth2 system with Google/GitHub providers, comprehensive testing, and documentation"
+      description:
+        "Build OAuth2 system with Google/GitHub providers, comprehensive testing, and documentation",
     });
 
     const analysisComment = createMockComment({
       body: "@claude analyze the current auth system and design OAuth2 architecture",
-      issue
+      issue,
     });
 
     const implementationComment = createMockComment({
       body: "@claude implement the OAuth2 system based on the analysis",
-      issue
+      issue,
     });
 
     const testingComment = createMockComment({
       body: "@claude add comprehensive tests for OAuth2 including edge cases",
-      issue
+      issue,
     });
 
     const docComment = createMockComment({
       body: "@claude document the OAuth2 API and integration guide",
-      issue
+      issue,
     });
 
     return {
       issue,
-      comments: [analysisComment, implementationComment, testingComment, docComment],
+      comments: [
+        analysisComment,
+        implementationComment,
+        testingComment,
+        docComment,
+      ],
       events: [
-        createMockWebhookEvent({ action: "create", type: "Comment", data: analysisComment, actor: mockUser }),
-        createMockWebhookEvent({ action: "create", type: "Comment", data: implementationComment, actor: mockUser }),
-        createMockWebhookEvent({ action: "create", type: "Comment", data: testingComment, actor: mockUser }),
-        createMockWebhookEvent({ action: "create", type: "Comment", data: docComment, actor: mockUser })
-      ]
+        createMockWebhookEvent({
+          action: "create",
+          type: "Comment",
+          data: analysisComment,
+          actor: mockUser,
+        }),
+        createMockWebhookEvent({
+          action: "create",
+          type: "Comment",
+          data: implementationComment,
+          actor: mockUser,
+        }),
+        createMockWebhookEvent({
+          action: "create",
+          type: "Comment",
+          data: testingComment,
+          actor: mockUser,
+        }),
+        createMockWebhookEvent({
+          action: "create",
+          type: "Comment",
+          data: docComment,
+          actor: mockUser,
+        }),
+      ],
     };
   }
 }
@@ -572,7 +638,7 @@ export class WebhookIntegrationTestRunner {
       triggeredEvents: number;
       sessionsCreated: number;
       specificAgentTypes?: string[];
-    }
+    },
   ): Promise<{
     success: boolean;
     results: any[];
@@ -593,29 +659,32 @@ export class WebhookIntegrationTestRunner {
 
       // Verify outcomes
       const stats = this.server.getStats();
-      
+
       if (stats.triggeredEvents !== expectedOutcomes.triggeredEvents) {
-        errors.push(`Expected ${expectedOutcomes.triggeredEvents} triggered events, got ${stats.triggeredEvents}`);
+        errors.push(
+          `Expected ${expectedOutcomes.triggeredEvents} triggered events, got ${stats.triggeredEvents}`,
+        );
       }
 
       if (stats.completedSessions !== expectedOutcomes.sessionsCreated) {
-        errors.push(`Expected ${expectedOutcomes.sessionsCreated} sessions, got ${stats.completedSessions}`);
+        errors.push(
+          `Expected ${expectedOutcomes.sessionsCreated} sessions, got ${stats.completedSessions}`,
+        );
       }
 
       return {
         success: errors.length === 0,
         results,
         stats,
-        errors
+        errors,
       };
-
     } catch (error) {
       errors.push(`Scenario execution failed: ${(error as Error).message}`);
       return {
         success: false,
         results,
         stats: this.server.getStats(),
-        errors
+        errors,
       };
     } finally {
       await this.server.stop();
@@ -627,7 +696,7 @@ export class WebhookIntegrationTestRunner {
    */
   async runStressTest(
     eventCount: number,
-    concurrentEvents: number = 10
+    concurrentEvents: number = 10,
   ): Promise<{
     success: boolean;
     processingTime: number;
@@ -635,7 +704,7 @@ export class WebhookIntegrationTestRunner {
     errors: string[];
   }> {
     const errors: string[] = [];
-    
+
     try {
       await this.server.start();
 
@@ -644,9 +713,10 @@ export class WebhookIntegrationTestRunner {
 
       // Generate test events
       for (let i = 0; i < eventCount; i++) {
-        const scenario = WebhookTestScenarioBuilder.createCommentMentionScenario(
-          `@claude test event ${i + 1}`
-        );
+        const scenario =
+          WebhookTestScenarioBuilder.createCommentMentionScenario(
+            `@claude test event ${i + 1}`,
+          );
         events.push(scenario.event);
       }
 
@@ -658,7 +728,7 @@ export class WebhookIntegrationTestRunner {
 
       for (const batch of batches) {
         await Promise.all(
-          batch.map(event => this.server.receiveWebhook(event))
+          batch.map((event) => this.server.receiveWebhook(event)),
         );
       }
 
@@ -669,16 +739,15 @@ export class WebhookIntegrationTestRunner {
         success: true,
         processingTime,
         eventsPerSecond,
-        errors
+        errors,
       };
-
     } catch (error) {
       errors.push(`Stress test failed: ${(error as Error).message}`);
       return {
         success: false,
         processingTime: 0,
         eventsPerSecond: 0,
-        errors
+        errors,
       };
     } finally {
       await this.server.stop();
@@ -693,7 +762,10 @@ export class WebhookTestValidators {
   /**
    * Validate session was created correctly
    */
-  static validateSession(session: ClaudeSession, expectedIssueId: string): boolean {
+  static validateSession(
+    session: ClaudeSession,
+    expectedIssueId: string,
+  ): boolean {
     return (
       session.issueId === expectedIssueId &&
       session.status !== undefined &&
@@ -719,7 +791,10 @@ export class WebhookTestValidators {
   /**
    * Validate webhook processing result
    */
-  static validateProcessedEvent(event: ProcessedEvent, shouldTrigger: boolean): boolean {
+  static validateProcessedEvent(
+    event: ProcessedEvent,
+    shouldTrigger: boolean,
+  ): boolean {
     return (
       event.shouldTrigger === shouldTrigger &&
       event.issue !== undefined &&

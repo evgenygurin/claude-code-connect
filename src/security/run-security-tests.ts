@@ -15,10 +15,10 @@ import type { IntegrationConfig, Logger } from "../core/types.js";
  */
 interface SecurityTestOptions {
   verbose?: boolean;
-  outputFormat?: 'console' | 'json' | 'html';
+  outputFormat?: "console" | "json" | "html";
   outputFile?: string;
-  testCategory?: 'all' | 'validation' | 'injection' | 'auth' | 'monitoring';
-  severity?: 'low' | 'medium' | 'high' | 'critical';
+  testCategory?: "all" | "validation" | "injection" | "auth" | "monitoring";
+  severity?: "low" | "medium" | "high" | "critical";
 }
 
 /**
@@ -35,7 +35,7 @@ const mockConfig: IntegrationConfig = {
   createBranches: true,
   timeoutMinutes: 30,
   agentUserId: "test-agent-" + Math.random().toString(36),
-  debug: false
+  debug: false,
 };
 
 /**
@@ -44,20 +44,20 @@ const mockConfig: IntegrationConfig = {
 const mockLogger: Logger = {
   debug: (message: string, meta?: Record<string, unknown>) => {
     if (process.env.VERBOSE) {
-      console.log(`[DEBUG] ${message}`, meta || '');
+      console.log(`[DEBUG] ${message}`, meta || "");
     }
   },
   info: (message: string, meta?: Record<string, unknown>) => {
     if (process.env.VERBOSE) {
-      console.log(`[INFO] ${message}`, meta || '');
+      console.log(`[INFO] ${message}`, meta || "");
     }
   },
   warn: (message: string, meta?: Record<string, unknown>) => {
-    console.warn(`[WARN] ${message}`, meta || '');
+    console.warn(`[WARN] ${message}`, meta || "");
   },
   error: (message: string, error?: Error, meta?: Record<string, unknown>) => {
-    console.error(`[ERROR] ${message}`, error?.message || '', meta || '');
-  }
+    console.error(`[ERROR] ${message}`, error?.message || "", meta || "");
+  },
 };
 
 /**
@@ -69,14 +69,14 @@ class SecurityTestRunner {
   constructor(options: SecurityTestOptions = {}) {
     this.options = {
       verbose: false,
-      outputFormat: 'console',
-      testCategory: 'all',
-      ...options
+      outputFormat: "console",
+      testCategory: "all",
+      ...options,
     };
 
     // Set verbose environment for logger
     if (this.options.verbose) {
-      process.env.VERBOSE = 'true';
+      process.env.VERBOSE = "true";
     }
   }
 
@@ -85,7 +85,7 @@ class SecurityTestRunner {
    */
   async run(): Promise<void> {
     console.log("🔒 Claude Code + Linear Integration Security Test Suite");
-    console.log("=" .repeat(60));
+    console.log("=".repeat(60));
     console.log("");
 
     const startTime = Date.now();
@@ -94,7 +94,11 @@ class SecurityTestRunner {
       // Initialize security components
       const securityAgent = new SecurityAgent(mockConfig, mockLogger);
       const securityValidator = new SecurityValidator();
-      const securityMonitor = new SecurityMonitor(mockConfig, mockLogger, securityAgent);
+      const securityMonitor = new SecurityMonitor(
+        mockConfig,
+        mockLogger,
+        securityAgent,
+      );
 
       // Start monitoring for test duration
       await securityMonitor.startMonitoring();
@@ -117,7 +121,11 @@ class SecurityTestRunner {
       await this.displayResults(report, results);
 
       // Run component-specific tests
-      await this.runComponentTests(securityAgent, securityValidator, securityMonitor);
+      await this.runComponentTests(
+        securityAgent,
+        securityValidator,
+        securityMonitor,
+      );
 
       // Stop monitoring
       await securityMonitor.stopMonitoring();
@@ -126,10 +134,9 @@ class SecurityTestRunner {
       console.log(`\n⏱️  Total execution time: ${duration}ms`);
 
       // Exit with appropriate code
-      if (results.failed > 0 || report.summary.riskLevel === 'CRITICAL') {
+      if (results.failed > 0 || report.summary.riskLevel === "CRITICAL") {
         process.exit(1);
       }
-
     } catch (error) {
       console.error("❌ Security test suite failed:", (error as Error).message);
       process.exit(1);
@@ -149,7 +156,7 @@ class SecurityTestRunner {
           const validator = new SecurityValidator();
           const sessionId = validator.generateSecureSessionId();
           return sessionId.length >= 32 && /^[a-zA-Z0-9_-]+$/.test(sessionId);
-        }
+        },
       },
       {
         name: "Input Sanitization",
@@ -157,39 +164,44 @@ class SecurityTestRunner {
           const validator = new SecurityValidator();
           const maliciousInput = '<script>alert("xss")</script>';
           const sanitized = validator.sanitizeIssueDescription(maliciousInput);
-          return !sanitized.includes('<script>');
-        }
+          return !sanitized.includes("<script>");
+        },
       },
       {
         name: "Path Validation",
         test: () => {
           const validator = new SecurityValidator();
-          const result = validator.validateFilePath('../../../etc/passwd', '/tmp/test');
+          const result = validator.validateFilePath(
+            "../../../etc/passwd",
+            "/tmp/test",
+          );
           return !result.valid;
-        }
+        },
       },
       {
         name: "Command Validation",
         test: () => {
           const validator = new SecurityValidator();
-          const result = validator.validateCommand('rm -rf /');
+          const result = validator.validateCommand("rm -rf /");
           return !result.valid;
-        }
+        },
       },
       {
         name: "Injection Detection",
         test: () => {
           const validator = new SecurityValidator();
-          const result = validator.detectInjectionAttempts('$(malicious_command)');
-          return result.detected && result.severity === 'high';
-        }
-      }
+          const result = validator.detectInjectionAttempts(
+            "$(malicious_command)",
+          );
+          return result.detected && result.severity === "high";
+        },
+      },
     ];
 
     for (const test of tests) {
       try {
         const passed = test.test();
-        console.log(`  ${passed ? '✅' : '❌'} ${test.name}`);
+        console.log(`  ${passed ? "✅" : "❌"} ${test.name}`);
       } catch (error) {
         console.log(`  ❌ ${test.name} (Error: ${(error as Error).message})`);
       }
@@ -203,21 +215,30 @@ class SecurityTestRunner {
    */
   private async displayResults(
     report: any,
-    results: { passed: number; failed: number; vulnerabilities: string[]; recommendations: string[] }
+    results: {
+      passed: number;
+      failed: number;
+      vulnerabilities: string[];
+      recommendations: string[];
+    },
   ): Promise<void> {
     console.log("📊 Security Test Results:");
-    console.log("=" .repeat(40));
+    console.log("=".repeat(40));
 
     // Summary
     console.log(`\n🎯 Summary:`);
     console.log(`  Total Tests: ${report.summary.totalTests}`);
     console.log(`  Passed: ${report.summary.passedTests} ✅`);
     console.log(`  Failed: ${report.summary.failedTests} ❌`);
-    console.log(`  Risk Level: ${this.getRiskLevelEmoji(report.summary.riskLevel)} ${report.summary.riskLevel}`);
+    console.log(
+      `  Risk Level: ${this.getRiskLevelEmoji(report.summary.riskLevel)} ${report.summary.riskLevel}`,
+    );
 
     // Vulnerabilities
     if (results.vulnerabilities.length > 0) {
-      console.log(`\n🚨 Vulnerabilities Found (${results.vulnerabilities.length}):`);
+      console.log(
+        `\n🚨 Vulnerabilities Found (${results.vulnerabilities.length}):`,
+      );
       results.vulnerabilities.forEach((vuln, index) => {
         console.log(`  ${index + 1}. ${vuln}`);
       });
@@ -225,11 +246,13 @@ class SecurityTestRunner {
 
     // Recommendations
     if (results.recommendations.length > 0) {
-      console.log(`\n💡 Security Recommendations (${results.recommendations.length}):`);
+      console.log(
+        `\n💡 Security Recommendations (${results.recommendations.length}):`,
+      );
       results.recommendations.slice(0, 10).forEach((rec, index) => {
         console.log(`  ${index + 1}. ${rec}`);
       });
-      
+
       if (results.recommendations.length > 10) {
         console.log(`  ... and ${results.recommendations.length - 10} more`);
       }
@@ -239,9 +262,9 @@ class SecurityTestRunner {
     if (this.options.verbose && report.testDetails) {
       console.log(`\n📋 Detailed Test Results:`);
       report.testDetails.forEach((test: any) => {
-        const status = test.passed ? '✅' : '❌';
+        const status = test.passed ? "✅" : "❌";
         console.log(`  ${status} ${test.name}`);
-        
+
         if (!test.passed && test.vulnerabilities.length > 0) {
           test.vulnerabilities.forEach((vuln: string) => {
             console.log(`    - ${vuln}`);
@@ -262,7 +285,7 @@ class SecurityTestRunner {
   private async runComponentTests(
     securityAgent: SecurityAgent,
     securityValidator: SecurityValidator,
-    securityMonitor: SecurityMonitor
+    securityMonitor: SecurityMonitor,
   ): Promise<void> {
     console.log("\n🧪 Running Component-Specific Tests...");
 
@@ -271,25 +294,32 @@ class SecurityTestRunner {
     const webhookResult = await securityAgent.validateWebhook(
       '{"test": "payload"}',
       undefined,
-      'Linear-Webhook/1.0',
-      '127.0.0.1'
+      "Linear-Webhook/1.0",
+      "127.0.0.1",
     );
-    console.log(`    Webhook validation: ${webhookResult.valid ? '✅' : '❌'}`);
+    console.log(`    Webhook validation: ${webhookResult.valid ? "✅" : "❌"}`);
 
     // Security Validator Tests
     console.log("  Testing Security Validator...");
-    const branchResult = securityValidator.validateBranchName('feature/test-branch');
-    console.log(`    Branch validation: ${branchResult.valid ? '✅' : '❌'}`);
+    const branchResult = securityValidator.validateBranchName(
+      "feature/test-branch",
+    );
+    console.log(`    Branch validation: ${branchResult.valid ? "✅" : "❌"}`);
 
     // Security Monitor Tests
     console.log("  Testing Security Monitor...");
     const monitorStatus = securityMonitor.getStatus();
-    console.log(`    Monitor status: ${monitorStatus.isMonitoring ? '✅' : '❌'}`);
+    console.log(
+      `    Monitor status: ${monitorStatus.isMonitoring ? "✅" : "❌"}`,
+    );
 
     // Performance Tests
     console.log("  Running Performance Tests...");
-    const performanceResults = await this.runPerformanceTests(securityValidator);
-    console.log(`    Performance: ${performanceResults.passed ? '✅' : '❌'} (${performanceResults.avgTime}ms avg)`);
+    const performanceResults =
+      await this.runPerformanceTests(securityValidator);
+    console.log(
+      `    Performance: ${performanceResults.passed ? "✅" : "❌"} (${performanceResults.avgTime}ms avg)`,
+    );
   }
 
   /**
@@ -306,7 +336,7 @@ class SecurityTestRunner {
     for (let i = 0; i < iterations; i++) {
       const start = Date.now();
       validator.validateBranchName(`feature/test-branch-${i}`);
-      validator.validateFilePath(`/tmp/test/file-${i}.txt`, '/tmp/test');
+      validator.validateFilePath(`/tmp/test/file-${i}.txt`, "/tmp/test");
       validator.detectInjectionAttempts(`test input ${i}`);
       times.push(Date.now() - start);
     }
@@ -317,7 +347,7 @@ class SecurityTestRunner {
     return {
       passed: avgTime < 10 && maxTime < 50, // Performance thresholds
       avgTime: Math.round(avgTime * 100) / 100,
-      maxTime
+      maxTime,
     };
   }
 
@@ -326,11 +356,16 @@ class SecurityTestRunner {
    */
   private getRiskLevelEmoji(riskLevel: string): string {
     switch (riskLevel) {
-      case 'LOW': return '🟢';
-      case 'MEDIUM': return '🟡';
-      case 'HIGH': return '🟠';
-      case 'CRITICAL': return '🔴';
-      default: return '⚪';
+      case "LOW":
+        return "🟢";
+      case "MEDIUM":
+        return "🟡";
+      case "HIGH":
+        return "🟠";
+      case "CRITICAL":
+        return "🔴";
+      default:
+        return "⚪";
     }
   }
 
@@ -338,20 +373,20 @@ class SecurityTestRunner {
    * Save results to file
    */
   private async saveResults(report: any, results: any): Promise<void> {
-    const fs = await import('fs/promises');
-    
+    const fs = await import("fs/promises");
+
     try {
       const output = {
         timestamp: new Date().toISOString(),
         summary: report.summary,
         vulnerabilities: results.vulnerabilities,
         recommendations: results.recommendations,
-        testDetails: report.testDetails
+        testDetails: report.testDetails,
       };
 
       await fs.writeFile(
         this.options.outputFile!,
-        JSON.stringify(output, null, 2)
+        JSON.stringify(output, null, 2),
       );
 
       console.log(`\n💾 Results saved to: ${this.options.outputFile}`);
@@ -370,29 +405,29 @@ function parseArgs(): SecurityTestOptions {
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    
+
     switch (arg) {
-      case '--verbose':
-      case '-v':
+      case "--verbose":
+      case "-v":
         options.verbose = true;
         break;
-      case '--output-format':
-        options.outputFormat = args[++i] as 'console' | 'json' | 'html';
+      case "--output-format":
+        options.outputFormat = args[++i] as "console" | "json" | "html";
         break;
-      case '--output-file':
-      case '-o':
+      case "--output-file":
+      case "-o":
         options.outputFile = args[++i];
         break;
-      case '--category':
-      case '-c':
+      case "--category":
+      case "-c":
         options.testCategory = args[++i] as any;
         break;
-      case '--severity':
-      case '-s':
+      case "--severity":
+      case "-s":
         options.severity = args[++i] as any;
         break;
-      case '--help':
-      case '-h':
+      case "--help":
+      case "-h":
         console.log(`
 Security Test Runner for Claude Code + Linear Integration
 

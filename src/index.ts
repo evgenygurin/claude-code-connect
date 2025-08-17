@@ -2,10 +2,10 @@
 
 /**
  * Claude Code + Linear Integration - Main Entry Point
- * 
+ *
  * This is a native implementation that connects Claude Code with Linear
  * without requiring external services like Cyrus (which needs a customer ID).
- * 
+ *
  * Features:
  * - Webhook handling for Linear events
  * - Automatic Claude Code session management
@@ -17,7 +17,11 @@
 import { writeFileSync, existsSync } from "fs";
 import { join } from "path";
 import { IntegrationServer } from "./server/integration.js";
-import { loadConfig, createExampleEnv, printConfigSummary } from "./utils/config.js";
+import {
+  loadConfig,
+  createExampleEnv,
+  printConfigSummary,
+} from "./utils/config.js";
 import { createLogger } from "./utils/logger.js";
 
 /**
@@ -36,23 +40,23 @@ const commands: Command[] = [
   {
     name: "start",
     description: "Start the integration server",
-    handler: startCommand
+    handler: startCommand,
   },
   {
     name: "init",
     description: "Initialize configuration (.env file)",
-    handler: initCommand
+    handler: initCommand,
   },
   {
     name: "test",
     description: "Test Linear API connection",
-    handler: testCommand
+    handler: testCommand,
   },
   {
     name: "help",
     description: "Show help information",
-    handler: helpCommand
-  }
+    handler: helpCommand,
+  },
 ];
 
 /**
@@ -63,7 +67,7 @@ async function main(): Promise<void> {
   const commandName = args[0] || "start";
 
   // Find and execute command
-  const command = commands.find(cmd => cmd.name === commandName);
+  const command = commands.find((cmd) => cmd.name === commandName);
   if (!command) {
     console.error(`Unknown command: ${commandName}`);
     await helpCommand();
@@ -73,7 +77,9 @@ async function main(): Promise<void> {
   try {
     await command.handler(args.slice(1));
   } catch (error) {
-    console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(
+      `Error: ${error instanceof Error ? error.message : String(error)}`,
+    );
     process.exit(1);
   }
 }
@@ -83,14 +89,16 @@ async function main(): Promise<void> {
  */
 async function startCommand(args: string[]): Promise<void> {
   const logger = createLogger(process.env["DEBUG"] === "true");
-  
+
   logger.info("🚀 Starting Claude Code + Linear Integration");
-  
+
   try {
     // Load configuration
-    const configPath = args.find(arg => arg.startsWith("--config="))?.split("=")[1];
+    const configPath = args
+      .find((arg) => arg.startsWith("--config="))
+      ?.split("=")[1];
     const config = loadConfig(configPath);
-    
+
     if (config.debug) {
       printConfigSummary(config);
     }
@@ -100,22 +108,26 @@ async function startCommand(args: string[]): Promise<void> {
     await server.start();
 
     logger.info("✅ Integration server is running");
-    logger.info(`📡 Webhook endpoint: http://localhost:${config.webhookPort}/webhooks/linear`);
+    logger.info(
+      `📡 Webhook endpoint: http://localhost:${config.webhookPort}/webhooks/linear`,
+    );
     logger.info(`📊 Management API: http://localhost:${config.webhookPort}/`);
     logger.info("Press Ctrl+C to stop");
 
     // Keep the process alive
     process.on("SIGINT", () => {
       logger.info("Received SIGINT, shutting down gracefully...");
-      server.stop().then(() => {
-        logger.info("Server stopped");
-        process.exit(0);
-      }).catch((error) => {
-        logger.error("Error during shutdown", error);
-        process.exit(1);
-      });
+      server
+        .stop()
+        .then(() => {
+          logger.info("Server stopped");
+          process.exit(0);
+        })
+        .catch((error) => {
+          logger.error("Error during shutdown", error);
+          process.exit(1);
+        });
     });
-
   } catch (error) {
     logger.error("Failed to start server", error as Error);
     process.exit(1);
@@ -138,19 +150,20 @@ async function initCommand(args: string[]): Promise<void> {
   try {
     const exampleEnv = createExampleEnv();
     writeFileSync(envPath, exampleEnv, "utf-8");
-    
+
     console.log("✅ Created .env configuration file");
     console.log(`📝 Edit ${envPath} with your Linear API token and settings`);
     console.log("");
     console.log("Required steps:");
-    console.log("1. Get Linear API token: https://linear.app/settings/account/security");
+    console.log(
+      "1. Get Linear API token: https://linear.app/settings/account/security",
+    );
     console.log("2. Find your organization ID in Linear settings");
     console.log("3. Set PROJECT_ROOT_DIR to your project path");
     console.log("4. Configure webhook endpoint in Linear:");
     console.log("   https://linear.app/[your-org]/settings/account/webhooks");
     console.log("");
     console.log("Then run: npm start");
-    
   } catch (error) {
     console.error("Failed to create .env file:", error);
     process.exit(1);
@@ -162,30 +175,32 @@ async function initCommand(args: string[]): Promise<void> {
  */
 async function testCommand(args: string[]): Promise<void> {
   const logger = createLogger(true);
-  
+
   try {
     logger.info("🔍 Testing Linear API connection...");
-    
-    const configPath = args.find(arg => arg.startsWith("--config="))?.split("=")[1];
+
+    const configPath = args
+      .find((arg) => arg.startsWith("--config="))
+      ?.split("=")[1];
     const config = loadConfig(configPath);
-    
+
     // Import here to avoid loading dependencies for init command
     const { LinearClient } = await import("./linear/client.js");
     const client = new LinearClient(config, logger);
-    
+
     // Test connection
     const user = await client.getCurrentUser();
     logger.info("✅ Linear connection successful");
     logger.info(`👤 Authenticated as: ${user.name} (${user.email})`);
-    
+
     // Test organization access via teams
     logger.info("🔐 Testing organization access...");
     const { LinearClient: LinearSDK } = await import("@linear/sdk");
     const sdk = new LinearSDK({ apiKey: config.linearApiToken });
-    
+
     const teams = await sdk.teams();
     logger.info(`📋 Found ${teams.nodes.length} teams`);
-    
+
     if (teams.nodes.length === 0) {
       logger.warn("⚠️  No teams found - check Linear API token permissions");
     } else {
@@ -194,15 +209,14 @@ async function testCommand(args: string[]): Promise<void> {
       const organization = await firstTeam.organization;
       logger.info(`🏢 Organization: ${organization.name}`);
     }
-    
+
     logger.info("🎉 All tests passed!");
-    
   } catch (error) {
     logger.error("❌ Test failed", error as Error);
     console.log("");
     console.log("Common issues:");
     console.log("• Invalid LINEAR_API_TOKEN");
-    console.log("• Incorrect LINEAR_ORGANIZATION_ID"); 
+    console.log("• Incorrect LINEAR_ORGANIZATION_ID");
     console.log("• Missing .env file (run: npm run init)");
     console.log("• Network connectivity issues");
     process.exit(1);
@@ -238,10 +252,16 @@ async function helpCommand(): Promise<void> {
   console.log("");
   console.log("Environment Variables:");
   console.log("  LINEAR_API_TOKEN             Linear API token (required)");
-  console.log("  LINEAR_ORGANIZATION_ID       Linear organization ID (required)");
-  console.log("  PROJECT_ROOT_DIR             Project directory path (required)");
+  console.log(
+    "  LINEAR_ORGANIZATION_ID       Linear organization ID (required)",
+  );
+  console.log(
+    "  PROJECT_ROOT_DIR             Project directory path (required)",
+  );
   console.log("  WEBHOOK_PORT                 Server port (default: 3000)");
-  console.log("  DEBUG                        Enable debug logging (default: false)");
+  console.log(
+    "  DEBUG                        Enable debug logging (default: false)",
+  );
   console.log("");
   console.log("Documentation:");
   console.log("  https://github.com/yourusername/claude-code-linear");

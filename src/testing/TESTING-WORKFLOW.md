@@ -81,7 +81,8 @@ npm test
 
 ```typescript
 // Tests: Issue assigned to agent → Analysis agent execution
-const { issue, event } = WebhookTestScenarioBuilder.createIssueAssignmentScenario();
+const { issue, event } =
+  WebhookTestScenarioBuilder.createIssueAssignmentScenario();
 // Expected: 1 triggered event, 1 session created, analysis artifacts generated
 ```
 
@@ -89,7 +90,8 @@ const { issue, event } = WebhookTestScenarioBuilder.createIssueAssignmentScenari
 
 ```typescript
 // Tests: Comment mentioning @claude for bug fix → Bug fix agent execution
-const { issue, comment, event } = WebhookTestScenarioBuilder.createBugFixScenario();
+const { issue, comment, event } =
+  WebhookTestScenarioBuilder.createBugFixScenario();
 // Expected: Bug fix with validation tests and commit messages starting with "fix:"
 ```
 
@@ -97,7 +99,8 @@ const { issue, comment, event } = WebhookTestScenarioBuilder.createBugFixScenari
 
 ```typescript
 // Tests: Request for comprehensive testing → Testing agent execution
-const { issue, comment, event } = WebhookTestScenarioBuilder.createTestingScenario();
+const { issue, comment, event } =
+  WebhookTestScenarioBuilder.createTestingScenario();
 // Expected: Test files created with unit, integration, and edge case tests
 ```
 
@@ -105,7 +108,8 @@ const { issue, comment, event } = WebhookTestScenarioBuilder.createTestingScenar
 
 ```typescript
 // Tests: Performance optimization request → Performance agent execution
-const { issue, comment, event } = WebhookTestScenarioBuilder.createPerformanceScenario();
+const { issue, comment, event } =
+  WebhookTestScenarioBuilder.createPerformanceScenario();
 // Expected: Caching, query optimization, and performance benchmarks
 ```
 
@@ -115,7 +119,8 @@ const { issue, comment, event } = WebhookTestScenarioBuilder.createPerformanceSc
 
 ```typescript
 // Tests: Analysis → Implementation → Testing → Documentation
-const { issue, comments, events } = WebhookTestScenarioBuilder.createMultiAgentScenario();
+const { issue, comments, events } =
+  WebhookTestScenarioBuilder.createMultiAgentScenario();
 // Expected: 4 sessions, each agent type producing appropriate artifacts
 ```
 
@@ -153,21 +158,23 @@ const { issue, comments, events } = WebhookTestScenarioBuilder.createMultiAgentS
 
 The testing framework automatically determines agent types based on content:
 
-| Content Keywords | Agent Type | Expected Artifacts |
-|-----------------|------------|-------------------|
-| "analyze", "review" | `analysis` | `analysis/*.md` files |
-| "test", "testing" | `testing` | `tests/*.test.ts` files |
-| "fix", "bug" | `bugfix` | Fixed code + tests |
-| "document", "docs" | `documentation` | `docs/*.md` files |
-| "optimize", "performance" | `performance` | Optimized code + benchmarks |
-| "implement", "create" | `implementation` | New feature code |
+| Content Keywords          | Agent Type       | Expected Artifacts          |
+| ------------------------- | ---------------- | --------------------------- |
+| "analyze", "review"       | `analysis`       | `analysis/*.md` files       |
+| "test", "testing"         | `testing`        | `tests/*.test.ts` files     |
+| "fix", "bug"              | `bugfix`         | Fixed code + tests          |
+| "document", "docs"        | `documentation`  | `docs/*.md` files           |
+| "optimize", "performance" | `performance`    | Optimized code + benchmarks |
+| "implement", "create"     | `implementation` | New feature code            |
 
 ## Test Data Validation
 
 ### Session Validation
 
 ```typescript
-expect(WebhookTestValidators.validateSession(session, expectedIssueId)).toBe(true);
+expect(WebhookTestValidators.validateSession(session, expectedIssueId)).toBe(
+  true,
+);
 ```
 
 ### Execution Result Validation
@@ -179,7 +186,9 @@ expect(WebhookTestValidators.validateExecutionResult(result)).toBe(true);
 ### Event Processing Validation
 
 ```typescript
-expect(WebhookTestValidators.validateProcessedEvent(event, shouldTrigger)).toBe(true);
+expect(WebhookTestValidators.validateProcessedEvent(event, shouldTrigger)).toBe(
+  true,
+);
 ```
 
 ## Performance Testing
@@ -203,28 +212,31 @@ npm run test:integration -- --stress-test --events=500 --concurrency=20
 
 ```typescript
 // Complete mock Linear objects with all required fields
-mockUser, mockAgentUser, mockTeam, mockWorkflowState
-mockIssue, mockIssueAssignedToAgent
-mockComment, mockCommentNoMention
+(mockUser, mockAgentUser, mockTeam, mockWorkflowState);
+(mockIssue, mockIssueAssignedToAgent);
+(mockComment, mockCommentNoMention);
 ```
 
 ### Webhook Events
 
 ```typescript
 // Various webhook event types
-mockWebhookEventIssueCreated
-mockWebhookEventIssueAssigned
-mockWebhookEventCommentMention
-mockWebhookEventCommentNoMention
+mockWebhookEventIssueCreated;
+mockWebhookEventIssueAssigned;
+mockWebhookEventCommentMention;
+mockWebhookEventCommentNoMention;
 ```
 
 ### Claude Execution Results
 
 ```typescript
 // Different execution outcomes
-mockExecutionResultSuccess
-mockExecutionResultFailure
-mockSessionCreated, mockSessionRunning, mockSessionCompleted, mockSessionFailed
+mockExecutionResultSuccess;
+mockExecutionResultFailure;
+(mockSessionCreated,
+  mockSessionRunning,
+  mockSessionCompleted,
+  mockSessionFailed);
 ```
 
 ## CLI Test Runner Usage
@@ -302,7 +314,7 @@ import { MockWebhookServer } from "./mock-webhook-server.js";
 ```typescript
 const server = new MockWebhookServer({
   ...mockIntegrationConfig,
-  debug: true
+  debug: true,
 });
 ```
 

@@ -2,12 +2,12 @@
  * Event router for Linear webhook events
  */
 
-import type { 
-  ProcessedEvent, 
-  LinearEventType, 
-  EventHandlers, 
-  IntegrationConfig, 
-  Logger 
+import type {
+  ProcessedEvent,
+  LinearEventType,
+  EventHandlers,
+  IntegrationConfig,
+  Logger,
 } from "../core/types.js";
 import { LinearClient } from "../linear/client.js";
 import { AgentSessionManager } from "../sessions/manager.js";
@@ -25,13 +25,13 @@ export class DefaultEventHandlers implements EventHandlers {
     linearClient: LinearClient,
     sessionManager: AgentSessionManager,
     config: IntegrationConfig,
-    logger: Logger
+    logger: Logger,
   ) {
     this.linearClient = linearClient;
     this.sessionManager = sessionManager;
     this.config = config;
     this.logger = logger;
-    
+
     // Set up session event listeners
     this.setupSessionEventListeners();
   }
@@ -42,19 +42,27 @@ export class DefaultEventHandlers implements EventHandlers {
   private setupSessionEventListeners(): void {
     // Listen for session completion
     this.sessionManager.on("session:completed", (session, result) => {
-      this.onSessionComplete(session, result).catch(error => {
-        this.logger.error("Failed to handle session completion event", error as Error, {
-          sessionId: session.id
-        });
+      this.onSessionComplete(session, result).catch((error) => {
+        this.logger.error(
+          "Failed to handle session completion event",
+          error as Error,
+          {
+            sessionId: session.id,
+          },
+        );
       });
     });
-    
+
     // Listen for session failure
     this.sessionManager.on("session:failed", (session, error) => {
-      this.onSessionError(session, error).catch(err => {
-        this.logger.error("Failed to handle session error event", err as Error, {
-          sessionId: session.id
-        });
+      this.onSessionError(session, error).catch((err) => {
+        this.logger.error(
+          "Failed to handle session error event",
+          err as Error,
+          {
+            sessionId: session.id,
+          },
+        );
       });
     });
   }
@@ -64,29 +72,29 @@ export class DefaultEventHandlers implements EventHandlers {
    */
   async onIssueAssigned(event: ProcessedEvent): Promise<void> {
     const { issue, actor } = event;
-    
+
     this.logger.info("Handling issue assignment", {
       issueId: issue.id,
       identifier: issue.identifier,
-      assignedBy: actor.name
+      assignedBy: actor.name,
     });
 
     try {
       // Use the new AgentSessionManager to process issue assignment
       await this.sessionManager.processIssueAssigned(issue, actor);
-      
+
       this.logger.info("Issue assignment handled successfully", {
-        issueId: issue.id
+        issueId: issue.id,
       });
     } catch (error) {
       this.logger.error("Failed to handle issue assignment", error as Error, {
-        issueId: issue.id
+        issueId: issue.id,
       });
 
       // Create error comment
       await this.linearClient.createComment(
         issue.id,
-        "❌ **Error starting work**\n\nI encountered an error while trying to start work on this issue. Please check the logs or contact an administrator."
+        "❌ **Error starting work**\n\nI encountered an error while trying to start work on this issue. Please check the logs or contact an administrator.",
       );
     }
   }
@@ -96,36 +104,38 @@ export class DefaultEventHandlers implements EventHandlers {
    */
   async onCommentMention(event: ProcessedEvent): Promise<void> {
     const { issue, comment, actor } = event;
-    
+
     if (!comment) {
-      this.logger.warn("Comment mention event missing comment data", { issueId: issue.id });
+      this.logger.warn("Comment mention event missing comment data", {
+        issueId: issue.id,
+      });
       return;
     }
 
     this.logger.info("Handling comment mention", {
       issueId: issue.id,
       commentId: comment.id,
-      mentionedBy: actor.name
+      mentionedBy: actor.name,
     });
 
     try {
       // Use the new AgentSessionManager to process comment mention
       await this.sessionManager.processCommentMention(issue, comment, actor);
-      
+
       this.logger.info("Comment mention handled successfully", {
         issueId: issue.id,
-        commentId: comment.id
+        commentId: comment.id,
       });
     } catch (error) {
       this.logger.error("Failed to handle comment mention", error as Error, {
         issueId: issue.id,
-        commentId: comment.id
+        commentId: comment.id,
       });
 
       // Reply with error
       await this.linearClient.createComment(
         issue.id,
-        "❌ **Error processing request**\n\nI encountered an error while processing your request. Please try again or contact an administrator."
+        "❌ **Error processing request**\n\nI encountered an error while processing your request. Please try again or contact an administrator.",
       );
     }
   }
@@ -135,22 +145,25 @@ export class DefaultEventHandlers implements EventHandlers {
    */
   async onIssueStatusChange(event: ProcessedEvent): Promise<void> {
     const { issue, actor } = event;
-    
+
     this.logger.info("Handling issue status change", {
       issueId: issue.id,
       newStatus: issue.state.name,
-      changedBy: actor.name
+      changedBy: actor.name,
     });
 
     // Check if issue was moved to completed/cancelled by someone else
     if (issue.state.type === "completed" || issue.state.type === "canceled") {
       const session = await this.sessionManager.getSessionByIssue(issue.id);
-      
-      if (session && (session.status === "created" || session.status === "running")) {
+
+      if (
+        session &&
+        (session.status === "created" || session.status === "running")
+      ) {
         this.logger.info("Cancelling session due to issue status change", {
           issueId: issue.id,
           sessionId: session.id,
-          newStatus: issue.state.type
+          newStatus: issue.state.type,
         });
 
         await this.sessionManager.cancelSession(session.id);
@@ -165,7 +178,7 @@ export class DefaultEventHandlers implements EventHandlers {
     this.logger.info("Handling session completion", {
       sessionId: session.id,
       issueId: session.issueId,
-      success: result.success
+      success: result.success,
     });
 
     // The LinearReporter now handles reporting results to Linear
@@ -178,7 +191,7 @@ export class DefaultEventHandlers implements EventHandlers {
   async onSessionError(session: any, error: Error): Promise<void> {
     this.logger.error("Handling session error", error, {
       sessionId: session.id,
-      issueId: session.issueId
+      issueId: session.issueId,
     });
 
     // The LinearReporter now handles reporting errors to Linear
@@ -205,7 +218,7 @@ export class EventRouter {
     if (!event.shouldTrigger) {
       this.logger.debug("Event does not trigger action", {
         type: event.type,
-        reason: event.triggerReason
+        reason: event.triggerReason,
       });
       return;
     }
@@ -214,7 +227,7 @@ export class EventRouter {
       type: event.type,
       action: event.action,
       issueId: event.issue.id,
-      reason: event.triggerReason
+      reason: event.triggerReason,
     });
 
     try {
@@ -222,19 +235,19 @@ export class EventRouter {
         case LinearEventType.ISSUE_UPDATE:
           await this.routeIssueEvent(event);
           break;
-          
+
         case LinearEventType.COMMENT_CREATE:
         case LinearEventType.COMMENT_UPDATE:
           await this.routeCommentEvent(event);
           break;
-          
+
         default:
           this.logger.warn("Unknown event type", { type: event.type });
       }
     } catch (error) {
       this.logger.error("Failed to route event", error as Error, {
         type: event.type,
-        issueId: event.issue.id
+        issueId: event.issue.id,
       });
     }
   }

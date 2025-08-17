@@ -77,10 +77,10 @@ export const SessionStatus = {
   /** Session failed with error */
   FAILED: "failed",
   /** Session cancelled */
-  CANCELLED: "cancelled"
+  CANCELLED: "cancelled",
 } as const;
 
-export type SessionStatus = typeof SessionStatus[keyof typeof SessionStatus];
+export type SessionStatus = (typeof SessionStatus)[keyof typeof SessionStatus];
 
 /**
  * Linear webhook event types we handle
@@ -93,10 +93,11 @@ export const LinearEventType = {
   /** Comment created on issue */
   COMMENT_CREATE: "Comment",
   /** Comment updated */
-  COMMENT_UPDATE: "Comment"
+  COMMENT_UPDATE: "Comment",
 } as const;
 
-export type LinearEventType = typeof LinearEventType[keyof typeof LinearEventType];
+export type LinearEventType =
+  (typeof LinearEventType)[keyof typeof LinearEventType];
 
 /**
  * Linear webhook event payload
@@ -209,7 +210,10 @@ export interface EventHandlers {
   /** Handle issue status change */
   onIssueStatusChange(event: ProcessedEvent): Promise<void>;
   /** Handle session completion */
-  onSessionComplete(session: ClaudeSession, result: ClaudeExecutionResult): Promise<void>;
+  onSessionComplete(
+    session: ClaudeSession,
+    result: ClaudeExecutionResult,
+  ): Promise<void>;
   /** Handle session error */
   onSessionError(session: ClaudeSession, error: Error): Promise<void>;
 }

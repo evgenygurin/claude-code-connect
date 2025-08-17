@@ -9,25 +9,43 @@ import { promises as fs } from "fs";
 /**
  * Secure session ID schema - only alphanumeric and safe characters
  */
-export const SecureSessionIdSchema = z.string()
-  .regex(/^[a-zA-Z0-9_-]{8,64}$/, "Session ID must be 8-64 characters, alphanumeric, underscore, or hyphen only");
+export const SecureSessionIdSchema = z
+  .string()
+  .regex(
+    /^[a-zA-Z0-9_-]{8,64}$/,
+    "Session ID must be 8-64 characters, alphanumeric, underscore, or hyphen only",
+  );
 
 /**
  * Secure branch name schema
  */
-export const SecureBranchNameSchema = z.string()
-  .regex(/^[a-zA-Z0-9/_-]{1,100}$/, "Branch name must be 1-100 characters, alphanumeric, slash, underscore, or hyphen only")
-  .refine(name => !name.startsWith('-') && !name.endsWith('-'), "Branch name cannot start or end with hyphen")
-  .refine(name => !name.includes('..'), "Branch name cannot contain double dots");
+export const SecureBranchNameSchema = z
+  .string()
+  .regex(
+    /^[a-zA-Z0-9/_-]{1,100}$/,
+    "Branch name must be 1-100 characters, alphanumeric, slash, underscore, or hyphen only",
+  )
+  .refine(
+    (name) => !name.startsWith("-") && !name.endsWith("-"),
+    "Branch name cannot start or end with hyphen",
+  )
+  .refine(
+    (name) => !name.includes(".."),
+    "Branch name cannot contain double dots",
+  );
 
 /**
  * Secure file path schema
  */
-export const SecureFilePathSchema = z.string()
+export const SecureFilePathSchema = z
+  .string()
   .min(1, "File path cannot be empty")
   .max(4096, "File path too long")
-  .refine(path => !path.includes('\0'), "File path cannot contain null bytes")
-  .refine(path => !path.includes('..'), "File path cannot contain parent directory references");
+  .refine((path) => !path.includes("\0"), "File path cannot contain null bytes")
+  .refine(
+    (path) => !path.includes(".."),
+    "File path cannot contain parent directory references",
+  );
 
 /**
  * Webhook payload size limit (1MB)
@@ -43,14 +61,14 @@ export const LinearWebhookEventSchema = z.object({
     id: z.string().uuid("Actor ID must be a valid UUID"),
     name: z.string().min(1).max(100),
     email: z.string().email().optional(),
-    displayName: z.string().max(100).optional()
+    displayName: z.string().max(100).optional(),
   }),
   type: z.string().min(1).max(50),
   data: z.any(),
   url: z.string().url().optional(),
   organizationId: z.string().uuid("Organization ID must be a valid UUID"),
   webhookId: z.string().uuid("Webhook ID must be a valid UUID"),
-  createdAt: z.string().datetime("Created at must be a valid ISO datetime")
+  createdAt: z.string().datetime("Created at must be a valid ISO datetime"),
 });
 
 /**
@@ -58,36 +76,51 @@ export const LinearWebhookEventSchema = z.object({
  */
 export const SecureIssueSchema = z.object({
   id: z.string().uuid("Issue ID must be a valid UUID"),
-  identifier: z.string().regex(/^[A-Z]{2,10}-\d{1,6}$/, "Issue identifier must follow format ABC-123"),
-  title: z.string().min(1).max(500).refine(
-    title => !/<script|javascript:|on\w+=/i.test(title),
-    "Issue title contains potentially dangerous content"
-  ),
-  description: z.string().max(50000).optional().refine(
-    desc => !desc || !/<script|javascript:|on\w+=/i.test(desc),
-    "Issue description contains potentially dangerous content"
-  ),
+  identifier: z
+    .string()
+    .regex(
+      /^[A-Z]{2,10}-\d{1,6}$/,
+      "Issue identifier must follow format ABC-123",
+    ),
+  title: z
+    .string()
+    .min(1)
+    .max(500)
+    .refine(
+      (title) => !/<script|javascript:|on\w+=/i.test(title),
+      "Issue title contains potentially dangerous content",
+    ),
+  description: z
+    .string()
+    .max(50000)
+    .optional()
+    .refine(
+      (desc) => !desc || !/<script|javascript:|on\w+=/i.test(desc),
+      "Issue description contains potentially dangerous content",
+    ),
   url: z.string().url(),
   state: z.object({
     id: z.string().uuid(),
     name: z.string().min(1).max(100),
-    type: z.string().min(1).max(50)
+    type: z.string().min(1).max(50),
   }),
-  assignee: z.object({
-    id: z.string().uuid(),
-    name: z.string().min(1).max(100)
-  }).optional(),
+  assignee: z
+    .object({
+      id: z.string().uuid(),
+      name: z.string().min(1).max(100),
+    })
+    .optional(),
   creator: z.object({
     id: z.string().uuid(),
-    name: z.string().min(1).max(100)
+    name: z.string().min(1).max(100),
   }),
   team: z.object({
     id: z.string().uuid(),
     name: z.string().min(1).max(100),
-    key: z.string().min(1).max(20)
+    key: z.string().min(1).max(20),
   }),
   createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime()
+  updatedAt: z.string().datetime(),
 });
 
 /**
@@ -97,7 +130,7 @@ export const CommandValidationSchema = z.object({
   command: z.string().min(1).max(1000),
   args: z.array(z.string().max(500)).max(50),
   workingDir: SecureFilePathSchema,
-  timeout: z.number().int().min(1000).max(3600000) // 1 second to 1 hour
+  timeout: z.number().int().min(1000).max(3600000), // 1 second to 1 hour
 });
 
 /**
@@ -108,54 +141,86 @@ export class SecurityValidator {
   private blockedPaths: Set<string>;
   private maxPathDepth: number;
 
-  constructor(options: {
-    blockedCommands?: string[];
-    blockedPaths?: string[];
-    maxPathDepth?: number;
-  } = {}) {
-    this.blockedCommands = new Set(options.blockedCommands || [
-      'rm', 'rmdir', 'del', 'deltree', 'format', 'fdisk', 'mkfs', 'dd',
-      'curl', 'wget', 'nc', 'netcat', 'ssh', 'scp', 'rsync', 'sudo', 'su'
-    ]);
-    
-    this.blockedPaths = new Set(options.blockedPaths || [
-      '/etc', '/var', '/usr', '/sys', '/proc', '/dev', '/root', '/boot'
-    ]);
-    
+  constructor(
+    options: {
+      blockedCommands?: string[];
+      blockedPaths?: string[];
+      maxPathDepth?: number;
+    } = {},
+  ) {
+    this.blockedCommands = new Set(
+      options.blockedCommands || [
+        "rm",
+        "rmdir",
+        "del",
+        "deltree",
+        "format",
+        "fdisk",
+        "mkfs",
+        "dd",
+        "curl",
+        "wget",
+        "nc",
+        "netcat",
+        "ssh",
+        "scp",
+        "rsync",
+        "sudo",
+        "su",
+      ],
+    );
+
+    this.blockedPaths = new Set(
+      options.blockedPaths || [
+        "/etc",
+        "/var",
+        "/usr",
+        "/sys",
+        "/proc",
+        "/dev",
+        "/root",
+        "/boot",
+      ],
+    );
+
     this.maxPathDepth = options.maxPathDepth || 10;
   }
 
   /**
    * Validate and sanitize branch name
    */
-  validateBranchName(name: string): { valid: boolean; sanitized?: string; error?: string } {
+  validateBranchName(name: string): {
+    valid: boolean;
+    sanitized?: string;
+    error?: string;
+  } {
     try {
       // First sanitize
       let sanitized = name
         .toLowerCase()
-        .replace(/[^a-zA-Z0-9/_-]/g, '-') // Replace invalid chars with hyphens
-        .replace(/--+/g, '-') // Collapse multiple hyphens
-        .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+        .replace(/[^a-zA-Z0-9/_-]/g, "-") // Replace invalid chars with hyphens
+        .replace(/--+/g, "-") // Collapse multiple hyphens
+        .replace(/^-+|-+$/g, "") // Remove leading/trailing hyphens
         .substring(0, 100); // Limit length
 
       // Validate the sanitized version
       const result = SecureBranchNameSchema.safeParse(sanitized);
-      
+
       if (!result.success) {
         return {
           valid: false,
-          error: `Invalid branch name: ${result.error.issues[0].message}`
+          error: `Invalid branch name: ${result.error.issues[0].message}`,
         };
       }
 
       return {
         valid: true,
-        sanitized
+        sanitized,
       };
     } catch (error) {
       return {
         valid: false,
-        error: `Branch name validation error: ${(error as Error).message}`
+        error: `Branch name validation error: ${(error as Error).message}`,
       };
     }
   }
@@ -164,8 +229,8 @@ export class SecurityValidator {
    * Validate file path for security
    */
   validateFilePath(
-    filePath: string, 
-    projectRoot: string
+    filePath: string,
+    projectRoot: string,
   ): { valid: boolean; resolved?: string; error?: string } {
     try {
       // Basic schema validation
@@ -173,7 +238,7 @@ export class SecurityValidator {
       if (!schemaResult.success) {
         return {
           valid: false,
-          error: `Invalid file path: ${schemaResult.error.issues[0].message}`
+          error: `Invalid file path: ${schemaResult.error.issues[0].message}`,
         };
       }
 
@@ -185,7 +250,7 @@ export class SecurityValidator {
       if (!resolvedPath.startsWith(resolvedProjectRoot)) {
         return {
           valid: false,
-          error: "File path is outside project directory"
+          error: "File path is outside project directory",
         };
       }
 
@@ -194,30 +259,30 @@ export class SecurityValidator {
         if (resolvedPath.startsWith(blockedPath)) {
           return {
             valid: false,
-            error: `Access to ${blockedPath} is blocked`
+            error: `Access to ${blockedPath} is blocked`,
           };
         }
       }
 
       // Check path depth
       const relativePath = relative(resolvedProjectRoot, resolvedPath);
-      const depth = relativePath.split('/').length;
-      
+      const depth = relativePath.split("/").length;
+
       if (depth > this.maxPathDepth) {
         return {
           valid: false,
-          error: `Path depth ${depth} exceeds maximum ${this.maxPathDepth}`
+          error: `Path depth ${depth} exceeds maximum ${this.maxPathDepth}`,
         };
       }
 
       return {
         valid: true,
-        resolved: resolvedPath
+        resolved: resolvedPath,
       };
     } catch (error) {
       return {
         valid: false,
-        error: `Path validation error: ${(error as Error).message}`
+        error: `Path validation error: ${(error as Error).message}`,
       };
     }
   }
@@ -226,52 +291,75 @@ export class SecurityValidator {
    * Validate command for execution
    */
   validateCommand(
-    command: string, 
-    args: string[] = []
-  ): { valid: boolean; sanitized?: { command: string; args: string[] }; error?: string } {
+    command: string,
+    args: string[] = [],
+  ): {
+    valid: boolean;
+    sanitized?: { command: string; args: string[] };
+    error?: string;
+  } {
     try {
       // SECURITY: Check for injection attempts in command
       const commandInjectionCheck = this.detectInjectionAttempts(command);
-      if (commandInjectionCheck.detected && commandInjectionCheck.severity === 'high') {
+      if (
+        commandInjectionCheck.detected &&
+        commandInjectionCheck.severity === "high"
+      ) {
         return {
           valid: false,
-          error: `Command contains security threats: ${commandInjectionCheck.threats.join(', ')}`
+          error: `Command contains security threats: ${commandInjectionCheck.threats.join(", ")}`,
         };
       }
 
       // SECURITY: Check for injection attempts in arguments
       for (const arg of args) {
         const argInjectionCheck = this.detectInjectionAttempts(arg);
-        if (argInjectionCheck.detected && argInjectionCheck.severity === 'high') {
+        if (
+          argInjectionCheck.detected &&
+          argInjectionCheck.severity === "high"
+        ) {
           return {
             valid: false,
-            error: `Argument contains security threats: ${argInjectionCheck.threats.join(', ')}`
+            error: `Argument contains security threats: ${argInjectionCheck.threats.join(", ")}`,
           };
         }
       }
 
       // Extract base command
-      const baseCommand = command.split(' ')[0].toLowerCase();
+      const baseCommand = command.split(" ")[0].toLowerCase();
 
       // Check blocked commands
       if (this.blockedCommands.has(baseCommand)) {
         return {
           valid: false,
-          error: `Command '${baseCommand}' is blocked for security reasons`
+          error: `Command '${baseCommand}' is blocked for security reasons`,
         };
       }
 
       // Only allow allowlisted commands for security
       const allowedCommands = new Set([
-        'git', 'npm', 'node', 'python', 'python3', 'pip', 'pip3',
-        'ls', 'cd', 'pwd', 'mkdir', 'touch', 'cat', 'echo',
-        'claude', 'claude-code'
+        "git",
+        "npm",
+        "node",
+        "python",
+        "python3",
+        "pip",
+        "pip3",
+        "ls",
+        "cd",
+        "pwd",
+        "mkdir",
+        "touch",
+        "cat",
+        "echo",
+        "claude",
+        "claude-code",
       ]);
 
       if (!allowedCommands.has(baseCommand)) {
         return {
           valid: false,
-          error: `Command '${baseCommand}' is not in the allowed command list`
+          error: `Command '${baseCommand}' is not in the allowed command list`,
         };
       }
 
@@ -279,14 +367,14 @@ export class SecurityValidator {
       const validationResult = CommandValidationSchema.safeParse({
         command,
         args,
-        workingDir: '/tmp', // placeholder for schema validation
-        timeout: 30000
+        workingDir: "/tmp", // placeholder for schema validation
+        timeout: 30000,
       });
 
       if (!validationResult.success) {
         return {
           valid: false,
-          error: `Command validation failed: ${validationResult.error.issues[0].message}`
+          error: `Command validation failed: ${validationResult.error.issues[0].message}`,
         };
       }
 
@@ -295,28 +383,30 @@ export class SecurityValidator {
         if (/[;&|`$(){}]/.test(arg)) {
           return {
             valid: false,
-            error: `Argument contains forbidden shell metacharacters: ${arg}`
+            error: `Argument contains forbidden shell metacharacters: ${arg}`,
           };
         }
       }
 
       // Sanitize arguments (only safe operations)
-      const sanitizedArgs = args.map(arg => 
-        arg.replace(/\0/g, '') // Remove null bytes
-           .substring(0, 500) // Limit length
+      const sanitizedArgs = args.map(
+        (arg) =>
+          arg
+            .replace(/\0/g, "") // Remove null bytes
+            .substring(0, 500), // Limit length
       );
 
       return {
         valid: true,
         sanitized: {
           command: command.substring(0, 1000),
-          args: sanitizedArgs
-        }
+          args: sanitizedArgs,
+        },
       };
     } catch (error) {
       return {
         valid: false,
-        error: `Command validation error: ${(error as Error).message}`
+        error: `Command validation error: ${(error as Error).message}`,
       };
     }
   }
@@ -326,7 +416,7 @@ export class SecurityValidator {
    */
   async validateWorkingDirectory(
     workingDir: string,
-    projectRoot: string
+    projectRoot: string,
   ): Promise<{ valid: boolean; error?: string }> {
     try {
       // Basic path validation
@@ -341,18 +431,18 @@ export class SecurityValidator {
         if (!stats.isDirectory()) {
           return {
             valid: false,
-            error: "Working directory path is not a directory"
+            error: "Working directory path is not a directory",
           };
         }
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
           // Directory doesn't exist - this might be OK for new sessions
           return { valid: true };
         }
-        
+
         return {
           valid: false,
-          error: `Cannot access working directory: ${(error as Error).message}`
+          error: `Cannot access working directory: ${(error as Error).message}`,
         };
       }
 
@@ -360,7 +450,7 @@ export class SecurityValidator {
     } catch (error) {
       return {
         valid: false,
-        error: `Working directory validation error: ${(error as Error).message}`
+        error: `Working directory validation error: ${(error as Error).message}`,
       };
     }
   }
@@ -368,13 +458,16 @@ export class SecurityValidator {
   /**
    * Validate webhook payload size
    */
-  validateWebhookPayloadSize(payload: string): { valid: boolean; error?: string } {
-    const size = Buffer.byteLength(payload, 'utf8');
-    
+  validateWebhookPayloadSize(payload: string): {
+    valid: boolean;
+    error?: string;
+  } {
+    const size = Buffer.byteLength(payload, "utf8");
+
     if (size > MAX_WEBHOOK_PAYLOAD_SIZE) {
       return {
         valid: false,
-        error: `Webhook payload size ${size} exceeds maximum ${MAX_WEBHOOK_PAYLOAD_SIZE} bytes`
+        error: `Webhook payload size ${size} exceeds maximum ${MAX_WEBHOOK_PAYLOAD_SIZE} bytes`,
       };
     }
 
@@ -385,25 +478,29 @@ export class SecurityValidator {
    * Sanitize issue description for safe processing
    */
   sanitizeIssueDescription(description: string): string {
-    return description
-      // Remove script tags
-      .replace(/<script[^>]*>.*?<\/script>/gi, '')
-      // Remove javascript: protocols
-      .replace(/javascript:/gi, '')
-      // Remove event handlers
-      .replace(/on\w+\s*=/gi, '')
-      // Remove null bytes
-      .replace(/\0/g, '')
-      // Limit length
-      .substring(0, 50000);
+    return (
+      description
+        // Remove script tags
+        .replace(/<script[^>]*>.*?<\/script>/gi, "")
+        // Remove javascript: protocols
+        .replace(/javascript:/gi, "")
+        // Remove event handlers
+        .replace(/on\w+\s*=/gi, "")
+        // Remove null bytes
+        .replace(/\0/g, "")
+        // Limit length
+        .substring(0, 50000)
+    );
   }
 
   /**
    * Validate session metadata
    */
-  validateSessionMetadata(
-    metadata: Record<string, unknown>
-  ): { valid: boolean; sanitized?: Record<string, unknown>; error?: string } {
+  validateSessionMetadata(metadata: Record<string, unknown>): {
+    valid: boolean;
+    sanitized?: Record<string, unknown>;
+    error?: string;
+  } {
     try {
       const sanitized: Record<string, unknown> = {};
 
@@ -412,16 +509,16 @@ export class SecurityValidator {
         if (!/^[a-zA-Z0-9_-]{1,50}$/.test(key)) {
           return {
             valid: false,
-            error: `Invalid metadata key: ${key}`
+            error: `Invalid metadata key: ${key}`,
           };
         }
 
         // Sanitize value based on type
-        if (typeof value === 'string') {
-          sanitized[key] = value.substring(0, 1000).replace(/\0/g, '');
-        } else if (typeof value === 'number') {
+        if (typeof value === "string") {
+          sanitized[key] = value.substring(0, 1000).replace(/\0/g, "");
+        } else if (typeof value === "number") {
           sanitized[key] = Number.isFinite(value) ? value : 0;
-        } else if (typeof value === 'boolean') {
+        } else if (typeof value === "boolean") {
           sanitized[key] = value;
         } else if (value === null || value === undefined) {
           sanitized[key] = value;
@@ -433,12 +530,12 @@ export class SecurityValidator {
 
       return {
         valid: true,
-        sanitized
+        sanitized,
       };
     } catch (error) {
       return {
         valid: false,
-        error: `Metadata validation error: ${(error as Error).message}`
+        error: `Metadata validation error: ${(error as Error).message}`,
       };
     }
   }
@@ -448,7 +545,7 @@ export class SecurityValidator {
    */
   validateEnvironmentVariables(
     env: Record<string, string>,
-    allowedVars: string[]
+    allowedVars: string[],
   ): { valid: boolean; sanitized?: Record<string, string>; error?: string } {
     try {
       const sanitized: Record<string, string> = {};
@@ -464,13 +561,13 @@ export class SecurityValidator {
         if (!/^[A-Z_][A-Z0-9_]*$/i.test(key)) {
           return {
             valid: false,
-            error: `Invalid environment variable name: ${key}`
+            error: `Invalid environment variable name: ${key}`,
           };
         }
 
         // Sanitize value
         const sanitizedValue = value
-          .replace(/\0/g, '') // Remove null bytes
+          .replace(/\0/g, "") // Remove null bytes
           .substring(0, 4096); // Limit length
 
         sanitized[key] = sanitizedValue;
@@ -478,12 +575,12 @@ export class SecurityValidator {
 
       return {
         valid: true,
-        sanitized
+        sanitized,
       };
     } catch (error) {
       return {
         valid: false,
-        error: `Environment validation error: ${(error as Error).message}`
+        error: `Environment validation error: ${(error as Error).message}`,
       };
     }
   }
@@ -494,55 +591,52 @@ export class SecurityValidator {
   detectInjectionAttempts(input: string): {
     detected: boolean;
     threats: string[];
-    severity: 'low' | 'medium' | 'high';
+    severity: "low" | "medium" | "high";
   } {
     const threats: string[] = [];
-    let severity: 'low' | 'medium' | 'high' = 'low';
+    let severity: "low" | "medium" | "high" = "low";
 
     // Command injection patterns
-    const commandPatterns = [
-      /[;&|`$()]/g,
-      /\$\{.*\}/g,
-      /\$\(.*\)/g,
-      /`.*`/g
-    ];
+    const commandPatterns = [/[;&|`$()]/g, /\$\{.*\}/g, /\$\(.*\)/g, /`.*`/g];
 
     for (const pattern of commandPatterns) {
       if (pattern.test(input)) {
-        threats.push('Command injection attempt');
-        severity = 'high';
+        threats.push("Command injection attempt");
+        severity = "high";
         break;
       }
     }
 
     // Path traversal patterns
     if (/\.\.\/|\.\.\\/.test(input)) {
-      threats.push('Path traversal attempt');
-      severity = severity === 'high' ? 'high' : 'medium';
+      threats.push("Path traversal attempt");
+      severity = severity === "high" ? "high" : "medium";
     }
 
     // Script injection patterns
     if (/<script|javascript:|on\w+=/i.test(input)) {
-      threats.push('Script injection attempt');
-      severity = severity === 'high' ? 'high' : 'medium';
+      threats.push("Script injection attempt");
+      severity = severity === "high" ? "high" : "medium";
     }
 
     // Null byte injection
     if (/\0/.test(input)) {
-      threats.push('Null byte injection');
-      severity = severity === 'high' ? 'high' : 'medium';
+      threats.push("Null byte injection");
+      severity = severity === "high" ? "high" : "medium";
     }
 
     // SQL injection patterns (basic)
-    if (/(\b(union|select|insert|update|delete|drop|create|alter)\b)/i.test(input)) {
-      threats.push('Potential SQL injection');
-      severity = severity === 'high' ? 'high' : 'medium';
+    if (
+      /(\b(union|select|insert|update|delete|drop|create|alter)\b)/i.test(input)
+    ) {
+      threats.push("Potential SQL injection");
+      severity = severity === "high" ? "high" : "medium";
     }
 
     return {
       detected: threats.length > 0,
       threats,
-      severity
+      severity,
     };
   }
 
@@ -550,17 +644,18 @@ export class SecurityValidator {
    * Generate secure session ID
    */
   generateSecureSessionId(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
-    let result = '';
-    
+    const chars =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
+    let result = "";
+
     // Use crypto.getRandomValues for secure randomness
     const randomBytes = new Uint8Array(32);
     crypto.getRandomValues(randomBytes);
-    
+
     for (let i = 0; i < 32; i++) {
       result += chars[randomBytes[i] % chars.length];
     }
-    
+
     return result;
   }
 
@@ -589,7 +684,7 @@ export class SecurityValidator {
     return {
       blockedCommands: Array.from(this.blockedCommands),
       blockedPaths: Array.from(this.blockedPaths),
-      maxPathDepth: this.maxPathDepth
+      maxPathDepth: this.maxPathDepth,
     };
   }
 }
@@ -614,7 +709,9 @@ export const SecurityUtils = {
    * Quick validation for UUID
    */
   isValidUUID: (id: string): boolean => {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      id,
+    );
   },
 
   /**
@@ -628,7 +725,7 @@ export const SecurityUtils = {
    * Safe string truncation
    */
   truncateString: (str: string, maxLength: number): string => {
-    return str.length > maxLength ? str.substring(0, maxLength) + '...' : str;
+    return str.length > maxLength ? str.substring(0, maxLength) + "..." : str;
   },
 
   /**
@@ -636,9 +733,9 @@ export const SecurityUtils = {
    */
   sanitizeString: (str: string): string => {
     return str
-      .replace(/[<>'"&]/g, '') // Remove HTML/XML characters
-      .replace(/\0/g, '') // Remove null bytes
-      .replace(/[\r\n]/g, ' ') // Replace line breaks with spaces
+      .replace(/[<>'"&]/g, "") // Remove HTML/XML characters
+      .replace(/\0/g, "") // Remove null bytes
+      .replace(/[\r\n]/g, " ") // Replace line breaks with spaces
       .trim();
-  }
+  },
 };

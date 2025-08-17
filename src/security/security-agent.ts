@@ -6,10 +6,10 @@
 import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { join, resolve, relative } from "path";
 import { promises as fs } from "fs";
-import type { 
-  IntegrationConfig, 
-  Logger, 
-  ClaudeSession
+import type {
+  IntegrationConfig,
+  Logger,
+  ClaudeSession,
 } from "../core/types.js";
 
 /**
@@ -17,9 +17,9 @@ import type {
  */
 export enum SecuritySeverity {
   LOW = "low",
-  MEDIUM = "medium", 
+  MEDIUM = "medium",
   HIGH = "high",
-  CRITICAL = "critical"
+  CRITICAL = "critical",
 }
 
 /**
@@ -35,7 +35,7 @@ export enum SecurityEventType {
   COMMAND_INJECTION_ATTEMPT = "command_injection_attempt",
   PATH_TRAVERSAL_ATTEMPT = "path_traversal_attempt",
   RESOURCE_EXHAUSTION = "resource_exhaustion",
-  SUSPICIOUS_ACTIVITY = "suspicious_activity"
+  SUSPICIOUS_ACTIVITY = "suspicious_activity",
 }
 
 /**
@@ -104,20 +104,39 @@ const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
     windowMs: 15 * 60 * 1000, // 15 minutes
     maxRequests: 100,
     skipSuccessfulRequests: false,
-    skipFailedRequests: false
+    skipFailedRequests: false,
   },
   maxSessionDuration: 60 * 60 * 1000, // 1 hour
   maxConcurrentSessions: 5,
   allowedEnvironmentVars: [
-    'PATH', 'HOME', 'USER', 'LANG', 'LC_ALL',
-    'TERM', 'SHELL', 'PWD', 'TMPDIR'
+    "PATH",
+    "HOME",
+    "USER",
+    "LANG",
+    "LC_ALL",
+    "TERM",
+    "SHELL",
+    "PWD",
+    "TMPDIR",
   ],
   blockedCommands: [
-    'rm', 'rmdir', 'del', 'deltree', 'format',
-    'fdisk', 'mkfs', 'dd', 'curl', 'wget',
-    'nc', 'netcat', 'ssh', 'scp', 'rsync'
+    "rm",
+    "rmdir",
+    "del",
+    "deltree",
+    "format",
+    "fdisk",
+    "mkfs",
+    "dd",
+    "curl",
+    "wget",
+    "nc",
+    "netcat",
+    "ssh",
+    "scp",
+    "rsync",
   ],
-  maxWorkingDirectoryDepth: 10
+  maxWorkingDirectoryDepth: 10,
 };
 
 /**
@@ -128,24 +147,30 @@ export class SecurityAgent {
   private securityConfig: SecurityConfig;
   private logger: Logger;
   private securityEvents: SecurityEvent[] = [];
-  private rateLimitStore = new Map<string, { count: number; resetTime: number }>();
-  private sessionMetrics = new Map<string, { startTime: number; commandCount: number }>();
+  private rateLimitStore = new Map<
+    string,
+    { count: number; resetTime: number }
+  >();
+  private sessionMetrics = new Map<
+    string,
+    { startTime: number; commandCount: number }
+  >();
 
   constructor(
-    config: IntegrationConfig, 
-    logger: Logger, 
-    securityConfig?: Partial<SecurityConfig>
+    config: IntegrationConfig,
+    logger: Logger,
+    securityConfig?: Partial<SecurityConfig>,
   ) {
     this.config = config;
     this.logger = logger;
     this.securityConfig = { ...DEFAULT_SECURITY_CONFIG, ...securityConfig };
-    
+
     this.logger.info("Security Agent initialized", {
       webhookValidation: this.securityConfig.enableWebhookSignatureValidation,
       rateLimiting: this.securityConfig.enableRateLimiting,
       inputSanitization: this.securityConfig.enableInputSanitization,
       auditLogging: this.securityConfig.enableAuditLogging,
-      processSandboxing: this.securityConfig.enableProcessSandboxing
+      processSandboxing: this.securityConfig.enableProcessSandboxing,
     });
   }
 
@@ -153,17 +178,17 @@ export class SecurityAgent {
    * Validate webhook security
    */
   async validateWebhook(
-    payload: string, 
-    signature: string | undefined, 
+    payload: string,
+    signature: string | undefined,
     userAgent: string | undefined,
-    sourceIp: string
+    sourceIp: string,
   ): Promise<SecurityValidationResult> {
     const validationId = this.generateSecurityEventId();
-    
+
     try {
       // Rate limiting check
       if (this.securityConfig.enableRateLimiting) {
-        const rateLimitResult = this.checkRateLimit(sourceIp, 'webhook');
+        const rateLimitResult = this.checkRateLimit(sourceIp, "webhook");
         if (!rateLimitResult.valid) {
           await this.logSecurityEvent({
             id: validationId,
@@ -173,14 +198,14 @@ export class SecurityAgent {
             source: sourceIp,
             message: "Webhook rate limit exceeded",
             details: { userAgent, payloadSize: payload.length },
-            blocked: true
+            blocked: true,
           });
-          
+
           return {
             valid: false,
             severity: SecuritySeverity.MEDIUM,
             reason: "Rate limit exceeded",
-            blocked: true
+            blocked: true,
           };
         }
       }
@@ -196,14 +221,16 @@ export class SecurityAgent {
             source: sourceIp,
             message: "Webhook secret not configured but validation enabled",
             details: { userAgent },
-            blocked: false
+            blocked: false,
           });
-          
+
           return {
             valid: false,
             severity: SecuritySeverity.HIGH,
             reason: "Webhook secret not configured",
-            recommendations: ["Configure LINEAR_WEBHOOK_SECRET environment variable"]
+            recommendations: [
+              "Configure LINEAR_WEBHOOK_SECRET environment variable",
+            ],
           };
         }
 
@@ -216,18 +243,21 @@ export class SecurityAgent {
             source: sourceIp,
             message: "Missing webhook signature",
             details: { userAgent, payloadSize: payload.length },
-            blocked: true
+            blocked: true,
           });
-          
+
           return {
             valid: false,
             severity: SecuritySeverity.HIGH,
             reason: "Missing webhook signature",
-            blocked: true
+            blocked: true,
           };
         }
 
-        const isValidSignature = this.verifyWebhookSignature(payload, signature);
+        const isValidSignature = this.verifyWebhookSignature(
+          payload,
+          signature,
+        );
         if (!isValidSignature) {
           await this.logSecurityEvent({
             id: validationId,
@@ -237,14 +267,14 @@ export class SecurityAgent {
             source: sourceIp,
             message: "Invalid webhook signature",
             details: { userAgent, payloadSize: payload.length },
-            blocked: true
+            blocked: true,
           });
-          
+
           return {
             valid: false,
             severity: SecuritySeverity.CRITICAL,
             reason: "Invalid webhook signature",
-            blocked: true
+            blocked: true,
           };
         }
       }
@@ -259,12 +289,13 @@ export class SecurityAgent {
           source: sourceIp,
           message: "Suspicious User-Agent header",
           details: { userAgent, payloadSize: payload.length },
-          blocked: false
+          blocked: false,
         });
       }
 
       // Payload size validation
-      if (payload.length > 1024 * 1024) { // 1MB limit
+      if (payload.length > 1024 * 1024) {
+        // 1MB limit
         await this.logSecurityEvent({
           id: validationId,
           type: SecurityEventType.SUSPICIOUS_ACTIVITY,
@@ -273,14 +304,14 @@ export class SecurityAgent {
           source: sourceIp,
           message: "Unusually large webhook payload",
           details: { userAgent, payloadSize: payload.length },
-          blocked: false
+          blocked: false,
         });
       }
 
       this.logger.debug("Webhook security validation passed", {
         source: sourceIp,
         userAgent,
-        payloadSize: payload.length
+        payloadSize: payload.length,
       });
 
       return { valid: true };
@@ -293,14 +324,14 @@ export class SecurityAgent {
         source: sourceIp,
         message: "Webhook validation error",
         details: { error: (error as Error).message, userAgent },
-        blocked: true
+        blocked: true,
       });
-      
+
       return {
         valid: false,
         severity: SecuritySeverity.HIGH,
         reason: "Validation error",
-        blocked: true
+        blocked: true,
       };
     }
   }
@@ -308,9 +339,11 @@ export class SecurityAgent {
   /**
    * Validate session security
    */
-  async validateSession(session: ClaudeSession): Promise<SecurityValidationResult> {
+  async validateSession(
+    session: ClaudeSession,
+  ): Promise<SecurityValidationResult> {
     const validationId = this.generateSecurityEventId();
-    
+
     try {
       // Session duration check
       const sessionAge = Date.now() - session.startedAt.getTime();
@@ -322,19 +355,19 @@ export class SecurityAgent {
           timestamp: new Date(),
           source: session.id,
           message: "Session exceeded maximum duration",
-          details: { 
-            sessionId: session.id, 
+          details: {
+            sessionId: session.id,
             duration: sessionAge,
-            maxDuration: this.securityConfig.maxSessionDuration
+            maxDuration: this.securityConfig.maxSessionDuration,
           },
-          blocked: true
+          blocked: true,
         });
-        
+
         return {
           valid: false,
           severity: SecuritySeverity.MEDIUM,
           reason: "Session duration exceeded",
-          blocked: true
+          blocked: true,
         };
       }
 
@@ -348,24 +381,26 @@ export class SecurityAgent {
           timestamp: new Date(),
           source: session.id,
           message: "Maximum concurrent sessions exceeded",
-          details: { 
+          details: {
             sessionId: session.id,
             activeSessions,
-            maxSessions: this.securityConfig.maxConcurrentSessions
+            maxSessions: this.securityConfig.maxConcurrentSessions,
           },
-          blocked: true
+          blocked: true,
         });
-        
+
         return {
           valid: false,
           severity: SecuritySeverity.HIGH,
           reason: "Too many concurrent sessions",
-          blocked: true
+          blocked: true,
         };
       }
 
       // Working directory validation
-      const workingDirResult = this.validateWorkingDirectory(session.workingDir);
+      const workingDirResult = this.validateWorkingDirectory(
+        session.workingDir,
+      );
       if (!workingDirResult.valid) {
         await this.logSecurityEvent({
           id: validationId,
@@ -374,14 +409,14 @@ export class SecurityAgent {
           timestamp: new Date(),
           source: session.id,
           message: "Invalid working directory path",
-          details: { 
+          details: {
             sessionId: session.id,
             workingDir: session.workingDir,
-            reason: workingDirResult.reason
+            reason: workingDirResult.reason,
           },
-          blocked: true
+          blocked: true,
         });
-        
+
         return workingDirResult;
       }
 
@@ -394,18 +429,18 @@ export class SecurityAgent {
         timestamp: new Date(),
         source: session.id,
         message: "Session validation error",
-        details: { 
+        details: {
           sessionId: session.id,
-          error: (error as Error).message
+          error: (error as Error).message,
         },
-        blocked: true
+        blocked: true,
       });
-      
+
       return {
         valid: false,
         severity: SecuritySeverity.HIGH,
         reason: "Validation error",
-        blocked: true
+        blocked: true,
       };
     }
   }
@@ -421,40 +456,40 @@ export class SecurityAgent {
     let sanitized = input;
 
     // Remove null bytes
-    sanitized = sanitized.replace(/\0/g, '');
+    sanitized = sanitized.replace(/\0/g, "");
 
     // Context-specific sanitization
     switch (context) {
-      case 'branch_name':
+      case "branch_name":
         // Allow only alphanumeric, hyphens, and underscores
-        sanitized = sanitized.replace(/[^a-zA-Z0-9\-_]/g, '-');
+        sanitized = sanitized.replace(/[^a-zA-Z0-9\-_]/g, "-");
         // Remove consecutive hyphens
-        sanitized = sanitized.replace(/--+/g, '-');
+        sanitized = sanitized.replace(/--+/g, "-");
         // Trim hyphens from ends
-        sanitized = sanitized.replace(/^-+|-+$/g, '');
+        sanitized = sanitized.replace(/^-+|-+$/g, "");
         // Limit length
         sanitized = sanitized.substring(0, 50);
         break;
-        
-      case 'file_path':
+
+      case "file_path":
         // Remove path traversal attempts
-        sanitized = sanitized.replace(/\.\./g, '');
-        sanitized = sanitized.replace(/\\/g, '/');
+        sanitized = sanitized.replace(/\.\./g, "");
+        sanitized = sanitized.replace(/\\/g, "/");
         break;
-        
-      case 'command':
+
+      case "command":
         // Check for blocked commands
-        const command = sanitized.split(' ')[0].toLowerCase();
+        const command = sanitized.split(" ")[0].toLowerCase();
         if (this.securityConfig.blockedCommands.includes(command)) {
           throw new Error(`Blocked command: ${command}`);
         }
         break;
-        
-      case 'issue_description':
+
+      case "issue_description":
         // Remove script tags and other potentially dangerous content
-        sanitized = sanitized.replace(/<script[^>]*>.*?<\/script>/gi, '');
-        sanitized = sanitized.replace(/javascript:/gi, '');
-        sanitized = sanitized.replace(/on\w+\s*=/gi, '');
+        sanitized = sanitized.replace(/<script[^>]*>.*?<\/script>/gi, "");
+        sanitized = sanitized.replace(/javascript:/gi, "");
+        sanitized = sanitized.replace(/on\w+\s*=/gi, "");
         break;
     }
 
@@ -469,7 +504,7 @@ export class SecurityAgent {
       return {
         ...process.env,
         CLAUDE_SESSION_ID: session.id,
-        CLAUDE_ISSUE_ID: session.issueId
+        CLAUDE_ISSUE_ID: session.issueId,
       };
     }
 
@@ -489,7 +524,7 @@ export class SecurityAgent {
 
     this.logger.debug("Created secure environment", {
       sessionId: session.id,
-      envVarCount: Object.keys(secureEnv).length
+      envVarCount: Object.keys(secureEnv).length,
     });
 
     return secureEnv;
@@ -504,15 +539,15 @@ export class SecurityAgent {
     }
 
     try {
-      const expectedSignature = createHash('sha256')
+      const expectedSignature = createHash("sha256")
         .update(this.config.webhookSecret + payload)
-        .digest('hex');
-      
-      const actualSignature = signature.replace('sha256=', '');
-      
+        .digest("hex");
+
+      const actualSignature = signature.replace("sha256=", "");
+
       return timingSafeEqual(
-        Buffer.from(expectedSignature, 'hex'),
-        Buffer.from(actualSignature, 'hex')
+        Buffer.from(expectedSignature, "hex"),
+        Buffer.from(actualSignature, "hex"),
       );
     } catch (error) {
       this.logger.error("Signature verification error", error as Error);
@@ -523,19 +558,22 @@ export class SecurityAgent {
   /**
    * Check rate limits
    */
-  private checkRateLimit(identifier: string, type: string): SecurityValidationResult {
+  private checkRateLimit(
+    identifier: string,
+    type: string,
+  ): SecurityValidationResult {
     const key = `${type}:${identifier}`;
     const now = Date.now();
     const window = this.securityConfig.rateLimitConfig.windowMs;
     const maxRequests = this.securityConfig.rateLimitConfig.maxRequests;
 
     const existing = this.rateLimitStore.get(key);
-    
+
     if (!existing || now > existing.resetTime) {
       // New window
       this.rateLimitStore.set(key, {
         count: 1,
-        resetTime: now + window
+        resetTime: now + window,
       });
       return { valid: true };
     }
@@ -545,7 +583,7 @@ export class SecurityAgent {
         valid: false,
         severity: SecuritySeverity.MEDIUM,
         reason: `Rate limit exceeded: ${existing.count}/${maxRequests}`,
-        blocked: true
+        blocked: true,
       };
     }
 
@@ -558,18 +596,17 @@ export class SecurityAgent {
    */
   private isValidUserAgent(userAgent: string): boolean {
     // Check for Linear webhook user agent patterns
-    const validPatterns = [
-      /^Linear\/[\d.]+/,
-      /^Linear-Webhook\/[\d.]+/
-    ];
+    const validPatterns = [/^Linear\/[\d.]+/, /^Linear-Webhook\/[\d.]+/];
 
-    return validPatterns.some(pattern => pattern.test(userAgent));
+    return validPatterns.some((pattern) => pattern.test(userAgent));
   }
 
   /**
    * Validate working directory path
    */
-  private validateWorkingDirectory(workingDir: string): SecurityValidationResult {
+  private validateWorkingDirectory(
+    workingDir: string,
+  ): SecurityValidationResult {
     try {
       const projectRoot = resolve(this.config.projectRootDir);
       const resolvedWorkingDir = resolve(workingDir);
@@ -580,20 +617,20 @@ export class SecurityAgent {
           valid: false,
           severity: SecuritySeverity.CRITICAL,
           reason: "Working directory outside project bounds",
-          blocked: true
+          blocked: true,
         };
       }
 
       // Check directory depth
       const relativePath = relative(projectRoot, resolvedWorkingDir);
-      const depth = relativePath.split('/').length;
-      
+      const depth = relativePath.split("/").length;
+
       if (depth > this.securityConfig.maxWorkingDirectoryDepth) {
         return {
           valid: false,
           severity: SecuritySeverity.MEDIUM,
           reason: "Working directory too deep",
-          blocked: true
+          blocked: true,
         };
       }
 
@@ -603,7 +640,7 @@ export class SecurityAgent {
         valid: false,
         severity: SecuritySeverity.HIGH,
         reason: "Path validation error",
-        blocked: true
+        blocked: true,
       };
     }
   }
@@ -613,7 +650,7 @@ export class SecurityAgent {
    */
   private async logSecurityEvent(event: SecurityEvent): Promise<void> {
     this.securityEvents.push(event);
-    
+
     // Keep only recent events (last 1000)
     if (this.securityEvents.length > 1000) {
       this.securityEvents = this.securityEvents.slice(-1000);
@@ -627,15 +664,18 @@ export class SecurityAgent {
         source: event.source,
         message: event.message,
         timestamp: event.timestamp.toISOString(),
-        blocked: event.blocked
+        blocked: event.blocked,
       });
-      
+
       // Write to audit log file if configured
       await this.writeAuditLog(event);
     }
 
     // Trigger alerts for high/critical events
-    if (event.severity === SecuritySeverity.HIGH || event.severity === SecuritySeverity.CRITICAL) {
+    if (
+      event.severity === SecuritySeverity.HIGH ||
+      event.severity === SecuritySeverity.CRITICAL
+    ) {
       await this.triggerSecurityAlert(event);
     }
   }
@@ -645,12 +685,15 @@ export class SecurityAgent {
    */
   private async writeAuditLog(event: SecurityEvent): Promise<void> {
     try {
-      const logDir = join(this.config.projectRootDir, 'logs', 'security');
+      const logDir = join(this.config.projectRootDir, "logs", "security");
       await fs.mkdir(logDir, { recursive: true });
-      
-      const logFile = join(logDir, `security-audit-${new Date().toISOString().split('T')[0]}.json`);
-      const logEntry = JSON.stringify(event) + '\n';
-      
+
+      const logFile = join(
+        logDir,
+        `security-audit-${new Date().toISOString().split("T")[0]}.json`,
+      );
+      const logEntry = JSON.stringify(event) + "\n";
+
       await fs.appendFile(logFile, logEntry);
     } catch (error) {
       this.logger.error("Failed to write audit log", error as Error);
@@ -670,9 +713,9 @@ export class SecurityAgent {
       message: event.message,
       timestamp: event.timestamp.toISOString(),
       blocked: event.blocked,
-      details: event.details
+      details: event.details,
     });
-    
+
     // In a production system, this might:
     // - Send notifications to security team
     // - Create tickets in incident management system
@@ -683,7 +726,7 @@ export class SecurityAgent {
    * Generate unique security event ID
    */
   private generateSecurityEventId(): string {
-    return randomBytes(16).toString('hex');
+    return randomBytes(16).toString("hex");
   }
 
   /**
@@ -692,16 +735,16 @@ export class SecurityAgent {
   getSecurityEvents(
     severity?: SecuritySeverity,
     type?: SecurityEventType,
-    limit?: number
+    limit?: number,
   ): SecurityEvent[] {
     let events = [...this.securityEvents];
 
     if (severity) {
-      events = events.filter(event => event.severity === severity);
+      events = events.filter((event) => event.severity === severity);
     }
 
     if (type) {
-      events = events.filter(event => event.type === type);
+      events = events.filter((event) => event.type === type);
     }
 
     // Sort by timestamp (newest first)
@@ -728,12 +771,12 @@ export class SecurityAgent {
       [SecuritySeverity.LOW]: 0,
       [SecuritySeverity.MEDIUM]: 0,
       [SecuritySeverity.HIGH]: 0,
-      [SecuritySeverity.CRITICAL]: 0
+      [SecuritySeverity.CRITICAL]: 0,
     };
 
     const eventsByType = Object.values(SecurityEventType).reduce(
       (acc, type) => ({ ...acc, [type]: 0 }),
-      {} as Record<SecurityEventType, number>
+      {} as Record<SecurityEventType, number>,
     );
 
     let blockedEvents = 0;
@@ -742,11 +785,11 @@ export class SecurityAgent {
     for (const event of this.securityEvents) {
       eventsBySeverity[event.severity]++;
       eventsByType[event.type]++;
-      
+
       if (event.blocked) {
         blockedEvents++;
       }
-      
+
       if (event.type === SecurityEventType.RATE_LIMIT_EXCEEDED) {
         rateLimitHits++;
       }
@@ -757,7 +800,7 @@ export class SecurityAgent {
       eventsBySeverity,
       eventsByType,
       blockedEvents,
-      rateLimitHits
+      rateLimitHits,
     };
   }
 
@@ -782,7 +825,7 @@ export class SecurityAgent {
    */
   generateSecurityReport(): {
     summary: {
-      riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+      riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
       totalEvents: number;
       criticalEvents: number;
       highEvents: number;
@@ -790,35 +833,41 @@ export class SecurityAgent {
     };
     recommendations: string[];
     recentEvents: SecurityEvent[];
-    metrics: ReturnType<SecurityAgent['getSecurityMetrics']>;
+    metrics: ReturnType<SecurityAgent["getSecurityMetrics"]>;
   } {
     const metrics = this.getSecurityMetrics();
     const recentEvents = this.getSecurityEvents(undefined, undefined, 10);
-    
+
     // Determine risk level
-    let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW';
-    
+    let riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" = "LOW";
+
     if (metrics.eventsBySeverity[SecuritySeverity.CRITICAL] > 0) {
-      riskLevel = 'CRITICAL';
+      riskLevel = "CRITICAL";
     } else if (metrics.eventsBySeverity[SecuritySeverity.HIGH] > 5) {
-      riskLevel = 'HIGH';
+      riskLevel = "HIGH";
     } else if (metrics.eventsBySeverity[SecuritySeverity.MEDIUM] > 10) {
-      riskLevel = 'MEDIUM';
+      riskLevel = "MEDIUM";
     }
 
     // Generate recommendations
     const recommendations: string[] = [];
-    
+
     if (metrics.rateLimitHits > 0) {
-      recommendations.push("Review rate limiting configuration - multiple rate limit violations detected");
+      recommendations.push(
+        "Review rate limiting configuration - multiple rate limit violations detected",
+      );
     }
-    
+
     if (metrics.eventsBySeverity[SecuritySeverity.HIGH] > 0) {
-      recommendations.push("Investigate high-severity security events immediately");
+      recommendations.push(
+        "Investigate high-severity security events immediately",
+      );
     }
-    
+
     if (metrics.blockedEvents > metrics.totalEvents * 0.1) {
-      recommendations.push("High number of blocked events - review security policies");
+      recommendations.push(
+        "High number of blocked events - review security policies",
+      );
     }
 
     if (!this.config.webhookSecret) {
@@ -831,11 +880,11 @@ export class SecurityAgent {
         totalEvents: metrics.totalEvents,
         criticalEvents: metrics.eventsBySeverity[SecuritySeverity.CRITICAL],
         highEvents: metrics.eventsBySeverity[SecuritySeverity.HIGH],
-        blockedEvents: metrics.blockedEvents
+        blockedEvents: metrics.blockedEvents,
       },
       recommendations,
       recentEvents,
-      metrics
+      metrics,
     };
   }
 }

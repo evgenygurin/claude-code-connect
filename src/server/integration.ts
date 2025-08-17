@@ -2,15 +2,20 @@
  * Main integration server for Claude Code + Linear
  */
 
-import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import type { 
-  IntegrationConfig, 
-  Logger, 
+import Fastify, {
+  FastifyInstance,
+  FastifyRequest,
+  FastifyReply,
+} from "fastify";
+import { join } from "path";
+import type {
+  IntegrationConfig,
+  Logger,
   SessionStorage,
-  EventHandlers 
+  EventHandlers,
 } from "../core/types.js";
 import { LinearClient } from "../linear/client.js";
-import { AgentSessionManager } from "../sessions/manager.js";
+import { SessionManager } from "../sessions/manager.js";
 import { LinearWebhookHandler } from "../webhooks/handler.js";
 import { EventRouter, DefaultEventHandlers } from "../webhooks/router.js";
 import { createSessionStorage } from "../sessions/storage.js";
@@ -36,7 +41,7 @@ export class IntegrationServer {
   private config: IntegrationConfig;
   private logger: Logger;
   private linearClient: LinearClient;
-  private sessionManager: AgentSessionManager;
+  private sessionManager: SessionManager;
   private webhookHandler: LinearWebhookHandler;
   private eventRouter: EventRouter;
   private linearReporter: LinearReporter;
@@ -45,35 +50,32 @@ export class IntegrationServer {
   constructor(config: IntegrationConfig) {
     this.config = config;
     this.logger = createLogger(config.debug);
-    this.app = Fastify({ 
+    this.app = Fastify({
       logger: config.debug,
-      disableRequestLogging: !config.debug
+      disableRequestLogging: !config.debug,
     });
 
     // Initialize components
     this.linearClient = new LinearClient(config, this.logger);
-    
+
     // Use SQLite storage for production
-    const storage = createSessionStorage("sqlite", this.logger);
-    
+    const storage = createSessionStorage("file", this.logger, {
+      storageDir: join(config.projectRootDir, ".claude-sessions"),
+    });
+
     // Create Linear reporter
     this.linearReporter = new LinearReporter(this.linearClient, this.logger);
-    
+
     // Create session manager with new architecture
-    this.sessionManager = new AgentSessionManager(
-      config,
-      this.logger,
-      storage,
-      this.linearClient
-    );
-    
+    this.sessionManager = new SessionManager(config, this.logger, storage);
+
     this.webhookHandler = new LinearWebhookHandler(config, this.logger);
-    
+
     const eventHandlers = new DefaultEventHandlers(
       this.linearClient,
       this.sessionManager,
       config,
-      this.logger
+      this.logger,
     );
     this.eventRouter = new EventRouter(eventHandlers, this.logger);
 
@@ -86,51 +88,57 @@ export class IntegrationServer {
    */
   private setupRoutes(): void {
     // Health check endpoint
-    this.app.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
-      return {
-        status: "healthy",
-        timestamp: new Date().toISOString(),
-        version: "1.0.0",
-        uptime: process.uptime()
-      };
-    });
+    this.app.get(
+      "/health",
+      async (request: FastifyRequest, reply: FastifyReply) => {
+        return {
+          status: "healthy",
+          timestamp: new Date().toISOString(),
+          version: "1.0.0",
+          uptime: process.uptime(),
+        };
+      },
+    );
 
     // Linear webhook endpoint
-    this.app.post<WebhookRequest>("/webhooks/linear", async (request, reply) => {
-      const signature = request.headers["x-linear-signature"];
-      const userAgent = request.headers["user-agent"];
+    this.app.post<WebhookRequest>(
+      "/webhooks/linear",
+      async (request, reply) => {
+        const signature = request.headers["x-linear-signature"];
+        const userAgent = request.headers["user-agent"];
 
-      this.logger.debug("Received webhook", {
-        signature: signature ? "present" : "missing",
-        userAgent,
-        bodySize: JSON.stringify(request.body).length
-      });
+        this.logger.debug("Received webhook", {
+          signature: signature ? "present" : "missing",
+          userAgent,
+          bodySize: JSON.stringify(request.body).length,
+        });
 
-      // Verify signature if configured
-      if (this.config.webhookSecret && signature) {
-        const isValid = this.webhookHandler.verifySignature(
-          JSON.stringify(request.body),
-          signature
-        );
+        // Verify signature if configured
+        if (this.config.webhookSecret && signature) {
+          const isValid = this.webhookHandler.verifySignature(
+            JSON.stringify(request.body),
+            signature,
+          );
 
-        if (!isValid) {
-          this.logger.warn("Invalid webhook signature");
-          return reply.code(401).send({ error: "Invalid signature" });
+          if (!isValid) {
+            this.logger.warn("Invalid webhook signature");
+            return reply.code(401).send({ error: "Invalid signature" });
+          }
         }
-      }
 
-      // Validate and process webhook
-      const event = this.webhookHandler.validateWebhook(request.body);
-      if (!event) {
-        this.logger.warn("Invalid webhook payload");
-        return reply.code(400).send({ error: "Invalid payload" });
-      }
+        // Validate and process webhook
+        const event = this.webhookHandler.validateWebhook(request.body);
+        if (!event) {
+          this.logger.warn("Invalid webhook payload");
+          return reply.code(400).send({ error: "Invalid payload" });
+        }
 
-      // Process event asynchronously
-      this.processWebhookAsync(event);
+        // Process event asynchronously
+        this.processWebhookAsync(event);
 
-      return { received: true };
-    });
+        return { received: true };
+      },
+    );
 
     // Session management endpoints
     this.app.get("/sessions", async () => {
@@ -143,18 +151,24 @@ export class IntegrationServer {
       return { sessions };
     });
 
-    this.app.get("/sessions/:id", async (request: FastifyRequest<{ Params: { id: string } }>) => {
-      const session = await this.sessionManager.getSession(request.params.id);
-      if (!session) {
-        throw new Error("Session not found");
-      }
-      return { session };
-    });
+    this.app.get(
+      "/sessions/:id",
+      async (request: FastifyRequest<{ Params: { id: string } }>) => {
+        const session = await this.sessionManager.getSession(request.params.id);
+        if (!session) {
+          throw new Error("Session not found");
+        }
+        return { session };
+      },
+    );
 
-    this.app.delete("/sessions/:id", async (request: FastifyRequest<{ Params: { id: string } }>) => {
-      await this.sessionManager.cancelSession(request.params.id);
-      return { cancelled: true };
-    });
+    this.app.delete(
+      "/sessions/:id",
+      async (request: FastifyRequest<{ Params: { id: string } }>) => {
+        await this.sessionManager.cancelSession(request.params.id);
+        return { cancelled: true };
+      },
+    );
 
     // Statistics endpoint
     this.app.get("/stats", async () => {
@@ -167,8 +181,8 @@ export class IntegrationServer {
           organization: this.config.linearOrganizationId,
           projectRoot: this.config.projectRootDir,
           createBranches: this.config.createBranches,
-          debug: this.config.debug
-        }
+          debug: this.config.debug,
+        },
       };
     });
 
@@ -184,7 +198,7 @@ export class IntegrationServer {
         // Sensitive data excluded
         hasLinearToken: !!this.config.linearApiToken,
         hasWebhookSecret: !!this.config.webhookSecret,
-        hasAgentUser: !!this.config.agentUserId
+        hasAgentUser: !!this.config.agentUserId,
       };
     });
 
@@ -192,12 +206,12 @@ export class IntegrationServer {
     this.app.setErrorHandler(async (error, request, reply) => {
       this.logger.error("HTTP request error", error, {
         method: request.method,
-        url: request.url
+        url: request.url,
       });
 
       return reply.code(500).send({
         error: "Internal server error",
-        message: this.config.debug ? error.message : "An error occurred"
+        message: this.config.debug ? error.message : "An error occurred",
       });
     });
   }
@@ -222,7 +236,7 @@ export class IntegrationServer {
   private setupShutdown(): void {
     const shutdown = async (signal: string) => {
       this.logger.info(`Received ${signal}, shutting down gracefully`);
-      
+
       try {
         await this.stop();
         process.exit(0);
@@ -254,7 +268,7 @@ export class IntegrationServer {
       // Start HTTP server
       await this.app.listen({
         port: this.config.webhookPort,
-        host: "0.0.0.0"
+        host: "0.0.0.0",
       });
 
       this.isStarted = true;
@@ -262,7 +276,7 @@ export class IntegrationServer {
       this.logger.info("Integration server started", {
         port: this.config.webhookPort,
         organization: this.config.linearOrganizationId,
-        projectRoot: this.config.projectRootDir
+        projectRoot: this.config.projectRootDir,
       });
 
       // Setup periodic cleanup
@@ -332,7 +346,7 @@ export class IntegrationServer {
       const user = await this.linearClient.getCurrentUser();
       this.logger.info("Linear connection successful", {
         userId: user.id,
-        userName: user.name
+        userName: user.name,
       });
 
       // Update agent user ID if not configured
@@ -342,7 +356,9 @@ export class IntegrationServer {
       }
     } catch (error) {
       this.logger.error("Linear connection failed", error as Error);
-      throw new Error("Failed to connect to Linear API. Please check your API token.");
+      throw new Error(
+        "Failed to connect to Linear API. Please check your API token.",
+      );
     }
   }
 
@@ -351,16 +367,19 @@ export class IntegrationServer {
    */
   private setupPeriodicCleanup(): void {
     // Run cleanup every hour
-    setInterval(async () => {
-      try {
-        const cleaned = await this.sessionManager.cleanupOldSessions(7); // 7 days
-        if (cleaned > 0) {
-          this.logger.info("Cleaned up old sessions", { count: cleaned });
+    setInterval(
+      async () => {
+        try {
+          const cleaned = await this.sessionManager.cleanupOldSessions(7); // 7 days
+          if (cleaned > 0) {
+            this.logger.info("Cleaned up old sessions", { count: cleaned });
+          }
+        } catch (error) {
+          this.logger.error("Error during periodic cleanup", error as Error);
         }
-      } catch (error) {
-        this.logger.error("Error during periodic cleanup", error as Error);
-      }
-    }, 60 * 60 * 1000); // 1 hour
+      },
+      60 * 60 * 1000,
+    ); // 1 hour
   }
 
   /**
@@ -374,7 +393,7 @@ export class IntegrationServer {
     return {
       isStarted: this.isStarted,
       port: this.config.webhookPort,
-      config: this.config
+      config: this.config,
     };
   }
 }

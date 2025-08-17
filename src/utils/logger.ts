@@ -15,7 +15,7 @@ const colors = {
   blue: "\x1b[34m",
   magenta: "\x1b[35m",
   cyan: "\x1b[36m",
-  gray: "\x1b[90m"
+  gray: "\x1b[90m",
 } as const;
 
 /**
@@ -25,7 +25,7 @@ enum LogLevel {
   DEBUG = 0,
   INFO = 1,
   WARN = 2,
-  ERROR = 3
+  ERROR = 3,
 }
 
 /**
@@ -41,12 +41,18 @@ function formatTimestamp(): string {
 export function createLogger(debug = false): Logger {
   const minLevel = debug ? LogLevel.DEBUG : LogLevel.INFO;
 
-  function log(level: LogLevel, color: string, prefix: string, message: string, extra?: any): void {
+  function log(
+    level: LogLevel,
+    color: string,
+    prefix: string,
+    message: string,
+    extra?: any,
+  ): void {
     if (level < minLevel) return;
 
     const timestamp = formatTimestamp();
     const formattedMessage = `${colors.gray}${timestamp}${colors.reset} ${color}${prefix}${colors.reset} ${message}`;
-    
+
     if (extra) {
       if (extra instanceof Error) {
         console.log(formattedMessage);
@@ -74,7 +80,10 @@ export function createLogger(debug = false): Logger {
 
     error: (message: string, error?: Error, extra?: any) => {
       if (error && extra) {
-        log(LogLevel.ERROR, colors.red, "[ERROR]", message, { error: error.message, ...extra });
+        log(LogLevel.ERROR, colors.red, "[ERROR]", message, {
+          error: error.message,
+          ...extra,
+        });
         if (debug && error.stack) {
           console.log(`${colors.gray}Stack:${colors.reset}`, error.stack);
         }
@@ -83,19 +92,26 @@ export function createLogger(debug = false): Logger {
       } else {
         log(LogLevel.ERROR, colors.red, "[ERROR]", message, extra);
       }
-    }
+    },
   };
 }
 
 /**
  * Create a logger with a specific prefix
  */
-export function createPrefixedLogger(baseLogger: Logger, prefix: string): Logger {
+export function createPrefixedLogger(
+  baseLogger: Logger,
+  prefix: string,
+): Logger {
   return {
-    debug: (message: string, extra?: any) => baseLogger.debug(`[${prefix}] ${message}`, extra),
-    info: (message: string, extra?: any) => baseLogger.info(`[${prefix}] ${message}`, extra),
-    warn: (message: string, extra?: any) => baseLogger.warn(`[${prefix}] ${message}`, extra),
-    error: (message: string, error?: Error, extra?: any) => baseLogger.error(`[${prefix}] ${message}`, error, extra)
+    debug: (message: string, extra?: any) =>
+      baseLogger.debug(`[${prefix}] ${message}`, extra),
+    info: (message: string, extra?: any) =>
+      baseLogger.info(`[${prefix}] ${message}`, extra),
+    warn: (message: string, extra?: any) =>
+      baseLogger.warn(`[${prefix}] ${message}`, extra),
+    error: (message: string, error?: Error, extra?: any) =>
+      baseLogger.error(`[${prefix}] ${message}`, error, extra),
   };
 }
 
@@ -107,6 +123,6 @@ export function createSilentLogger(): Logger {
     debug: () => {},
     info: () => {},
     warn: () => {},
-    error: () => {}
+    error: () => {},
   };
 }

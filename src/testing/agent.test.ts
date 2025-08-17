@@ -17,12 +17,12 @@ vi.mock("fs/promises", () => ({
   stat: vi.fn(),
   writeFile: vi.fn(),
   mkdir: vi.fn(),
-  rm: vi.fn()
+  rm: vi.fn(),
 }));
 
 // Mock glob for file pattern matching
 vi.mock("glob", () => ({
-  glob: vi.fn()
+  glob: vi.fn(),
 }));
 
 describe("TestingAgent", () => {
@@ -37,14 +37,14 @@ describe("TestingAgent", () => {
     loggerSpy = createMockLogger();
     config = { ...mockIntegrationConfig };
     testingAgent = new TestingAgent(config, loggerSpy);
-    
+
     // Setup mocks
     mockGlob = vi.mocked(glob);
     mockReadFile = vi.mocked(readFile);
-    
+
     // Set default return values
     mockGlob.mockResolvedValue([]);
-    mockReadFile.mockResolvedValue('export class MockClass {}');
+    mockReadFile.mockResolvedValue("export class MockClass {}");
   });
 
   afterEach(() => {
@@ -65,11 +65,9 @@ describe("TestingAgent", () => {
         .mockResolvedValueOnce([
           "/test/project/src/sessions/manager.ts",
           "/test/project/src/webhooks/handler.ts",
-          "/test/project/src/core/types.ts"
+          "/test/project/src/core/types.ts",
         ])
-        .mockResolvedValueOnce([
-          "/test/project/src/sessions/manager.test.ts"
-        ]);
+        .mockResolvedValueOnce(["/test/project/src/sessions/manager.test.ts"]);
 
       // Mock file content reading
       mockReadFile.mockResolvedValue(`
@@ -94,17 +92,24 @@ describe("TestingAgent", () => {
 
       await testingAgent.analyzeCoverage();
 
-      expect(loggerSpy.info).toHaveBeenCalledWith("Starting test coverage analysis");
-      expect(loggerSpy.info).toHaveBeenCalledWith("Test coverage analysis completed", expect.any(Object));
+      expect(loggerSpy.info).toHaveBeenCalledWith(
+        "Starting test coverage analysis",
+      );
+      expect(loggerSpy.info).toHaveBeenCalledWith(
+        "Test coverage analysis completed",
+        expect.any(Object),
+      );
     });
 
     it("should handle file system errors gracefully", async () => {
       mockGlob.mockRejectedValue(new Error("File system error"));
 
-      await expect(testingAgent.analyzeCoverage()).rejects.toThrow("File system error");
+      await expect(testingAgent.analyzeCoverage()).rejects.toThrow(
+        "File system error",
+      );
       expect(loggerSpy.error).toHaveBeenCalledWith(
         "Failed to analyze test coverage",
-        expect.any(Error)
+        expect.any(Error),
       );
     });
   });
@@ -145,8 +150,10 @@ describe("TestingAgent", () => {
 
       expect(recommendations).toBeInstanceOf(Array);
       expect(recommendations.length).toBe(2);
-      
-      const sessionManagerRec = recommendations.find(r => r.componentName === "SessionManager");
+
+      const sessionManagerRec = recommendations.find(
+        (r) => r.componentName === "SessionManager",
+      );
       expect(sessionManagerRec).toBeDefined();
       expect(sessionManagerRec?.priority).toBeGreaterThan(5); // Should be high priority
       expect(sessionManagerRec?.scenarios).toBeInstanceOf(Array);
@@ -156,10 +163,16 @@ describe("TestingAgent", () => {
       const files = ["src/sessions/manager.ts", "src/utils/helper.ts"];
       const recommendations = await testingAgent.generateRecommendations(files);
 
-      const sessionManagerRec = recommendations.find(r => r.targetFile.includes("manager"));
-      const utilsRec = recommendations.find(r => r.targetFile.includes("helper"));
+      const sessionManagerRec = recommendations.find((r) =>
+        r.targetFile.includes("manager"),
+      );
+      const utilsRec = recommendations.find((r) =>
+        r.targetFile.includes("helper"),
+      );
 
-      expect(sessionManagerRec?.priority).toBeGreaterThan(utilsRec?.priority || 0);
+      expect(sessionManagerRec?.priority).toBeGreaterThan(
+        utilsRec?.priority || 0,
+      );
     });
 
     it("should handle file analysis errors gracefully", async () => {
@@ -206,15 +219,15 @@ describe("TestingAgent", () => {
             type: "unit" as const,
             complexity: "simple" as const,
             dependencies: [],
-            mocks: ["Logger"]
-          }
+            mocks: ["Logger"],
+          },
         ],
-        suggestedTestFile: "src/sessions/manager.test.ts"
+        suggestedTestFile: "src/sessions/manager.test.ts",
       };
 
       const testContent = await testingAgent.generateSampleTest(recommendation);
 
-      expect(testContent).toContain("describe(\"SessionManager\"");
+      expect(testContent).toContain('describe("SessionManager"');
       expect(testContent).toContain("import { SessionManager }");
       expect(testContent).toContain("new SessionManager(");
       expect(testContent).toContain("toBeInstanceOf(SessionManager)");
@@ -233,12 +246,12 @@ describe("TestingAgent", () => {
         priority: 6,
         reason: "Input validation logic",
         scenarios: [],
-        suggestedTestFile: "src/utils/validation.test.ts"
+        suggestedTestFile: "src/utils/validation.test.ts",
       };
 
       const testContent = await testingAgent.generateSampleTest(recommendation);
 
-      expect(testContent).toContain("describe(\"validateWebhook\"");
+      expect(testContent).toContain('describe("validateWebhook"');
       expect(testContent).toContain("import { validateWebhook }");
     });
 
@@ -255,12 +268,14 @@ describe("TestingAgent", () => {
         priority: 5,
         reason: "Test",
         scenarios: [],
-        suggestedTestFile: "src/test/class.test.ts"
+        suggestedTestFile: "src/test/class.test.ts",
       };
 
       const testContent = await testingAgent.generateSampleTest(recommendation);
 
-      expect(testContent).toContain("import { describe, it, expect, beforeEach, afterEach, vi }");
+      expect(testContent).toContain(
+        "import { describe, it, expect, beforeEach, afterEach, vi }",
+      );
       expect(testContent).toContain("import { TestClass }");
       expect(testContent).toContain("const mockLogger: Logger");
       expect(testContent).toContain("const mockConfig: IntegrationConfig");
@@ -281,7 +296,9 @@ describe("TestingAgent", () => {
       `;
       mockReadFile.mockResolvedValue(code);
 
-      const recommendations = await testingAgent.generateRecommendations(["test.ts"]);
+      const recommendations = await testingAgent.generateRecommendations([
+        "test.ts",
+      ]);
       const rec = recommendations[0];
 
       expect(rec.componentName).toBe("SessionManager"); // Should pick first class
@@ -318,7 +335,9 @@ describe("TestingAgent", () => {
       `;
       mockReadFile.mockResolvedValue(complexCode);
 
-      const recommendations = await testingAgent.generateRecommendations(["complex.ts"]);
+      const recommendations = await testingAgent.generateRecommendations([
+        "complex.ts",
+      ]);
       const rec = recommendations[0];
 
       expect(rec.priority).toBeGreaterThan(7); // High complexity should increase priority
@@ -338,24 +357,26 @@ describe("TestingAgent", () => {
       `;
       mockReadFile.mockResolvedValue(asyncCode);
 
-      const recommendations = await testingAgent.generateRecommendations(["handler.ts"]);
+      const recommendations = await testingAgent.generateRecommendations([
+        "handler.ts",
+      ]);
       const rec = recommendations[0];
 
       expect(rec.scenarios).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             description: expect.stringContaining("Async operations"),
-            type: "unit"
+            type: "unit",
           }),
           expect.objectContaining({
             description: expect.stringContaining("Linear SDK integration"),
-            type: "integration"
+            type: "integration",
           }),
           expect.objectContaining({
             description: expect.stringContaining("Input validation"),
-            type: "unit"
-          })
-        ])
+            type: "unit",
+          }),
+        ]),
       );
     });
   });
@@ -367,23 +388,29 @@ describe("TestingAgent", () => {
       const recommendations = await testingAgent.generateRecommendations([
         "src/sessions/manager.ts",
         "src/webhooks/handler.ts",
-        "src/core/types.ts"
+        "src/core/types.ts",
       ]);
 
-      expect(recommendations[0].suggestedTestFile).toBe("src/sessions/manager.test.ts");
-      expect(recommendations[1].suggestedTestFile).toBe("src/webhooks/handler.test.ts");
-      expect(recommendations[2].suggestedTestFile).toBe("src/core/types.test.ts");
+      expect(recommendations[0].suggestedTestFile).toBe(
+        "src/sessions/manager.test.ts",
+      );
+      expect(recommendations[1].suggestedTestFile).toBe(
+        "src/webhooks/handler.test.ts",
+      );
+      expect(recommendations[2].suggestedTestFile).toBe(
+        "src/core/types.test.ts",
+      );
     });
 
     it("should handle nested directory structures", async () => {
       mockReadFile.mockResolvedValue("export class Deep {}");
 
       const recommendations = await testingAgent.generateRecommendations([
-        "src/deeply/nested/directory/component.ts"
+        "src/deeply/nested/directory/component.ts",
       ]);
 
       expect(recommendations[0].suggestedTestFile).toBe(
-        "src/deeply/nested/directory/component.test.ts"
+        "src/deeply/nested/directory/component.test.ts",
       );
     });
   });
@@ -393,30 +420,32 @@ describe("TestingAgent", () => {
       {
         file: "src/sessions/manager.ts",
         expectedMinPriority: 8,
-        description: "session management file"
+        description: "session management file",
       },
       {
-        file: "src/webhooks/handler.ts", 
+        file: "src/webhooks/handler.ts",
         expectedMinPriority: 8,
-        description: "webhook handler file"
+        description: "webhook handler file",
       },
       {
         file: "src/claude/executor.ts",
         expectedMinPriority: 7,
-        description: "claude executor file"
+        description: "claude executor file",
       },
       {
         file: "src/utils/helper.ts",
         expectedMinPriority: 5,
-        description: "utility file"
-      }
+        description: "utility file",
+      },
     ];
 
     testCases.forEach(({ file, expectedMinPriority, description }) => {
       it(`should assign high priority to ${description}`, async () => {
         mockReadFile.mockResolvedValue("export class Component {}");
 
-        const recommendations = await testingAgent.generateRecommendations([file]);
+        const recommendations = await testingAgent.generateRecommendations([
+          file,
+        ]);
         const rec = recommendations[0];
 
         expect(rec.priority).toBeGreaterThanOrEqual(expectedMinPriority);
@@ -430,11 +459,11 @@ describe("TestingAgent", () => {
         .mockResolvedValueOnce([
           "/project/src/sessions/manager.ts",
           "/project/src/webhooks/handler.ts",
-          "/project/src/core/types.ts"
+          "/project/src/core/types.ts",
         ])
         .mockResolvedValueOnce([
           "/project/src/sessions/manager.test.ts",
-          "/project/test/integration/webhooks.spec.ts"
+          "/project/test/integration/webhooks.spec.ts",
         ]);
 
       mockReadFile.mockResolvedValue("export class Test {}");

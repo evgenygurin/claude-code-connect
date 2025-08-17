@@ -6,12 +6,12 @@ import { spawn, ChildProcess } from "child_process";
 import { promises as fs } from "fs";
 import { join, resolve } from "path";
 import { nanoid } from "nanoid";
-import type { 
-  ClaudeExecutionContext, 
-  ClaudeExecutionResult, 
-  GitCommit, 
+import type {
+  ClaudeExecutionContext,
+  ClaudeExecutionResult,
+  GitCommit,
   Logger,
-  SessionStatus 
+  SessionStatus,
 } from "../core/types.js";
 
 /**
@@ -28,7 +28,9 @@ export class ClaudeExecutor {
   /**
    * Execute Claude Code for issue
    */
-  async execute(context: ClaudeExecutionContext): Promise<ClaudeExecutionResult> {
+  async execute(
+    context: ClaudeExecutionContext,
+  ): Promise<ClaudeExecutionResult> {
     const { session, issue, config, workingDir } = context;
     const startTime = Date.now();
 
@@ -36,7 +38,7 @@ export class ClaudeExecutor {
       sessionId: session.id,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
-      workingDir
+      workingDir,
     });
 
     try {
@@ -45,17 +47,17 @@ export class ClaudeExecutor {
 
       // Generate prompt for Claude
       const prompt = await this.generatePrompt(context);
-      
+
       // Write prompt to file
       const promptFile = join(workingDir, ".claude-prompt.md");
       await fs.writeFile(promptFile, prompt, "utf-8");
 
       // Execute Claude Code
       const claudeResult = await this.executeClaude(context, promptFile);
-      
+
       // Parse git commits if any
       const commits = await this.parseGitCommits(workingDir);
-      
+
       // Get modified files
       const filesModified = await this.getModifiedFiles(workingDir);
 
@@ -68,7 +70,7 @@ export class ClaudeExecutor {
         filesModified,
         commits,
         duration,
-        exitCode: claudeResult.exitCode
+        exitCode: claudeResult.exitCode,
       };
 
       this.logger.info("Claude execution completed", {
@@ -76,16 +78,16 @@ export class ClaudeExecutor {
         success: result.success,
         duration: result.duration,
         filesModified: filesModified.length,
-        commits: commits.length
+        commits: commits.length,
       });
 
       return result;
     } catch (error) {
       const duration = Date.now() - startTime;
-      
+
       this.logger.error("Claude execution failed", error as Error, {
         sessionId: session.id,
-        duration
+        duration,
       });
 
       return {
@@ -94,7 +96,7 @@ export class ClaudeExecutor {
         filesModified: [],
         commits: [],
         duration,
-        exitCode: 1
+        exitCode: 1,
       };
     }
   }
@@ -103,22 +105,19 @@ export class ClaudeExecutor {
    * Execute Claude Code CLI
    */
   private async executeClaude(
-    context: ClaudeExecutionContext, 
-    promptFile: string
+    context: ClaudeExecutionContext,
+    promptFile: string,
   ): Promise<{ output: string; error?: string; exitCode: number }> {
     const { session, config, workingDir } = context;
     const claudePath = config.claudeCodePath || "claude-code";
 
     return new Promise((resolve, reject) => {
-      const args = [
-        "--prompt-file", promptFile,
-        "--working-dir", workingDir
-      ];
+      const args = ["--prompt-file", promptFile, "--working-dir", workingDir];
 
-      this.logger.debug("Spawning Claude process", { 
-        command: claudePath, 
+      this.logger.debug("Spawning Claude process", {
+        command: claudePath,
         args,
-        sessionId: session.id 
+        sessionId: session.id,
       });
 
       const process = spawn(claudePath, args, {
@@ -128,8 +127,8 @@ export class ClaudeExecutor {
           ...process.env,
           // Add any Claude-specific environment variables
           CLAUDE_SESSION_ID: session.id,
-          CLAUDE_ISSUE_ID: session.issueId
-        }
+          CLAUDE_ISSUE_ID: session.issueId,
+        },
       });
 
       // Track process for potential cancellation
@@ -152,42 +151,47 @@ export class ClaudeExecutor {
 
       process.on("close", (code) => {
         this.activeProcesses.delete(session.id);
-        
-        this.logger.debug("Claude process finished", { 
-          sessionId: session.id, 
-          exitCode: code 
+
+        this.logger.debug("Claude process finished", {
+          sessionId: session.id,
+          exitCode: code,
         });
 
         resolve({
           output: output.trim(),
           error: errorOutput.trim() || undefined,
-          exitCode: code || 0
+          exitCode: code || 0,
         });
       });
 
       process.on("error", (error) => {
         this.activeProcesses.delete(session.id);
-        
-        this.logger.error("Claude process error", error, { 
-          sessionId: session.id 
+
+        this.logger.error("Claude process error", error, {
+          sessionId: session.id,
         });
 
         reject(error);
       });
 
       // Set process timeout (e.g., 30 minutes)
-      const timeout = setTimeout(() => {
-        if (this.activeProcesses.has(session.id)) {
-          this.logger.warn("Claude process timeout, killing", { sessionId: session.id });
-          process.kill("SIGTERM");
-          
-          setTimeout(() => {
-            if (this.activeProcesses.has(session.id)) {
-              process.kill("SIGKILL");
-            }
-          }, 5000);
-        }
-      }, 30 * 60 * 1000); // 30 minutes
+      const timeout = setTimeout(
+        () => {
+          if (this.activeProcesses.has(session.id)) {
+            this.logger.warn("Claude process timeout, killing", {
+              sessionId: session.id,
+            });
+            process.kill("SIGTERM");
+
+            setTimeout(() => {
+              if (this.activeProcesses.has(session.id)) {
+                process.kill("SIGKILL");
+              }
+            }, 5000);
+          }
+        },
+        30 * 60 * 1000,
+      ); // 30 minutes
 
       process.on("close", () => {
         clearTimeout(timeout);
@@ -198,7 +202,9 @@ export class ClaudeExecutor {
   /**
    * Generate prompt for Claude based on issue context
    */
-  private async generatePrompt(context: ClaudeExecutionContext): Promise<string> {
+  private async generatePrompt(
+    context: ClaudeExecutionContext,
+  ): Promise<string> {
     const { issue, triggerComment, session } = context;
 
     const issueDescription = issue.description || "No description provided";
@@ -210,10 +216,14 @@ export class ClaudeExecutor {
 ## Issue Description
 ${issueDescription}
 
-${triggerComment ? `
+${
+  triggerComment
+    ? `
 ## Trigger Comment
 ${triggerText}
-` : ""}
+`
+    : ""
+}
 
 ## Context
 - **Issue ID**: ${issue.id}
@@ -227,9 +237,10 @@ ${session.branchName ? `- **Git Branch**: ${session.branchName}` : ""}
 You are Claude, an AI assistant helping with software development tasks in Linear. You have been assigned to work on this issue.
 
 ### Your Task
-${triggerComment ? 
-  "Analyze the trigger comment above and follow the instructions provided there." :
-  "Analyze the issue description and implement the requested changes."
+${
+  triggerComment
+    ? "Analyze the trigger comment above and follow the instructions provided there."
+    : "Analyze the issue description and implement the requested changes."
 }
 
 ### Guidelines
@@ -250,11 +261,15 @@ You have access to all standard Claude Code tools:
 ### Working Directory
 You are working in: ${session.workingDir}
 
-${session.branchName ? `
+${
+  session.branchName
+    ? `
 ### Git Branch
 A new branch has been created for this work: ${session.branchName}
 All changes should be committed to this branch.
-` : ""}
+`
+    : ""
+}
 
 ### Completion
 When you're done:
@@ -274,8 +289,14 @@ When you're done:
   /**
    * Prepare working directory for Claude execution
    */
-  private async prepareWorkingDirectory(workingDir: string, projectRoot: string): Promise<void> {
-    this.logger.debug("Preparing working directory", { workingDir, projectRoot });
+  private async prepareWorkingDirectory(
+    workingDir: string,
+    projectRoot: string,
+  ): Promise<void> {
+    this.logger.debug("Preparing working directory", {
+      workingDir,
+      projectRoot,
+    });
 
     try {
       // Ensure working directory exists
@@ -289,7 +310,9 @@ When you're done:
       // Ensure git is initialized
       await this.ensureGitRepo(workingDir);
     } catch (error) {
-      this.logger.error("Failed to prepare working directory", error as Error, { workingDir });
+      this.logger.error("Failed to prepare working directory", error as Error, {
+        workingDir,
+      });
       throw error;
     }
   }
@@ -297,16 +320,19 @@ When you're done:
   /**
    * Copy project files to working directory
    */
-  private async copyProjectFiles(source: string, target: string): Promise<void> {
+  private async copyProjectFiles(
+    source: string,
+    target: string,
+  ): Promise<void> {
     this.logger.debug("Copying project files", { source, target });
 
     try {
       // Use git clone for better performance and .gitignore respect
       const { spawn } = await import("child_process");
-      
+
       return new Promise((resolve, reject) => {
         const process = spawn("git", ["clone", source, target], {
-          stdio: "pipe"
+          stdio: "pipe",
         });
 
         process.on("close", (code) => {
@@ -320,7 +346,10 @@ When you're done:
         process.on("error", reject);
       });
     } catch (error) {
-      this.logger.error("Failed to copy project files", error as Error, { source, target });
+      this.logger.error("Failed to copy project files", error as Error, {
+        source,
+        target,
+      });
       throw error;
     }
   }
@@ -334,13 +363,13 @@ When you're done:
       this.logger.debug("Git repository exists", { workingDir });
     } catch {
       this.logger.debug("Initializing git repository", { workingDir });
-      
+
       const { spawn } = await import("child_process");
-      
+
       return new Promise((resolve, reject) => {
         const process = spawn("git", ["init"], {
           cwd: workingDir,
-          stdio: "pipe"
+          stdio: "pipe",
         });
 
         process.on("close", (code) => {
@@ -362,18 +391,22 @@ When you're done:
   private async parseGitCommits(workingDir: string): Promise<GitCommit[]> {
     try {
       const { spawn } = await import("child_process");
-      
+
       return new Promise((resolve) => {
-        const process = spawn("git", [
-          "log", 
-          "--oneline", 
-          "--format=%H|%s|%an|%ad|%D",
-          "--date=iso",
-          "-10" // Last 10 commits
-        ], {
-          cwd: workingDir,
-          stdio: "pipe"
-        });
+        const process = spawn(
+          "git",
+          [
+            "log",
+            "--oneline",
+            "--format=%H|%s|%an|%ad|%D",
+            "--date=iso",
+            "-10", // Last 10 commits
+          ],
+          {
+            cwd: workingDir,
+            stdio: "pipe",
+          },
+        );
 
         let output = "";
         process.stdout?.on("data", (data) => {
@@ -382,7 +415,10 @@ When you're done:
 
         process.on("close", () => {
           const commits: GitCommit[] = [];
-          const lines = output.trim().split("\n").filter(line => line.trim());
+          const lines = output
+            .trim()
+            .split("\n")
+            .filter((line) => line.trim());
 
           for (const line of lines) {
             const [hash, message, author, date] = line.split("|");
@@ -392,7 +428,7 @@ When you're done:
                 message: message.trim(),
                 author: author.trim(),
                 timestamp: new Date(date.trim()),
-                files: [] // Could be enhanced to get file list
+                files: [], // Could be enhanced to get file list
               });
             }
           }
@@ -415,11 +451,11 @@ When you're done:
   private async getModifiedFiles(workingDir: string): Promise<string[]> {
     try {
       const { spawn } = await import("child_process");
-      
+
       return new Promise((resolve) => {
         const process = spawn("git", ["diff", "--name-only", "HEAD~1"], {
           cwd: workingDir,
-          stdio: "pipe"
+          stdio: "pipe",
         });
 
         let output = "";
@@ -428,7 +464,10 @@ When you're done:
         });
 
         process.on("close", () => {
-          const files = output.trim().split("\n").filter(file => file.trim());
+          const files = output
+            .trim()
+            .split("\n")
+            .filter((file) => file.trim());
           resolve(files);
         });
 
@@ -453,7 +492,7 @@ When you're done:
     this.logger.info("Cancelling Claude session", { sessionId });
 
     process.kill("SIGTERM");
-    
+
     // Force kill after 5 seconds
     setTimeout(() => {
       if (this.activeProcesses.has(sessionId)) {

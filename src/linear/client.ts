@@ -2,8 +2,19 @@
  * Linear API client for Claude Code integration
  */
 
-import { LinearClient as LinearSDK, Issue, Comment, Team, User, WorkflowState } from "@linear/sdk";
-import type { IntegrationConfig, Logger, ClaudeSession } from "../core/types.js";
+import {
+  LinearClient as LinearSDK,
+  Issue,
+  Comment,
+  Team,
+  User,
+  WorkflowState,
+} from "@linear/sdk";
+import type {
+  IntegrationConfig,
+  Logger,
+  ClaudeSession,
+} from "../core/types.js";
 
 /**
  * Linear client wrapper for Claude Code integration
@@ -16,9 +27,9 @@ export class LinearClient {
   constructor(config: IntegrationConfig, logger: Logger) {
     this.config = config;
     this.logger = logger;
-    
+
     this.client = new LinearSDK({
-      apiKey: config.linearApiToken
+      apiKey: config.linearApiToken,
     });
   }
 
@@ -36,7 +47,7 @@ export class LinearClient {
    */
   async getIssue(issueId: string): Promise<Issue | null> {
     this.logger.debug("Getting issue", { issueId });
-    
+
     try {
       const issue = await this.client.issue(issueId);
       return issue;
@@ -51,21 +62,23 @@ export class LinearClient {
    */
   async getIssueByIdentifier(identifier: string): Promise<Issue | null> {
     this.logger.debug("Getting issue by identifier", { identifier });
-    
+
     try {
       const issues = await this.client.issues({
         filter: {
           id: {
-            eq: identifier
-          }
+            eq: identifier,
+          },
         },
-        first: 1
+        first: 1,
       });
 
       const issue = issues.nodes[0];
       return issue || null;
     } catch (error) {
-      this.logger.error("Failed to get issue by identifier", error as Error, { identifier });
+      this.logger.error("Failed to get issue by identifier", error as Error, {
+        identifier,
+      });
       return null;
     }
   }
@@ -88,21 +101,23 @@ export class LinearClient {
         filter: {
           assignee: {
             id: {
-              eq: targetUserId
-            }
+              eq: targetUserId,
+            },
           },
           state: {
             type: {
-              nin: ["completed", "canceled"]
-            }
-          }
+              nin: ["completed", "canceled"],
+            },
+          },
         },
-        orderBy: "updatedAt"
+        orderBy: "updatedAt",
       });
 
       return issues.nodes;
     } catch (error) {
-      this.logger.error("Failed to get assigned issues", error as Error, { userId: targetUserId });
+      this.logger.error("Failed to get assigned issues", error as Error, {
+        userId: targetUserId,
+      });
       return [];
     }
   }
@@ -115,13 +130,16 @@ export class LinearClient {
 
     try {
       await this.client.updateIssue(issueId, {
-        stateId: statusId
+        stateId: statusId,
       });
 
       this.logger.info("Issue status updated", { issueId, statusId });
       return true;
     } catch (error) {
-      this.logger.error("Failed to update issue status", error as Error, { issueId, statusId });
+      this.logger.error("Failed to update issue status", error as Error, {
+        issueId,
+        statusId,
+      });
       return false;
     }
   }
@@ -138,15 +156,21 @@ export class LinearClient {
       const states = await team.states();
 
       // Find "started" type state
-      const startedState = states.nodes.find(state => state.type === "started");
+      const startedState = states.nodes.find(
+        (state) => state.type === "started",
+      );
       if (!startedState) {
-        this.logger.warn("No 'started' state found for team", { teamId: team.id });
+        this.logger.warn("No 'started' state found for team", {
+          teamId: team.id,
+        });
         return false;
       }
 
       return await this.updateIssueStatus(issue.id, startedState.id);
     } catch (error) {
-      this.logger.error("Failed to move issue to started", error as Error, { issueId: issue.id });
+      this.logger.error("Failed to move issue to started", error as Error, {
+        issueId: issue.id,
+      });
       return false;
     }
   }
@@ -155,7 +179,9 @@ export class LinearClient {
    * Move issue to "completed" status
    */
   async moveIssueToCompleted(issue: Issue): Promise<boolean> {
-    this.logger.debug("Moving issue to completed status", { issueId: issue.id });
+    this.logger.debug("Moving issue to completed status", {
+      issueId: issue.id,
+    });
 
     try {
       // Get team workflow states
@@ -163,15 +189,21 @@ export class LinearClient {
       const states = await team.states();
 
       // Find "completed" type state
-      const completedState = states.nodes.find(state => state.type === "completed");
+      const completedState = states.nodes.find(
+        (state) => state.type === "completed",
+      );
       if (!completedState) {
-        this.logger.warn("No 'completed' state found for team", { teamId: team.id });
+        this.logger.warn("No 'completed' state found for team", {
+          teamId: team.id,
+        });
         return false;
       }
 
       return await this.updateIssueStatus(issue.id, completedState.id);
     } catch (error) {
-      this.logger.error("Failed to move issue to completed", error as Error, { issueId: issue.id });
+      this.logger.error("Failed to move issue to completed", error as Error, {
+        issueId: issue.id,
+      });
       return false;
     }
   }
@@ -185,13 +217,18 @@ export class LinearClient {
     try {
       const comment = await this.client.createComment({
         issueId,
-        body
+        body,
       });
 
-      this.logger.info("Comment created", { issueId, commentId: (await comment.comment)?.id });
-      return await comment.comment || null;
+      this.logger.info("Comment created", {
+        issueId,
+        commentId: (await comment.comment)?.id,
+      });
+      return (await comment.comment) || null;
     } catch (error) {
-      this.logger.error("Failed to create comment", error as Error, { issueId });
+      this.logger.error("Failed to create comment", error as Error, {
+        issueId,
+      });
       return null;
     }
   }
@@ -199,18 +236,26 @@ export class LinearClient {
   /**
    * Update existing comment
    */
-  async updateComment(commentId: string, body: string): Promise<Comment | null> {
-    this.logger.debug("Updating comment", { commentId, bodyLength: body.length });
+  async updateComment(
+    commentId: string,
+    body: string,
+  ): Promise<Comment | null> {
+    this.logger.debug("Updating comment", {
+      commentId,
+      bodyLength: body.length,
+    });
 
     try {
       const comment = await this.client.updateComment(commentId, {
-        body
+        body,
       });
 
       this.logger.info("Comment updated", { commentId });
       return comment.comment || null;
     } catch (error) {
-      this.logger.error("Failed to update comment", error as Error, { commentId });
+      this.logger.error("Failed to update comment", error as Error, {
+        commentId,
+      });
       return null;
     }
   }
@@ -224,10 +269,12 @@ export class LinearClient {
     try {
       const issue = await this.client.issue(issueId);
       const comments = await issue.comments();
-      
+
       return comments.nodes;
     } catch (error) {
-      this.logger.error("Failed to get issue comments", error as Error, { issueId });
+      this.logger.error("Failed to get issue comments", error as Error, {
+        issueId,
+      });
       return [];
     }
   }
@@ -235,9 +282,12 @@ export class LinearClient {
   /**
    * Check if user is assigned to issue
    */
-  async isUserAssignedToIssue(issueId: string, userId?: string): Promise<boolean> {
+  async isUserAssignedToIssue(
+    issueId: string,
+    userId?: string,
+  ): Promise<boolean> {
     const targetUserId = userId || this.config.agentUserId;
-    
+
     if (!targetUserId) {
       const viewer = await this.getCurrentUser();
       return await this.isUserAssignedToIssue(issueId, viewer.id);
@@ -250,7 +300,10 @@ export class LinearClient {
       const assignee = await issue.assignee;
       return assignee?.id === targetUserId;
     } catch (error) {
-      this.logger.error("Failed to check issue assignment", error as Error, { issueId, userId: targetUserId });
+      this.logger.error("Failed to check issue assignment", error as Error, {
+        issueId,
+        userId: targetUserId,
+      });
       return false;
     }
   }
@@ -258,9 +311,12 @@ export class LinearClient {
   /**
    * Check if comment mentions the agent
    */
-  async isAgentMentioned(comment: Comment, agentUserId?: string): Promise<boolean> {
+  async isAgentMentioned(
+    comment: Comment,
+    agentUserId?: string,
+  ): Promise<boolean> {
     const targetUserId = agentUserId || this.config.agentUserId;
-    
+
     if (!targetUserId) {
       const viewer = await this.getCurrentUser();
       return await this.isAgentMentioned(comment, viewer.id);
@@ -268,25 +324,27 @@ export class LinearClient {
 
     // Check if comment body contains @mention or user ID
     const body = comment.body.toLowerCase();
-    
+
     // Get user details for mention checking
     try {
       const user = await this.client.user(targetUserId);
       const username = user.name.toLowerCase();
       const displayName = user.displayName?.toLowerCase() || "";
-      
+
       // Check various mention patterns
       const patterns = [
         `@${username}`,
         `@${displayName}`,
         `@claude`,
         `@agent`,
-        targetUserId
+        targetUserId,
       ];
 
-      return patterns.some(pattern => pattern && body.includes(pattern));
+      return patterns.some((pattern) => pattern && body.includes(pattern));
     } catch (error) {
-      this.logger.error("Failed to check agent mention", error as Error, { commentId: comment.id });
+      this.logger.error("Failed to check agent mention", error as Error, {
+        commentId: comment.id,
+      });
       return false;
     }
   }
@@ -300,10 +358,12 @@ export class LinearClient {
     try {
       const team = await this.client.team(teamId);
       const states = await team.states();
-      
+
       return states.nodes;
     } catch (error) {
-      this.logger.error("Failed to get team states", error as Error, { teamId });
+      this.logger.error("Failed to get team states", error as Error, {
+        teamId,
+      });
       return [];
     }
   }
@@ -311,7 +371,10 @@ export class LinearClient {
   /**
    * Create a progress comment for session
    */
-  async createProgressComment(session: ClaudeSession, message: string): Promise<Comment | null> {
+  async createProgressComment(
+    session: ClaudeSession,
+    message: string,
+  ): Promise<Comment | null> {
     const progressMessage = `
 🤖 **Claude Agent - ${session.issueIdentifier}**
 
@@ -329,7 +392,11 @@ ${session.branchName ? `*Branch: \`${session.branchName}\`*` : ""}
   /**
    * Update progress comment for session
    */
-  async updateProgressComment(commentId: string, session: ClaudeSession, message: string): Promise<Comment | null> {
+  async updateProgressComment(
+    commentId: string,
+    session: ClaudeSession,
+    message: string,
+  ): Promise<Comment | null> {
     const progressMessage = `
 🤖 **Claude Agent - ${session.issueIdentifier}**
 

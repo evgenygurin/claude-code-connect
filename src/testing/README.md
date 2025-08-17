@@ -106,7 +106,9 @@ const coverage = await agent.analyzeCoverage();
 console.log(`Coverage: ${coverage.coveragePercentage}%`);
 
 // Generate recommendations
-const recommendations = await agent.generateRecommendations(coverage.missingTests);
+const recommendations = await agent.generateRecommendations(
+  coverage.missingTests,
+);
 
 // Create sample test
 const sampleTest = await agent.generateSampleTest(recommendations[0]);
@@ -120,11 +122,11 @@ The agent calculates comprehensive coverage metrics:
 
 ```typescript
 interface TestCoverageAnalysis {
-  totalSourceFiles: number;      // All .ts files in src/
-  testedFiles: number;           // Files with corresponding tests
-  coveragePercentage: number;    // (testedFiles / totalSourceFiles) * 100
-  missingTests: string[];        // Files without tests
-  existingTests: string[];       // Found test files
+  totalSourceFiles: number; // All .ts files in src/
+  testedFiles: number; // Files with corresponding tests
+  coveragePercentage: number; // (testedFiles / totalSourceFiles) * 100
+  missingTests: string[]; // Files without tests
+  existingTests: string[]; // Found test files
   recommendations: TestRecommendation[]; // Prioritized suggestions
 }
 ```
@@ -168,8 +170,12 @@ import { ComponentName } from "../path/to/component.js";
 import type { IntegrationConfig, Logger } from "../core/types.js";
 
 // Mock implementations
-const mockLogger: Logger = { /* ... */ };
-const mockConfig: IntegrationConfig = { /* ... */ };
+const mockLogger: Logger = {
+  /* ... */
+};
+const mockConfig: IntegrationConfig = {
+  /* ... */
+};
 
 describe("ComponentName", () => {
   let instance: ComponentName;
@@ -185,17 +191,20 @@ describe("ComponentName", () => {
 ### Test Scenarios Generated
 
 #### For Classes
+
 - **Instantiation tests**: Valid/invalid configuration
 - **Method tests**: Success/failure scenarios
 - **Async operation tests**: Promise resolution/rejection
 - **Error handling tests**: Exception scenarios
 
 #### For Functions
+
 - **Input validation**: Valid/invalid parameters
 - **Return value tests**: Expected outputs
 - **Side effect tests**: State changes, logging
 
 #### For Integration Points
+
 - **External API tests**: Linear SDK interactions
 - **Database tests**: Storage operations
 - **Validation tests**: Schema parsing with Zod
@@ -208,24 +217,44 @@ The agent provides comprehensive mock data for testing:
 
 ```typescript
 // Users, teams, issues, comments
-export const mockUser: User = { /* ... */ };
-export const mockAgentUser: User = { /* ... */ };
-export const mockIssue: Issue = { /* ... */ };
-export const mockComment: Comment = { /* ... */ };
+export const mockUser: User = {
+  /* ... */
+};
+export const mockAgentUser: User = {
+  /* ... */
+};
+export const mockIssue: Issue = {
+  /* ... */
+};
+export const mockComment: Comment = {
+  /* ... */
+};
 
 // Webhook events
-export const mockWebhookEventIssueAssigned: LinearWebhookEvent = { /* ... */ };
-export const mockWebhookEventCommentMention: LinearWebhookEvent = { /* ... */ };
+export const mockWebhookEventIssueAssigned: LinearWebhookEvent = {
+  /* ... */
+};
+export const mockWebhookEventCommentMention: LinearWebhookEvent = {
+  /* ... */
+};
 ```
 
 ### Session Mocks
 
 ```typescript
 // Different session states
-export const mockSessionCreated: ClaudeSession = { /* ... */ };
-export const mockSessionRunning: ClaudeSession = { /* ... */ };
-export const mockSessionCompleted: ClaudeSession = { /* ... */ };
-export const mockSessionFailed: ClaudeSession = { /* ... */ };
+export const mockSessionCreated: ClaudeSession = {
+  /* ... */
+};
+export const mockSessionRunning: ClaudeSession = {
+  /* ... */
+};
+export const mockSessionCompleted: ClaudeSession = {
+  /* ... */
+};
+export const mockSessionFailed: ClaudeSession = {
+  /* ... */
+};
 ```
 
 ### Execution Result Mocks
@@ -235,9 +264,13 @@ export const mockExecutionResultSuccess: ClaudeExecutionResult = {
   success: true,
   output: "Successfully implemented changes",
   filesModified: ["src/auth/login.ts"],
-  commits: [{ /* ... */ }],
+  commits: [
+    {
+      /* ... */
+    },
+  ],
   duration: 1800000,
-  exitCode: 0
+  exitCode: 0,
 };
 ```
 
@@ -250,7 +283,7 @@ describe("SessionManager", () => {
   describe("createSession", () => {
     it("should create new session successfully", async () => {
       const session = await sessionManager.createSession(mockIssue);
-      
+
       expect(session).toBeDefined();
       expect(session.issueId).toBe(mockIssue.id);
       expect(session.status).toBe(SessionStatus.CREATED);
@@ -259,7 +292,7 @@ describe("SessionManager", () => {
     it("should include branch name when createBranches is enabled", async () => {
       config.createBranches = true;
       const session = await sessionManager.createSession(mockIssue);
-      
+
       expect(session.branchName).toContain("claude/");
     });
   });
@@ -267,10 +300,10 @@ describe("SessionManager", () => {
   describe("startSession", () => {
     it("should execute session successfully", async () => {
       mockExecutor.execute.mockResolvedValue(mockExecutionResultSuccess);
-      
+
       const session = await sessionManager.createSession(mockIssue);
       const result = await sessionManager.startSession(session.id, mockIssue);
-      
+
       expect(result.success).toBe(true);
     });
   });
@@ -283,8 +316,10 @@ describe("SessionManager", () => {
 describe("LinearWebhookHandler", () => {
   describe("processWebhook", () => {
     it("should trigger on issue assignment to agent", async () => {
-      const result = await webhookHandler.processWebhook(mockWebhookEventIssueAssigned);
-      
+      const result = await webhookHandler.processWebhook(
+        mockWebhookEventIssueAssigned,
+      );
+
       expect(result?.shouldTrigger).toBe(true);
       expect(result?.triggerReason).toBe("Issue assigned to agent");
     });
@@ -292,7 +327,7 @@ describe("LinearWebhookHandler", () => {
     it("should not trigger on self-generated events", async () => {
       const selfEvent = { ...mockWebhookEvent, actor: mockAgentUser };
       const result = await webhookHandler.processWebhook(selfEvent);
-      
+
       expect(result?.shouldTrigger).toBe(false);
     });
   });
@@ -308,7 +343,7 @@ The Testing Agent can be integrated into CI/CD pipelines to enforce quality stan
 ```typescript
 // Set coverage thresholds
 const minimumCoverage = 70; // Fail below 70%
-const targetCoverage = 85;  // Warning below 85%
+const targetCoverage = 85; // Warning below 85%
 
 const coverage = await testingAgent.analyzeCoverage();
 
@@ -362,16 +397,19 @@ The generated tests provide a foundation, but should be enhanced with:
 ### Common Issues
 
 **"No testable components found"**
+
 - Ensure file exports classes or functions
 - Check TypeScript syntax is valid
 - Verify file is in src/ directory
 
 **"Permission denied" errors**
+
 - Check file system permissions
 - Ensure project root directory is accessible
 - Verify glob patterns are correct
 
 **"Mock import errors"**
+
 - Update import paths in generated tests
 - Ensure all dependencies are installed
 - Check TypeScript configuration

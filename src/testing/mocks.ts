@@ -10,7 +10,7 @@ import type {
   ClaudeExecutionResult,
   ClaudeExecutionContext,
   IntegrationConfig,
-  Logger
+  Logger,
 } from "../core/types.js";
 import type { Issue, Comment, User, Team, WorkflowState } from "@linear/sdk";
 import { SessionStatus as SessionStatusEnum } from "../core/types.js";
@@ -31,7 +31,7 @@ export const mockUser: User = {
   url: "https://linear.app/user/test-user",
   createdAt: new Date("2024-01-01T00:00:00Z"),
   updatedAt: new Date("2024-01-01T00:00:00Z"),
-  archivedAt: null
+  archivedAt: null,
 } as User;
 
 /**
@@ -49,7 +49,7 @@ export const mockAgentUser: User = {
   url: "https://linear.app/user/claude-agent",
   createdAt: new Date("2024-01-01T00:00:00Z"),
   updatedAt: new Date("2024-01-01T00:00:00Z"),
-  archivedAt: null
+  archivedAt: null,
 } as User;
 
 /**
@@ -65,7 +65,7 @@ export const mockTeam: Team = {
   url: "https://linear.app/team/dev",
   createdAt: new Date("2024-01-01T00:00:00Z"),
   updatedAt: new Date("2024-01-01T00:00:00Z"),
-  archivedAt: null
+  archivedAt: null,
 } as Team;
 
 /**
@@ -81,7 +81,7 @@ export const mockWorkflowState: WorkflowState = {
   url: "https://linear.app/state/todo",
   createdAt: new Date("2024-01-01T00:00:00Z"),
   updatedAt: new Date("2024-01-01T00:00:00Z"),
-  archivedAt: null
+  archivedAt: null,
 } as WorkflowState;
 
 /**
@@ -91,7 +91,8 @@ export const mockIssue: Issue = {
   id: "issue-abc123",
   identifier: "DEV-123",
   title: "Fix authentication bug",
-  description: "The login flow is broken for users with special characters in their email",
+  description:
+    "The login flow is broken for users with special characters in their email",
   url: "https://linear.app/team/issue/dev-123",
   number: 123,
   priority: 2,
@@ -110,7 +111,7 @@ export const mockIssue: Issue = {
   autoArchivedAt: null,
   autoClosedAt: null,
   snoozedUntilAt: null,
-  triagedAt: null
+  triagedAt: null,
 } as Issue;
 
 /**
@@ -121,8 +122,9 @@ export const mockIssueAssignedToAgent: Issue = {
   id: "issue-agent-assigned",
   identifier: "DEV-124",
   title: "Implement new API endpoint",
-  description: "Create a new endpoint for user profile updates. @claude please implement this with proper validation",
-  assignee: mockAgentUser
+  description:
+    "Create a new endpoint for user profile updates. @claude please implement this with proper validation",
+  assignee: mockAgentUser,
 } as Issue;
 
 /**
@@ -137,7 +139,7 @@ export const mockComment: Comment = {
   createdAt: new Date("2024-01-01T14:00:00Z"),
   updatedAt: new Date("2024-01-01T14:00:00Z"),
   archivedAt: null,
-  editedAt: null
+  editedAt: null,
 } as Comment;
 
 /**
@@ -146,7 +148,7 @@ export const mockComment: Comment = {
 export const mockCommentNoMention: Comment = {
   ...mockComment,
   id: "comment-no-mention",
-  body: "This is a regular comment without any agent mention. Just discussing the issue with the team."
+  body: "This is a regular comment without any agent mention. Just discussing the issue with the team.",
 } as Comment;
 
 /**
@@ -160,7 +162,7 @@ export const mockWebhookEventIssueCreated: LinearWebhookEvent = {
   url: "https://linear.app/team/issue/dev-123",
   organizationId: "org-test-123",
   webhookId: "webhook-789",
-  createdAt: "2024-01-01T10:00:00Z"
+  createdAt: "2024-01-01T10:00:00Z",
 };
 
 /**
@@ -174,7 +176,7 @@ export const mockWebhookEventIssueAssigned: LinearWebhookEvent = {
   url: "https://linear.app/team/issue/dev-124",
   organizationId: "org-test-123",
   webhookId: "webhook-789",
-  createdAt: "2024-01-01T11:00:00Z"
+  createdAt: "2024-01-01T11:00:00Z",
 };
 
 /**
@@ -188,7 +190,7 @@ export const mockWebhookEventCommentMention: LinearWebhookEvent = {
   url: "https://linear.app/comment/def456",
   organizationId: "org-test-123",
   webhookId: "webhook-789",
-  createdAt: "2024-01-01T14:00:00Z"
+  createdAt: "2024-01-01T14:00:00Z",
 };
 
 /**
@@ -202,7 +204,7 @@ export const mockWebhookEventCommentNoMention: LinearWebhookEvent = {
   url: "https://linear.app/comment/no-mention",
   organizationId: "org-test-123",
   webhookId: "webhook-789",
-  createdAt: "2024-01-01T15:00:00Z"
+  createdAt: "2024-01-01T15:00:00Z",
 };
 
 /**
@@ -215,7 +217,7 @@ export const mockProcessedEventTrigger: ProcessedEvent = {
   actor: mockUser,
   shouldTrigger: true,
   triggerReason: "Issue assigned to agent",
-  timestamp: new Date("2024-01-01T11:00:00Z")
+  timestamp: new Date("2024-01-01T11:00:00Z"),
 };
 
 /**
@@ -229,7 +231,7 @@ export const mockProcessedEventNoTrigger: ProcessedEvent = {
   actor: mockUser,
   shouldTrigger: false,
   triggerReason: "No agent mention found",
-  timestamp: new Date("2024-01-01T15:00:00Z")
+  timestamp: new Date("2024-01-01T15:00:00Z"),
 };
 
 /**
@@ -247,8 +249,8 @@ export const mockSessionCreated: ClaudeSession = {
   metadata: {
     triggerCommentId: mockComment.id,
     issueTitle: mockIssue.title,
-    issueUrl: mockIssue.url
-  }
+    issueUrl: mockIssue.url,
+  },
 };
 
 /**
@@ -258,7 +260,7 @@ export const mockSessionRunning: ClaudeSession = {
   ...mockSessionCreated,
   status: SessionStatusEnum.RUNNING,
   processId: 12345,
-  lastActivityAt: new Date("2024-01-01T12:30:00Z")
+  lastActivityAt: new Date("2024-01-01T12:30:00Z"),
 };
 
 /**
@@ -282,13 +284,13 @@ export const mockSessionCompleted: ClaudeSession = {
           message: "fix(auth): handle special characters in email validation",
           author: "Claude Agent",
           timestamp: new Date("2024-01-01T12:45:00Z"),
-          files: ["src/auth/login.ts"]
-        }
+          files: ["src/auth/login.ts"],
+        },
       ],
       duration: 1800000, // 30 minutes
-      exitCode: 0
-    }
-  }
+      exitCode: 0,
+    },
+  },
 };
 
 /**
@@ -299,7 +301,7 @@ export const mockSessionFailed: ClaudeSession = {
   status: SessionStatusEnum.FAILED,
   processId: 12345,
   error: "Failed to execute: git repository not found",
-  lastActivityAt: new Date("2024-01-01T12:15:00Z")
+  lastActivityAt: new Date("2024-01-01T12:15:00Z"),
 };
 
 /**
@@ -311,26 +313,27 @@ export const mockExecutionResultSuccess: ClaudeExecutionResult = {
   filesModified: [
     "src/auth/login.ts",
     "src/auth/validation.ts",
-    "tests/auth.test.ts"
+    "tests/auth.test.ts",
   ],
   commits: [
     {
       hash: "abc123def456",
-      message: "fix(auth): handle special characters in email validation\n\nFixed issue where emails with '+' symbols couldn't log in.",
+      message:
+        "fix(auth): handle special characters in email validation\n\nFixed issue where emails with '+' symbols couldn't log in.",
       author: "Claude Agent <claude@example.com>",
       timestamp: new Date("2024-01-01T12:45:00Z"),
-      files: ["src/auth/login.ts", "src/auth/validation.ts"]
+      files: ["src/auth/login.ts", "src/auth/validation.ts"],
     },
     {
       hash: "def456ghi789",
       message: "test(auth): add tests for special character email validation",
       author: "Claude Agent <claude@example.com>",
       timestamp: new Date("2024-01-01T12:50:00Z"),
-      files: ["tests/auth.test.ts"]
-    }
+      files: ["tests/auth.test.ts"],
+    },
   ],
   duration: 1800000, // 30 minutes in milliseconds
-  exitCode: 0
+  exitCode: 0,
 };
 
 /**
@@ -338,12 +341,13 @@ export const mockExecutionResultSuccess: ClaudeExecutionResult = {
  */
 export const mockExecutionResultFailure: ClaudeExecutionResult = {
   success: false,
-  error: "Compilation failed: Type 'string | undefined' is not assignable to type 'string'",
+  error:
+    "Compilation failed: Type 'string | undefined' is not assignable to type 'string'",
   output: "Error occurred during execution",
   filesModified: [],
   commits: [],
   duration: 300000, // 5 minutes
-  exitCode: 1
+  exitCode: 1,
 };
 
 /**
@@ -365,13 +369,13 @@ export const mockExecutionContext: ClaudeExecutionContext = {
     createBranches: true,
     timeoutMinutes: 30,
     agentUserId: mockAgentUser.id,
-    debug: true
+    debug: true,
   },
   context: {
     sessionId: mockSessionRunning.id,
     issueIdentifier: mockIssue.identifier,
-    triggerType: "comment_mention"
-  }
+    triggerType: "comment_mention",
+  },
 };
 
 /**
@@ -388,7 +392,7 @@ export const mockIntegrationConfig: IntegrationConfig = {
   createBranches: true,
   timeoutMinutes: 30,
   agentUserId: mockAgentUser.id,
-  debug: false
+  debug: false,
 };
 
 /**
@@ -398,7 +402,7 @@ export const mockLogger: Logger = {
   debug: vi.fn(),
   info: vi.fn(),
   warn: vi.fn(),
-  error: vi.fn()
+  error: vi.fn(),
 };
 
 /**
@@ -425,43 +429,52 @@ export function createMockLogger(): Logger & {
     warn: vi.fn((message: string, meta?: Record<string, unknown>) => {
       warnCalls.push({ message, meta });
     }),
-    error: vi.fn((message: string, error?: Error, meta?: Record<string, unknown>) => {
-      errorCalls.push({ message, error, meta });
-    }),
+    error: vi.fn(
+      (message: string, error?: Error, meta?: Record<string, unknown>) => {
+        errorCalls.push({ message, error, meta });
+      },
+    ),
     debugCalls,
     infoCalls,
     warnCalls,
-    errorCalls
+    errorCalls,
   };
 }
 
 /**
  * Mock webhook signature for testing
  */
-export const mockWebhookSignature = "sha256=a8b7c6d5e4f3g2h1i0j9k8l7m6n5o4p3q2r1s0t9u8v7w6x5y4z3";
+export const mockWebhookSignature =
+  "sha256=a8b7c6d5e4f3g2h1i0j9k8l7m6n5o4p3q2r1s0t9u8v7w6x5y4z3";
 
 /**
  * Mock webhook payload as string (for signature verification)
  */
-export const mockWebhookPayloadString = JSON.stringify(mockWebhookEventIssueAssigned);
+export const mockWebhookPayloadString = JSON.stringify(
+  mockWebhookEventIssueAssigned,
+);
 
 /**
  * Helper function to create mock session with custom status
  */
-export function createMockSession(overrides: Partial<ClaudeSession> = {}): ClaudeSession {
+export function createMockSession(
+  overrides: Partial<ClaudeSession> = {},
+): ClaudeSession {
   return {
     ...mockSessionCreated,
-    ...overrides
+    ...overrides,
   };
 }
 
 /**
  * Helper function to create mock webhook event
  */
-export function createMockWebhookEvent(overrides: Partial<LinearWebhookEvent> = {}): LinearWebhookEvent {
+export function createMockWebhookEvent(
+  overrides: Partial<LinearWebhookEvent> = {},
+): LinearWebhookEvent {
   return {
     ...mockWebhookEventIssueCreated,
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -471,7 +484,7 @@ export function createMockWebhookEvent(overrides: Partial<LinearWebhookEvent> = 
 export function createMockIssue(overrides: Partial<Issue> = {}): Issue {
   return {
     ...mockIssue,
-    ...overrides
+    ...overrides,
   } as Issue;
 }
 
@@ -481,6 +494,6 @@ export function createMockIssue(overrides: Partial<Issue> = {}): Issue {
 export function createMockComment(overrides: Partial<Comment> = {}): Comment {
   return {
     ...mockComment,
-    ...overrides
+    ...overrides,
   } as Comment;
 }

@@ -42,7 +42,7 @@ export async function demonstrateTestingAgent(): Promise<void> {
     projectRootDir: process.cwd(),
     defaultBranch: "main",
     createBranches: true,
-    timeoutMinutes: 30
+    timeoutMinutes: 30,
   };
 
   const logger = new ExampleLogger();
@@ -52,9 +52,9 @@ export async function demonstrateTestingAgent(): Promise<void> {
     // 1. Analyze current test coverage
     console.log("1️⃣ Analyzing Test Coverage");
     console.log("==========================");
-    
+
     const coverage = await testingAgent.analyzeCoverage();
-    
+
     console.log(`📊 Coverage Summary:`);
     console.log(`   Total files: ${coverage.totalSourceFiles}`);
     console.log(`   Tested files: ${coverage.testedFiles}`);
@@ -65,14 +65,16 @@ export async function demonstrateTestingAgent(): Promise<void> {
     // 2. Show top recommendations
     console.log("2️⃣ Top Test Recommendations");
     console.log("============================");
-    
+
     const topRecommendations = coverage.recommendations.slice(0, 3);
     topRecommendations.forEach((rec, index) => {
-      console.log(`${index + 1}. ${rec.componentName} (Priority: ${rec.priority}/10)`);
+      console.log(
+        `${index + 1}. ${rec.componentName} (Priority: ${rec.priority}/10)`,
+      );
       console.log(`   📄 File: ${rec.targetFile}`);
       console.log(`   💡 Reason: ${rec.reason}`);
       console.log(`   🎯 Test scenarios: ${rec.scenarios.length}`);
-      
+
       // Show first few scenarios
       if (rec.scenarios.length > 0) {
         console.log(`   🎭 Key scenarios:`);
@@ -87,18 +89,18 @@ export async function demonstrateTestingAgent(): Promise<void> {
     if (coverage.recommendations.length > 0) {
       console.log("3️⃣ Sample Test Generation");
       console.log("=========================");
-      
+
       const highestPriority = coverage.recommendations[0];
       console.log(`Generating test for: ${highestPriority.componentName}`);
-      
+
       const sampleTest = await testingAgent.generateSampleTest(highestPriority);
-      
+
       console.log("📝 Generated test preview (first 20 lines):");
       const lines = sampleTest.split("\n").slice(0, 20);
       lines.forEach((line, index) => {
         console.log(`${String(index + 1).padStart(3)}: ${line}`);
       });
-      
+
       if (sampleTest.split("\n").length > 20) {
         console.log("     ... (truncated)");
       }
@@ -108,15 +110,15 @@ export async function demonstrateTestingAgent(): Promise<void> {
     // 4. Coverage analysis breakdown
     console.log("4️⃣ Detailed Analysis");
     console.log("====================");
-    
+
     console.log("✅ Files with existing tests:");
-    coverage.existingTests.forEach(file => {
+    coverage.existingTests.forEach((file) => {
       console.log(`   • ${file}`);
     });
     console.log("");
-    
+
     console.log("❌ Files missing tests:");
-    coverage.missingTests.forEach(file => {
+    coverage.missingTests.forEach((file) => {
       console.log(`   • ${file}`);
     });
     console.log("");
@@ -124,12 +126,16 @@ export async function demonstrateTestingAgent(): Promise<void> {
     // 5. Testing strategy recommendations
     console.log("5️⃣ Testing Strategy Recommendations");
     console.log("===================================");
-    
+
     if (coverage.coveragePercentage < 50) {
       console.log("🚨 Critical: Very low test coverage");
       console.log("   Priority actions:");
-      console.log("   1. Start with core components (SessionManager, WebhookHandler)");
-      console.log("   2. Focus on integration tests for Linear SDK interactions");
+      console.log(
+        "   1. Start with core components (SessionManager, WebhookHandler)",
+      );
+      console.log(
+        "   2. Focus on integration tests for Linear SDK interactions",
+      );
       console.log("   3. Add unit tests for business logic validation");
     } else if (coverage.coveragePercentage < 80) {
       console.log("⚠️ Warning: Moderate test coverage");
@@ -149,17 +155,24 @@ export async function demonstrateTestingAgent(): Promise<void> {
     // 6. Implementation roadmap
     console.log("6️⃣ Implementation Roadmap");
     console.log("=========================");
-    
+
     const prioritizedComponents = coverage.recommendations
       .sort((a, b) => b.priority - a.priority)
       .slice(0, 5);
-    
+
     console.log("Suggested implementation order:");
     prioritizedComponents.forEach((rec, index) => {
-      const urgency = rec.priority >= 8 ? "🔥 High" : rec.priority >= 6 ? "⚡ Medium" : "📝 Low";
+      const urgency =
+        rec.priority >= 8
+          ? "🔥 High"
+          : rec.priority >= 6
+            ? "⚡ Medium"
+            : "📝 Low";
       console.log(`${index + 1}. ${rec.componentName} - ${urgency} priority`);
       console.log(`   📁 ${rec.targetFile}`);
-      console.log(`   ⏱️ Estimated effort: ${getEffortEstimate(rec.scenarios.length)} hours`);
+      console.log(
+        `   ⏱️ Estimated effort: ${getEffortEstimate(rec.scenarios.length)} hours`,
+      );
       console.log(`   🎯 Focus: ${rec.reason}`);
       console.log("");
     });
@@ -170,7 +183,6 @@ export async function demonstrateTestingAgent(): Promise<void> {
     console.log("3. Run: npm test to verify implementation");
     console.log("4. Repeat for next highest priority component");
     console.log("");
-
   } catch (error) {
     console.error("❌ Demo failed:", (error as Error).message);
   }
@@ -200,7 +212,7 @@ export async function cicdIntegration(): Promise<void> {
     projectRootDir: process.cwd(),
     defaultBranch: "main",
     createBranches: true,
-    timeoutMinutes: 30
+    timeoutMinutes: 30,
   };
 
   const logger = new ExampleLogger();
@@ -208,10 +220,10 @@ export async function cicdIntegration(): Promise<void> {
 
   try {
     const coverage = await testingAgent.analyzeCoverage();
-    
+
     // Set coverage thresholds for CI/CD
     const minimumCoverage = 70; // 70% minimum coverage
-    const targetCoverage = 85;   // 85% target coverage
+    const targetCoverage = 85; // 85% target coverage
 
     console.log(`📊 Current coverage: ${coverage.coveragePercentage}%`);
     console.log(`🎯 Target coverage: ${targetCoverage}%`);
@@ -221,24 +233,26 @@ export async function cicdIntegration(): Promise<void> {
     if (coverage.coveragePercentage < minimumCoverage) {
       console.log("❌ FAIL: Coverage below minimum threshold");
       console.log(`Missing tests for ${coverage.missingTests.length} files:`);
-      coverage.missingTests.forEach(file => {
+      coverage.missingTests.forEach((file) => {
         console.log(`   • ${file}`);
       });
-      
+
       // In real CI/CD, this would exit with code 1
       console.log("\n🚨 CI/CD Pipeline should FAIL");
       console.log("Action required: Add tests before merging");
-      
     } else if (coverage.coveragePercentage < targetCoverage) {
       console.log("⚠️ PASS: Coverage meets minimum but below target");
       console.log("Recommendation: Consider adding more tests");
-      
+
       // Show what's missing to reach target
       const filesToTarget = Math.ceil(
-        (targetCoverage - coverage.coveragePercentage) * coverage.totalSourceFiles / 100
+        ((targetCoverage - coverage.coveragePercentage) *
+          coverage.totalSourceFiles) /
+          100,
       );
-      console.log(`\n📈 To reach ${targetCoverage}%, add tests for ${filesToTarget} more files`);
-      
+      console.log(
+        `\n📈 To reach ${targetCoverage}%, add tests for ${filesToTarget} more files`,
+      );
     } else {
       console.log("✅ PASS: Excellent test coverage!");
       console.log("🎉 Coverage exceeds target threshold");
@@ -246,10 +260,15 @@ export async function cicdIntegration(): Promise<void> {
 
     // Generate quality gates report
     console.log("\n📋 Quality Gates Report:");
-    console.log(`• Test Coverage: ${coverage.coveragePercentage >= minimumCoverage ? "✅" : "❌"} (${coverage.coveragePercentage}%)`);
-    console.log(`• Core Components: ${getCoreComponentsCoverage(coverage) ? "✅" : "❌"}`);
-    console.log(`• Critical Paths: ${getCriticalPathsCoverage(coverage) ? "✅" : "❌"}`);
-
+    console.log(
+      `• Test Coverage: ${coverage.coveragePercentage >= minimumCoverage ? "✅" : "❌"} (${coverage.coveragePercentage}%)`,
+    );
+    console.log(
+      `• Core Components: ${getCoreComponentsCoverage(coverage) ? "✅" : "❌"}`,
+    );
+    console.log(
+      `• Critical Paths: ${getCriticalPathsCoverage(coverage) ? "✅" : "❌"}`,
+    );
   } catch (error) {
     console.error("❌ CI/CD Integration failed:", (error as Error).message);
   }
@@ -262,13 +281,13 @@ function getCoreComponentsCoverage(coverage: any): boolean {
   const coreFiles = [
     "src/sessions/manager.ts",
     "src/webhooks/handler.ts",
-    "src/claude/executor.ts"
+    "src/claude/executor.ts",
   ];
-  
-  return coreFiles.every(file => 
-    coverage.existingTests.some((test: string) => 
-      test.includes(file.replace(".ts", ""))
-    )
+
+  return coreFiles.every((file) =>
+    coverage.existingTests.some((test: string) =>
+      test.includes(file.replace(".ts", "")),
+    ),
   );
 }
 
@@ -276,15 +295,12 @@ function getCoreComponentsCoverage(coverage: any): boolean {
  * Check if critical paths have test coverage
  */
 function getCriticalPathsCoverage(coverage: any): boolean {
-  const criticalFiles = [
-    "src/sessions/manager.ts",
-    "src/webhooks/handler.ts"
-  ];
-  
-  return criticalFiles.every(file => 
-    coverage.existingTests.some((test: string) => 
-      test.includes(file.replace(".ts", ""))
-    )
+  const criticalFiles = ["src/sessions/manager.ts", "src/webhooks/handler.ts"];
+
+  return criticalFiles.every((file) =>
+    coverage.existingTests.some((test: string) =>
+      test.includes(file.replace(".ts", "")),
+    ),
   );
 }
 
