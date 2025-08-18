@@ -17,10 +17,14 @@ import type {
 import { LinearClient } from "../linear/client.js";
 import { SessionManager } from "../sessions/manager.js";
 import { LinearWebhookHandler } from "../webhooks/handler.js";
+import { EnhancedLinearWebhookHandler } from "../security/enhanced-webhook-handler.js";
 import { EventRouter, DefaultEventHandlers } from "../webhooks/router.js";
 import { createSessionStorage } from "../sessions/storage.js";
 import { createLogger } from "../utils/logger.js";
 import { LinearReporter } from "../linear/reporter.js";
+import { SecurityValidator, SecurityUtils, defaultSecurityValidator } from "../security/validators.js";
+import { SecurityAgent, SecuritySeverity, SecurityEventType } from "../security/security-agent.js";
+import { SecurityMonitor } from "../security/monitoring.js";
 import { initializeLinearOAuth } from "../linear/oauth/index.js";
 
 /**
@@ -43,9 +47,12 @@ export class IntegrationServer {
   private logger: Logger;
   private linearClient: LinearClient;
   private sessionManager: SessionManager;
-  private webhookHandler: LinearWebhookHandler;
+  private webhookHandler: EnhancedLinearWebhookHandler;
   private eventRouter: EventRouter;
   private linearReporter: LinearReporter;
+  private securityValidator: SecurityValidator;
+  private securityAgent: SecurityAgent;
+  private securityMonitor: SecurityMonitor;
   private isStarted = false;
   private webhookRateLimiter: RateLimiterMemory;
   private orgRateLimiter: RateLimiterMemory;
@@ -73,6 +80,43 @@ export class IntegrationServer {
 
     // Initialize components
     this.linearClient = new LinearClient(config, this.logger);
+    
+    // Initialize security validator
+    this.securityValidator = new SecurityValidator({
+      maxPathDepth: 10,
+      blockedCommands: [
+        "rm", "rmdir", "del", "deltree", "format", "fdisk", "mkfs", "dd",
+        "curl", "wget", "nc", "netcat", "ssh", "scp", "rsync", "sudo", "su"
+      ],
+      blockedPaths: [
+        "/etc", "/var", "/usr", "/sys", "/proc", "/dev", "/root", "/boot"
+      ]
+    });
+    
+    // Initialize security agent
+    this.securityAgent = new SecurityAgent(config, this.logger, {
+      enableWebhookSignatureValidation: true,
+      enableRateLimiting: true,
+      enableInputSanitization: true,
+      enableAuditLogging: true,
+      maxSessionDuration: 60 * 60 * 1000, // 1 hour
+      maxConcurrentSessions: 10
+    });
+    
+    // Initialize security monitor
+    this.securityMonitor = new SecurityMonitor(config, this.logger, this.securityAgent, {
+      enableRealTimeAlerts: true,
+      enableMetricsCollection: true,
+      metricsRetentionDays: 30,
+      thresholds: {
+        maxFailedAuthPerMinute: 5,
+        maxCriticalEventsPerHour: 3,
+        maxSessionDurationMinutes: 60,
+        maxConcurrentSessions: 10,
+        maxMemoryUsageMB: 1024,
+        maxCpuUsagePercent: 80
+      }
+    });
 
     // Create session storage
     const storage = createSessionStorage("file", this.logger, {
@@ -86,8 +130,13 @@ export class IntegrationServer {
     this.linearReporter = new LinearReporter(this.linearClient, this.logger);
     this.linearReporter.setSessionManager(this.sessionManager);
 
-    // Create webhook handler
-    this.webhookHandler = new LinearWebhookHandler(config, this.logger);
+    // Create enhanced webhook handler with security features
+    this.webhookHandler = new EnhancedLinearWebhookHandler(
+      config, 
+      this.logger,
+      this.securityAgent,
+      this.securityMonitor
+    );
 
     // Create event handlers and router
     const eventHandlers = new DefaultEventHandlers(
@@ -133,15 +182,17 @@ export class IntegrationServer {
         const signature = request.headers["x-linear-signature"];
         const userAgent = request.headers["user-agent"];
         const clientIp = request.ip;
+        const payloadString = JSON.stringify(request.body);
+        const sourceIp = clientIp || "unknown";
 
         this.logger.debug("Received webhook", {
           signature: signature ? "present" : "missing",
           userAgent,
           clientIp,
-          bodySize: JSON.stringify(request.body).length,
+          bodySize: payloadString.length,
         });
 
-        // Apply global rate limiting
+        // Apply global rate limiting first
         try {
           await this.webhookRateLimiter.consume(clientIp);
         } catch (rateLimitError) {
@@ -152,23 +203,58 @@ export class IntegrationServer {
           });
         }
 
-        // Verify signature if configured
-        if (this.config.webhookSecret && signature) {
-          const isValid = this.webhookHandler.verifySignature(
-            JSON.stringify(request.body),
-            signature,
-          );
-
-          if (!isValid) {
-            this.logger.warn("Invalid webhook signature");
-            return reply.code(401).send({ error: "Invalid signature" });
-          }
+        // Security validation is now handled by the SecurityAgent
         }
 
-        // Validate and process webhook
-        const event = this.webhookHandler.validateWebhook(request.body);
+        // Then apply security validation (from feature branch)
+        const securityResult = await this.securityAgent.validateWebhook(
+          payloadString,
+          signature || "",
+          sourceIp,
+          userAgent || "unknown"
+        );
+        
+        if (!securityResult.valid) {
+          this.logger.warn("Webhook security validation failed", {
+            reason: securityResult.reason,
+            severity: securityResult.severity,
+            sourceIp,
+            userAgent
+          });
+          
+          // Return appropriate status code based on the validation failure
+          if (securityResult.reason === "Rate limit exceeded") {
+            return reply.code(429).send({ error: "Too many requests" });
+          } else if (securityResult.reason?.includes("signature")) {
+            return reply.code(401).send({ error: "Invalid signature" });
+          } else if (securityResult.reason?.includes("payload")) {
+            return reply.code(413).send({ error: "Payload too large" });
+          } else {
+            return reply.code(400).send({ error: "Invalid request" });
+          }
+        }
+        
+        // Additional payload size validation as a fallback
+        const payloadSizeResult = this.securityValidator.validateWebhookPayloadSize(payloadString);
+        if (!payloadSizeResult.valid) {
+          this.logger.warn("Webhook payload too large", {
+            size: payloadString.length,
+            error: payloadSizeResult.error,
+            sourceIp,
+          });
+          return reply.code(413).send({ error: "Payload too large" });
+        }
+
+        // Validate and process webhook with enhanced security
+        const event = await this.webhookHandler.validateWebhook(
+          request.body,
+          signature,
+          sourceIp,
+          userAgent || "unknown"
+        );
+        
         if (!event) {
-          this.logger.warn("Invalid webhook payload");
+          this.logger.warn("Invalid webhook payload", { sourceIp, userAgent });
           return reply.code(400).send({ error: "Invalid payload" });
         }
 
@@ -205,10 +291,24 @@ export class IntegrationServer {
 
     this.app.get(
       "/sessions/:id",
-      async (request: FastifyRequest<{ Params: { id: string } }>) => {
-        const session = await this.sessionManager.getSession(request.params.id);
+      async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+        const sessionId = request.params.id;
+        
+        // Validate session ID format
+        if (!SecurityUtils.isValidSessionId(sessionId)) {
+          this.logger.warn("Invalid session ID format", { sessionId });
+          return reply.code(400).send({ 
+            error: "Invalid request", 
+            message: "Invalid session ID format" 
+          });
+        }
+        
+        const session = await this.sessionManager.getSession(sessionId);
         if (!session) {
-          throw new Error("Session not found");
+          return reply.code(404).send({ 
+            error: "Not found", 
+            message: "Session not found" 
+          });
         }
         return { session };
       },
@@ -216,8 +316,19 @@ export class IntegrationServer {
 
     this.app.delete(
       "/sessions/:id",
-      async (request: FastifyRequest<{ Params: { id: string } }>) => {
-        await this.sessionManager.cancelSession(request.params.id);
+      async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+        const sessionId = request.params.id;
+        
+        // Validate session ID format
+        if (!SecurityUtils.isValidSessionId(sessionId)) {
+          this.logger.warn("Invalid session ID format", { sessionId });
+          return reply.code(400).send({ 
+            error: "Invalid request", 
+            message: "Invalid session ID format" 
+          });
+        }
+        
+        await this.sessionManager.cancelSession(sessionId);
         return { cancelled: true };
       },
     );
@@ -253,6 +364,22 @@ export class IntegrationServer {
         hasAgentUser: !!this.config.agentUserId,
       };
     });
+    
+    // Security monitoring endpoints
+    this.app.get("/security/metrics", async () => {
+      const metrics = await this.securityMonitor.getMetrics();
+      return { metrics };
+    });
+    
+    this.app.get("/security/alerts", async () => {
+      const alerts = await this.securityMonitor.getAlerts();
+      return { alerts };
+    });
+    
+    this.app.get("/security/events", async () => {
+      const events = await this.securityAgent.getSecurityEvents();
+      return { events };
+    });
 
     // Error handler
     this.app.setErrorHandler(async (error, request, reply) => {
@@ -275,10 +402,32 @@ export class IntegrationServer {
     try {
       const processedEvent = await this.webhookHandler.processWebhook(event);
       if (processedEvent) {
+        // Log security event for successful webhook processing
+        await this.securityAgent.logSecurityEvent({
+          type: SecurityEventType.WEBHOOK_PROCESSED,
+          severity: SecuritySeverity.LOW,
+          source: "webhook_processor",
+          message: "Webhook processed successfully",
+          details: {
+            eventType: processedEvent.type,
+            action: processedEvent.action,
+            shouldTrigger: processedEvent.shouldTrigger
+          }
+        });
+        
         await this.eventRouter.routeEvent(processedEvent);
       }
     } catch (error) {
       this.logger.error("Failed to process webhook", error as Error);
+      
+      // Log security event for webhook processing failure
+      await this.securityAgent.logSecurityEvent({
+        type: SecurityEventType.WEBHOOK_PROCESSING_ERROR,
+        severity: SecuritySeverity.MEDIUM,
+        source: "webhook_processor",
+        message: "Failed to process webhook",
+        details: { error: (error as Error).message }
+      });
     }
   }
 
@@ -322,6 +471,9 @@ export class IntegrationServer {
         port: this.config.webhookPort,
         host: "0.0.0.0",
       });
+      
+      // Start security monitoring
+      await this.securityMonitor.startMonitoring();
 
       this.isStarted = true;
 
@@ -356,6 +508,9 @@ export class IntegrationServer {
         await this.sessionManager.cancelSession(session.id);
       }
 
+      // Stop security monitoring
+      await this.securityMonitor.stopMonitoring();
+      
       // Stop HTTP server
       await this.app.close();
 
@@ -397,6 +552,17 @@ export class IntegrationServer {
 
     if (errors.length > 0) {
       throw new Error(`Configuration validation failed: ${errors.join(", ")}`);
+    }
+
+    // Set defaults (from main branch)
+    if (!this.config.defaultBranch) {
+      this.logger.warn("DEFAULT_BRANCH not specified, using 'main'");
+      this.config.defaultBranch = "main";
+    }
+
+    if (this.config.timeoutMinutes === undefined) {
+      this.logger.warn("TIMEOUT_MINUTES not specified, using 30 minutes");
+      this.config.timeoutMinutes = 30;
     }
   }
 
@@ -442,6 +608,7 @@ export class IntegrationServer {
       },
       60 * 60 * 1000,
     ); // 1 hour
+
 
     // Also run cleanup immediately
     setTimeout(async () => {
