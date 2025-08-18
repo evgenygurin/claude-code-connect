@@ -664,7 +664,7 @@ export class SecurityAgent {
         severity: event.severity,
         source: event.source,
         message: event.message,
-        timestamp: event.timestamp.toISOString(),
+        timestamp: event.timestamp instanceof Date ? event.timestamp.toISOString() : new Date().toISOString(),
         blocked: event.blocked,
       });
 
@@ -712,7 +712,7 @@ export class SecurityAgent {
       severity: event.severity,
       source: event.source,
       message: event.message,
-      timestamp: event.timestamp.toISOString(),
+      timestamp: event.timestamp instanceof Date ? event.timestamp.toISOString() : new Date().toISOString(),
       blocked: event.blocked,
       details: event.details,
     });
