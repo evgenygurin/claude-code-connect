@@ -8,7 +8,12 @@ import Fastify, {
   FastifyReply,
 } from "fastify";
 import { join } from "path";
-import type { IntegrationConfig, Logger } from "../core/types.js";
+import { RateLimiterMemory } from "rate-limiter-flexible";
+import type { 
+  IntegrationConfig, 
+  Logger, 
+  LinearWebhookEvent 
+} from "../core/types.js";
 import { LinearClient } from "../linear/client.js";
 import { SessionManager } from "../sessions/manager.js";
 import { LinearWebhookHandler } from "../webhooks/handler.js";
@@ -48,6 +53,8 @@ export class IntegrationServer {
   private securityAgent: SecurityAgent;
   private securityMonitor: SecurityMonitor;
   private isStarted = false;
+  private webhookRateLimiter: RateLimiterMemory;
+  private orgRateLimiter: RateLimiterMemory;
 
   constructor(config: IntegrationConfig) {
     this.config = config;
@@ -55,6 +62,19 @@ export class IntegrationServer {
     this.app = Fastify({
       logger: config.debug,
       disableRequestLogging: !config.debug,
+    });
+
+    // Initialize rate limiters
+    this.webhookRateLimiter = new RateLimiterMemory({
+      keyPrefix: 'webhook_global',
+      points: 60, // 60 requests
+      duration: 60, // per minute
+    });
+
+    this.orgRateLimiter = new RateLimiterMemory({
+      keyPrefix: 'webhook_org',
+      points: 30, // 30 requests per organization
+      duration: 60, // per minute
     });
 
     // Initialize components
@@ -102,11 +122,12 @@ export class IntegrationServer {
       storageDir: join(config.projectRootDir, ".claude-sessions"),
     });
 
-    // Create Linear reporter
-    this.linearReporter = new LinearReporter(this.linearClient, this.logger);
-
-    // Create session manager with new architecture
+    // Create session manager
     this.sessionManager = new SessionManager(config, this.logger, storage);
+
+    // Create Linear reporter and connect to session manager
+    this.linearReporter = new LinearReporter(this.linearClient, this.logger);
+    this.linearReporter.setSessionManager(this.sessionManager);
 
     // Create enhanced webhook handler with security features
     this.webhookHandler = new EnhancedLinearWebhookHandler(
@@ -151,18 +172,29 @@ export class IntegrationServer {
       async (request, reply) => {
         const signature = request.headers["x-linear-signature"];
         const userAgent = request.headers["user-agent"];
-
+        const clientIp = request.ip;
         const payloadString = JSON.stringify(request.body);
-        const sourceIp = request.ip || "unknown";
-        
+        const sourceIp = clientIp || "unknown";
+
         this.logger.debug("Received webhook", {
           signature: signature ? "present" : "missing",
           userAgent,
+          clientIp,
           bodySize: payloadString.length,
-          sourceIp,
         });
-        
-        // Comprehensive security validation using SecurityAgent
+
+        // Apply global rate limiting first (from main branch)
+        try {
+          await this.webhookRateLimiter.consume(clientIp);
+        } catch (rateLimitError) {
+          this.logger.warn("Global rate limit exceeded", { clientIp });
+          return reply.code(429).send({ 
+            error: "Too many requests", 
+            message: "Rate limit exceeded. Please try again later." 
+          });
+        }
+
+        // Then apply security validation (from feature branch)
         const securityResult = await this.securityAgent.validateWebhook(
           payloadString,
           signature || "",
@@ -212,6 +244,19 @@ export class IntegrationServer {
         if (!event) {
           this.logger.warn("Invalid webhook payload", { sourceIp, userAgent });
           return reply.code(400).send({ error: "Invalid payload" });
+        }
+
+        // Apply organization-specific rate limiting (from main branch)
+        try {
+          await this.orgRateLimiter.consume(event.organizationId);
+        } catch (rateLimitError) {
+          this.logger.warn("Organization rate limit exceeded", { 
+            organizationId: event.organizationId 
+          });
+          return reply.code(429).send({ 
+            error: "Too many requests", 
+            message: "Organization rate limit exceeded. Please try again later." 
+          });
         }
 
         // Process event asynchronously
@@ -341,7 +386,7 @@ export class IntegrationServer {
   /**
    * Process webhook asynchronously
    */
-  private async processWebhookAsync(event: any): Promise<void> {
+  private async processWebhookAsync(event: LinearWebhookEvent): Promise<void> {
     try {
       const processedEvent = await this.webhookHandler.processWebhook(event);
       if (processedEvent) {
@@ -486,6 +531,17 @@ export class IntegrationServer {
     if (errors.length > 0) {
       throw new Error(`Configuration validation failed: ${errors.join(", ")}`);
     }
+
+    // Set defaults (from main branch)
+    if (!this.config.defaultBranch) {
+      this.logger.warn("DEFAULT_BRANCH not specified, using 'main'");
+      this.config.defaultBranch = "main";
+    }
+
+    if (this.config.timeoutMinutes === undefined) {
+      this.logger.warn("TIMEOUT_MINUTES not specified, using 30 minutes");
+      this.config.timeoutMinutes = 30;
+    }
   }
 
   /**
@@ -530,6 +586,18 @@ export class IntegrationServer {
       },
       60 * 60 * 1000,
     ); // 1 hour
+
+    // Also run cleanup immediately (from main branch)
+    setTimeout(async () => {
+      try {
+        const cleaned = await this.sessionManager.cleanupOldSessions(7);
+        if (cleaned > 0) {
+          this.logger.info("Initial cleanup of old sessions", { count: cleaned });
+        }
+      } catch (error) {
+        this.logger.error("Error during initial cleanup", error as Error);
+      }
+    }, 5000); // Run after 5 seconds
   }
 
   /**
