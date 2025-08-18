@@ -25,6 +25,7 @@ import { LinearReporter } from "../linear/reporter.js";
 import { SecurityValidator, SecurityUtils, defaultSecurityValidator } from "../security/validators.js";
 import { SecurityAgent, SecuritySeverity, SecurityEventType } from "../security/security-agent.js";
 import { SecurityMonitor } from "../security/monitoring.js";
+import { initializeLinearOAuth } from "../linear/oauth/index.js";
 
 /**
  * Webhook request body type
@@ -117,7 +118,7 @@ export class IntegrationServer {
       }
     });
 
-    // Use SQLite storage for production
+    // Create session storage
     const storage = createSessionStorage("file", this.logger, {
       storageDir: join(config.projectRootDir, ".claude-sessions"),
     });
@@ -137,6 +138,7 @@ export class IntegrationServer {
       this.securityMonitor
     );
 
+    // Create event handlers and router
     const eventHandlers = new DefaultEventHandlers(
       this.linearClient,
       this.sessionManager,
@@ -153,6 +155,12 @@ export class IntegrationServer {
    * Setup HTTP routes
    */
   private setupRoutes(): void {
+    // Initialize OAuth if enabled
+    if (this.config.enableOAuth) {
+      this.logger.info("Initializing OAuth integration");
+      initializeLinearOAuth(this.app, this.config, this.logger);
+    }
+    
     // Health check endpoint
     this.app.get(
       "/health",
@@ -162,6 +170,7 @@ export class IntegrationServer {
           timestamp: new Date().toISOString(),
           version: "1.0.0",
           uptime: process.uptime(),
+          oauthEnabled: this.config.enableOAuth || false,
         };
       },
     );
@@ -183,7 +192,7 @@ export class IntegrationServer {
           bodySize: payloadString.length,
         });
 
-        // Apply global rate limiting first (from main branch)
+        // Apply global rate limiting first
         try {
           await this.webhookRateLimiter.consume(clientIp);
         } catch (rateLimitError) {
@@ -192,6 +201,9 @@ export class IntegrationServer {
             error: "Too many requests", 
             message: "Rate limit exceeded. Please try again later." 
           });
+        }
+
+        // Security validation is now handled by the SecurityAgent
         }
 
         // Then apply security validation (from feature branch)
@@ -246,7 +258,7 @@ export class IntegrationServer {
           return reply.code(400).send({ error: "Invalid payload" });
         }
 
-        // Apply organization-specific rate limiting (from main branch)
+        // Apply organization-specific rate limiting
         try {
           await this.orgRateLimiter.consume(event.organizationId);
         } catch (rateLimitError) {
@@ -528,6 +540,16 @@ export class IntegrationServer {
       errors.push("PROJECT_ROOT_DIR is required");
     }
 
+    if (!this.config.defaultBranch) {
+      this.logger.warn("DEFAULT_BRANCH not specified, using 'main'");
+      this.config.defaultBranch = "main";
+    }
+
+    if (this.config.timeoutMinutes === undefined) {
+      this.logger.warn("TIMEOUT_MINUTES not specified, using 30 minutes");
+      this.config.timeoutMinutes = 30;
+    }
+
     if (errors.length > 0) {
       throw new Error(`Configuration validation failed: ${errors.join(", ")}`);
     }
@@ -587,7 +609,8 @@ export class IntegrationServer {
       60 * 60 * 1000,
     ); // 1 hour
 
-    // Also run cleanup immediately (from main branch)
+
+    // Also run cleanup immediately
     setTimeout(async () => {
       try {
         const cleaned = await this.sessionManager.cleanupOldSessions(7);

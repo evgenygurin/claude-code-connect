@@ -12,6 +12,10 @@ import type { IntegrationConfig } from "../core/types.js";
 const ENV_MAPPING = {
   linearApiToken: "LINEAR_API_TOKEN",
   linearOrganizationId: "LINEAR_ORGANIZATION_ID",
+  linearClientId: "LINEAR_CLIENT_ID",
+  linearClientSecret: "LINEAR_CLIENT_SECRET",
+  oauthRedirectUri: "OAUTH_REDIRECT_URI",
+  enableOAuth: "ENABLE_OAUTH",
   agentUserId: "CLAUDE_AGENT_USER_ID",
   webhookSecret: "LINEAR_WEBHOOK_SECRET",
   projectRootDir: "PROJECT_ROOT_DIR",
@@ -33,6 +37,7 @@ const DEFAULT_CONFIG: Partial<IntegrationConfig> = {
   claudeExecutablePath: "claude",
   timeoutMinutes: 30,
   debug: false,
+  enableOAuth: false,
 };
 
 /**
@@ -96,6 +101,7 @@ function parseEnvValue(value: string, configKey: string): any {
   switch (configKey) {
     case "createBranches":
     case "debug":
+    case "enableOAuth":
       return value.toLowerCase() === "true" || value === "1";
 
     case "webhookPort":
@@ -118,16 +124,35 @@ function parseEnvValue(value: string, configKey: string): any {
 function validateConfig(config: Partial<IntegrationConfig>): void {
   const errors: string[] = [];
 
-  // Required fields
-  const required = [
-    "linearApiToken",
-    "linearOrganizationId",
-    "projectRootDir",
-  ] as const;
+  // Check if OAuth is enabled
+  const isOAuthEnabled = config.enableOAuth === true;
 
-  for (const field of required) {
-    if (!config[field]) {
-      errors.push(`${ENV_MAPPING[field]} is required`);
+  // Required fields based on auth method
+  if (isOAuthEnabled) {
+    // OAuth mode - require OAuth fields
+    const oauthRequired = [
+      "linearClientId",
+      "linearClientSecret",
+      "projectRootDir",
+    ] as const;
+
+    for (const field of oauthRequired) {
+      if (!config[field]) {
+        errors.push(`${ENV_MAPPING[field]} is required when OAuth is enabled`);
+      }
+    }
+  } else {
+    // API token mode - require API token
+    const apiRequired = [
+      "linearApiToken",
+      "linearOrganizationId",
+      "projectRootDir",
+    ] as const;
+
+    for (const field of apiRequired) {
+      if (!config[field]) {
+        errors.push(`${ENV_MAPPING[field]} is required when using API token`);
+      }
     }
   }
 
@@ -151,6 +176,11 @@ function validateConfig(config: Partial<IntegrationConfig>): void {
     errors.push(`Invalid timeout minutes: ${config.timeoutMinutes}`);
   }
 
+  // Validate OAuth redirect URI if OAuth is enabled
+  if (isOAuthEnabled && !config.oauthRedirectUri) {
+    errors.push(`${ENV_MAPPING.oauthRedirectUri} is required when OAuth is enabled`);
+  }
+
   if (errors.length > 0) {
     throw new Error(
       `Configuration validation failed:\n${errors.map((e) => `  - ${e}`).join("\n")}`,
@@ -164,11 +194,18 @@ function validateConfig(config: Partial<IntegrationConfig>): void {
 export function createExampleEnv(): string {
   return `# Claude Code + Linear Integration Configuration
 
-# Required: Linear API token (get from https://linear.app/settings/account/security)
+# Linear API Configuration
+# -------------------------
+# Option 1: Direct API Token (simpler, but less secure)
 LINEAR_API_TOKEN=your_linear_api_token_here
-
-# Required: Linear organization ID (find in Linear settings)
 LINEAR_ORGANIZATION_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+# Option 2: OAuth App (recommended for production)
+# Register your app at https://linear.app/settings/api/applications
+ENABLE_OAUTH=true
+LINEAR_CLIENT_ID=your-linear-client-id
+LINEAR_CLIENT_SECRET=your-linear-client-secret
+OAUTH_REDIRECT_URI=http://localhost:3000/oauth/callback
 
 # Required: Path to your project directory
 PROJECT_ROOT_DIR=/path/to/your/project
@@ -200,7 +237,6 @@ DEBUG=false
  */
 export function printConfigSummary(config: IntegrationConfig): void {
   console.log("Configuration Summary:");
-  console.log(`  Linear Organization: ${config.linearOrganizationId}`);
   console.log(`  Project Root: ${config.projectRootDir}`);
   console.log(`  Default Branch: ${config.defaultBranch}`);
   console.log(`  Create Branches: ${config.createBranches}`);
@@ -208,7 +244,19 @@ export function printConfigSummary(config: IntegrationConfig): void {
   console.log(`  Session Timeout: ${config.timeoutMinutes} minutes`);
   console.log(`  Claude Executable: ${config.claudeExecutablePath}`);
   console.log(`  Debug Mode: ${config.debug}`);
-  console.log(`  Has API Token: ${config.linearApiToken ? "✓" : "✗"}`);
+  
+  // Auth method
+  if (config.enableOAuth) {
+    console.log(`  Auth Method: OAuth`);
+    console.log(`  Has Client ID: ${config.linearClientId ? "✓" : "✗"}`);
+    console.log(`  Has Client Secret: ${config.linearClientSecret ? "✓" : "✗"}`);
+    console.log(`  OAuth Redirect URI: ${config.oauthRedirectUri || "Not configured"}`);
+  } else {
+    console.log(`  Auth Method: API Token`);
+    console.log(`  Linear Organization: ${config.linearOrganizationId || "Not configured"}`);
+    console.log(`  Has API Token: ${config.linearApiToken ? "✓" : "✗"}`);
+  }
+  
   console.log(`  Has Webhook Secret: ${config.webhookSecret ? "✓" : "✗"}`);
   console.log(`  Has Agent User ID: ${config.agentUserId ? "✓" : "✗"}`);
 }
