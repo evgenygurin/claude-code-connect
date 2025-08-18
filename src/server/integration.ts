@@ -8,7 +8,12 @@ import Fastify, {
   FastifyReply,
 } from "fastify";
 import { join } from "path";
-import type { IntegrationConfig, Logger, LinearWebhookEvent } from "../core/types.js";
+import { RateLimiterMemory } from "rate-limiter-flexible";
+import type { 
+  IntegrationConfig, 
+  Logger, 
+  LinearWebhookEvent 
+} from "../core/types.js";
 import { LinearClient } from "../linear/client.js";
 import { SessionManager } from "../sessions/manager.js";
 import { LinearWebhookHandler } from "../webhooks/handler.js";
@@ -29,62 +34,6 @@ interface WebhookRequest {
 }
 
 /**
- * Rate limiting configuration
- */
-interface RateLimitConfig {
-  maxRequests: number;
-  windowMs: number;
-  keyGenerator?: (req: FastifyRequest) => string;
-}
-
-/**
- * Simple in-memory rate limiter
- */
-class RateLimiter {
-  private requests = new Map<string, number[]>();
-  private config: RateLimitConfig;
-
-  constructor(config: RateLimitConfig) {
-    this.config = config;
-  }
-
-  isAllowed(key: string): boolean {
-    const now = Date.now();
-    const windowStart = now - this.config.windowMs;
-    
-    // Get existing requests for this key
-    const keyRequests = this.requests.get(key) || [];
-    
-    // Filter out old requests
-    const recentRequests = keyRequests.filter(timestamp => timestamp > windowStart);
-    
-    // Check if under limit
-    if (recentRequests.length >= this.config.maxRequests) {
-      return false;
-    }
-    
-    // Add current request
-    recentRequests.push(now);
-    this.requests.set(key, recentRequests);
-    
-    return true;
-  }
-
-  cleanup(): void {
-    const now = Date.now();
-    for (const [key, requests] of this.requests.entries()) {
-      const windowStart = now - this.config.windowMs;
-      const recentRequests = requests.filter(timestamp => timestamp > windowStart);
-      if (recentRequests.length === 0) {
-        this.requests.delete(key);
-      } else {
-        this.requests.set(key, recentRequests);
-      }
-    }
-  }
-}
-
-/**
  * Main integration server
  */
 export class IntegrationServer {
@@ -97,8 +46,8 @@ export class IntegrationServer {
   private eventRouter: EventRouter;
   private linearReporter: LinearReporter;
   private isStarted = false;
-  private rateLimiter: RateLimiter;
-  private cleanupInterval?: ReturnType<typeof setInterval>;
+  private webhookRateLimiter: RateLimiterMemory;
+  private orgRateLimiter: RateLimiterMemory;
 
   constructor(config: IntegrationConfig) {
     this.config = config;
@@ -106,6 +55,19 @@ export class IntegrationServer {
     this.app = Fastify({
       logger: config.debug,
       disableRequestLogging: !config.debug,
+    });
+
+    // Initialize rate limiters
+    this.webhookRateLimiter = new RateLimiterMemory({
+      keyPrefix: 'webhook_global',
+      points: 60, // 60 requests
+      duration: 60, // per minute
+    });
+
+    this.orgRateLimiter = new RateLimiterMemory({
+      keyPrefix: 'webhook_org',
+      points: 30, // 30 requests per organization
+      duration: 60, // per minute
     });
 
     // Initialize components
@@ -135,18 +97,6 @@ export class IntegrationServer {
     );
     this.eventRouter = new EventRouter(eventHandlers, this.logger);
 
-    // Initialize rate limiter
-    this.rateLimiter = new RateLimiter({
-      maxRequests: 100, // Max 100 requests per window
-      windowMs: 60 * 1000, // 1 minute window
-      keyGenerator: (req: FastifyRequest) => {
-        // Rate limit by IP and organization
-        const ip = req.ip || 'unknown';
-        const orgId = (req.body as any)?.organizationId || 'unknown';
-        return `${ip}:${orgId}`;
-      }
-    });
-
     this.setupRoutes();
     this.setupShutdown();
   }
@@ -168,33 +118,30 @@ export class IntegrationServer {
       },
     );
 
-    // Linear webhook endpoint with rate limiting
+    // Linear webhook endpoint
     this.app.post<WebhookRequest>(
       "/webhooks/linear",
       async (request, reply) => {
         const signature = request.headers["x-linear-signature"];
         const userAgent = request.headers["user-agent"];
-
-        // Apply rate limiting
-        const rateLimitKey = this.rateLimiter.config.keyGenerator?.(request) || request.ip || 'unknown';
-        if (!this.rateLimiter.isAllowed(rateLimitKey)) {
-          this.logger.warn("Rate limit exceeded", { rateLimitKey, userAgent });
-          return reply.code(429).send({ 
-            error: "Rate limit exceeded",
-            retryAfter: Math.ceil(this.rateLimiter.config.windowMs / 1000)
-          });
-        }
+        const clientIp = request.ip;
 
         this.logger.debug("Received webhook", {
           signature: signature ? "present" : "missing",
           userAgent,
+          clientIp,
           bodySize: JSON.stringify(request.body).length,
         });
 
-        // Basic bot detection (enhanced security)
-        if (userAgent && this.isLikelyBot(userAgent)) {
-          this.logger.warn("Potential bot detected", { userAgent });
-          return reply.code(403).send({ error: "Bot access not allowed" });
+        // Apply global rate limiting
+        try {
+          await this.webhookRateLimiter.consume(clientIp);
+        } catch (rateLimitError) {
+          this.logger.warn("Global rate limit exceeded", { clientIp });
+          return reply.code(429).send({ 
+            error: "Too many requests", 
+            message: "Rate limit exceeded. Please try again later." 
+          });
         }
 
         // Verify signature if configured
@@ -205,7 +152,7 @@ export class IntegrationServer {
           );
 
           if (!isValid) {
-            this.logger.warn("Invalid webhook signature", { userAgent });
+            this.logger.warn("Invalid webhook signature");
             return reply.code(401).send({ error: "Invalid signature" });
           }
         }
@@ -213,8 +160,21 @@ export class IntegrationServer {
         // Validate and process webhook
         const event = this.webhookHandler.validateWebhook(request.body);
         if (!event) {
-          this.logger.warn("Invalid webhook payload", { userAgent });
+          this.logger.warn("Invalid webhook payload");
           return reply.code(400).send({ error: "Invalid payload" });
+        }
+
+        // Apply organization-specific rate limiting
+        try {
+          await this.orgRateLimiter.consume(event.organizationId);
+        } catch (rateLimitError) {
+          this.logger.warn("Organization rate limit exceeded", { 
+            organizationId: event.organizationId 
+          });
+          return reply.code(429).send({ 
+            error: "Too many requests", 
+            message: "Organization rate limit exceeded. Please try again later." 
+          });
         }
 
         // Process event asynchronously
@@ -301,59 +261,17 @@ export class IntegrationServer {
   }
 
   /**
-   * Process webhook asynchronously with improved error handling
+   * Process webhook asynchronously
    */
   private async processWebhookAsync(event: LinearWebhookEvent): Promise<void> {
-    const startTime = Date.now();
-    
     try {
-      this.logger.debug("Processing webhook event", {
-        type: event.type,
-        action: event.action,
-        organizationId: event.organizationId
-      });
-      
       const processedEvent = await this.webhookHandler.processWebhook(event);
       if (processedEvent) {
         await this.eventRouter.routeEvent(processedEvent);
-        
-        const duration = Date.now() - startTime;
-        this.logger.debug("Webhook processed successfully", { duration });
-      } else {
-        this.logger.debug("Webhook event filtered out", { type: event.type });
       }
     } catch (error) {
-      const duration = Date.now() - startTime;
-      this.logger.error("Failed to process webhook", error as Error, {
-        type: event.type,
-        action: event.action,
-        organizationId: event.organizationId,
-        duration
-      });
+      this.logger.error("Failed to process webhook", error as Error);
     }
-  }
-
-  /**
-   * Enhanced bot detection
-   */
-  private isLikelyBot(userAgent: string): boolean {
-    const botPatterns = [
-      /bot/i,
-      /crawler/i,
-      /spider/i,
-      /scraper/i,
-      /curl/i,
-      /wget/i,
-      /python/i,
-      /node/i,
-      /java/i,
-      /go-http/i,
-      /okhttp/i,
-      /axios/i,
-      /fetch/i
-    ];
-    
-    return botPatterns.some(pattern => pattern.test(userAgent));
   }
 
   /**
@@ -407,7 +325,6 @@ export class IntegrationServer {
 
       // Setup periodic cleanup
       this.setupPeriodicCleanup();
-      this.setupRateLimiterCleanup();
     } catch (error) {
       this.logger.error("Failed to start server", error as Error);
       throw error;
@@ -429,11 +346,6 @@ export class IntegrationServer {
       const activeSessions = await this.sessionManager.listActiveSessions();
       for (const session of activeSessions) {
         await this.sessionManager.cancelSession(session.id);
-      }
-
-      // Clear cleanup intervals
-      if (this.cleanupInterval) {
-        clearInterval(this.cleanupInterval);
       }
 
       // Stop HTTP server
@@ -522,24 +434,18 @@ export class IntegrationServer {
       },
       60 * 60 * 1000,
     ); // 1 hour
-  }
 
-  /**
-   * Setup rate limiter cleanup
-   */
-  private setupRateLimiterCleanup(): void {
-    // Clean up rate limiter data every 5 minutes
-    this.cleanupInterval = setInterval(
-      () => {
-        try {
-          this.rateLimiter.cleanup();
-          this.logger.debug("Rate limiter cleanup completed");
-        } catch (error) {
-          this.logger.error("Error during rate limiter cleanup", error as Error);
+    // Also run cleanup immediately
+    setTimeout(async () => {
+      try {
+        const cleaned = await this.sessionManager.cleanupOldSessions(7);
+        if (cleaned > 0) {
+          this.logger.info("Initial cleanup of old sessions", { count: cleaned });
         }
-      },
-      5 * 60 * 1000,
-    ); // 5 minutes
+      } catch (error) {
+        this.logger.error("Error during initial cleanup", error as Error);
+      }
+    }, 5000); // Run after 5 seconds
   }
 
   /**

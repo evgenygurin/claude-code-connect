@@ -4,7 +4,7 @@
 
 import { spawn } from "child_process";
 import { promises as fs } from "fs";
-import { join, resolve } from "path";
+import { join, resolve, isAbsolute } from "path";
 import type { Logger, GitCommit } from "../core/types.js";
 
 /**
@@ -30,10 +30,18 @@ export class GitWorktreeManager {
     branchName?: string
   ): Promise<string> {
     // Use provided branch name or create a unique one based on issue ID
-    const finalBranchName = branchName || `claude-${issueId}-${Date.now().toString(36)}`;
+    let finalBranchName = branchName || `claude-${issueId}-${Date.now().toString(36)}`;
+    
+    // Ensure branch name uniqueness by adding timestamp if not already present
+    if (!finalBranchName.includes(Date.now().toString(36))) {
+      finalBranchName = `${finalBranchName}-${Date.now().toString(36)}`;
+    }
 
     // Create a unique worktree path
     const worktreePath = join(this.worktreeBaseDir, finalBranchName.replace(/\//g, '-'));
+
+    // Validate paths to prevent directory traversal
+    this.validatePath(worktreePath);
 
     this.logger.debug("Creating git worktree", {
       issueId,
@@ -73,6 +81,9 @@ export class GitWorktreeManager {
    * Remove a worktree
    */
   async removeWorktree(worktreePath: string): Promise<void> {
+    // Validate path to prevent directory traversal
+    this.validatePath(worktreePath);
+    
     this.logger.debug("Removing git worktree", { worktreePath });
 
     try {
@@ -99,6 +110,9 @@ export class GitWorktreeManager {
     message: string,
     author: string = "Claude Agent <claude@anthropic.com>",
   ): Promise<string> {
+    // Validate path to prevent directory traversal
+    this.validatePath(worktreePath);
+    
     this.logger.debug("Committing changes in worktree", {
       worktreePath,
       message,
@@ -148,6 +162,9 @@ export class GitWorktreeManager {
    * Push changes to remote
    */
   async pushChanges(worktreePath: string, branchName: string): Promise<void> {
+    // Validate path to prevent directory traversal
+    this.validatePath(worktreePath);
+    
     this.logger.debug("Pushing changes to remote", {
       worktreePath,
       branchName,
@@ -176,6 +193,9 @@ export class GitWorktreeManager {
    * Get branch name from worktree path
    */
   async getBranchName(worktreePath: string): Promise<string> {
+    // Validate path to prevent directory traversal
+    this.validatePath(worktreePath);
+    
     try {
       const branchName = await this.executeGitCommand(
         ["rev-parse", "--abbrev-ref", "HEAD"],
@@ -195,6 +215,9 @@ export class GitWorktreeManager {
    * Get modified files in worktree
    */
   async getModifiedFiles(worktreePath: string): Promise<string[]> {
+    // Validate path to prevent directory traversal
+    this.validatePath(worktreePath);
+    
     try {
       const result = await this.executeGitCommand(
         ["diff", "--name-only", "HEAD~1"],
@@ -211,16 +234,19 @@ export class GitWorktreeManager {
   }
 
   /**
-   * Get commits in worktree with optimized file lookup
+   * Get commits in worktree with optimized batch operations
    */
   async getCommits(worktreePath: string, count: number = 10): Promise<GitCommit[]> {
+    // Validate path to prevent directory traversal
+    this.validatePath(worktreePath);
+    
     try {
-      // Use single command to get commits with file changes
+      // Use a single git command to get commits with files
       const result = await this.executeGitCommand(
         [
           "log",
           "--name-status",
-          "--format=%H|%s|%an|%ad|%D",
+          "--format=%H|%s|%an|%ad",
           "--date=iso",
           `-${count}`,
         ],
@@ -228,23 +254,20 @@ export class GitWorktreeManager {
       );
 
       const commits: GitCommit[] = [];
-      const lines = result.trim().split("\n").filter((line) => line.trim());
-      
-      let currentCommit: Partial<GitCommit> | null = null;
+      const lines = result.trim().split("\n");
+      let currentCommit: GitCommit | null = null;
       let currentFiles: string[] = [];
 
       for (const line of lines) {
         if (line.includes("|")) {
-          // This is a commit line
+          // This is a commit header line
           if (currentCommit) {
-            // Save previous commit
-            commits.push({
-              ...currentCommit,
-              files: currentFiles,
-            } as GitCommit);
+            // Save the previous commit with its files
+            currentCommit.files = currentFiles;
+            commits.push(currentCommit);
+            currentFiles = [];
           }
-          
-          // Parse new commit
+
           const [hash, message, author, date] = line.split("|");
           if (hash && message && author && date) {
             currentCommit = {
@@ -252,24 +275,23 @@ export class GitWorktreeManager {
               message: message.trim(),
               author: author.trim(),
               timestamp: new Date(date.trim()),
+              files: [],
             };
-            currentFiles = [];
           }
-        } else if (currentCommit && line.match(/^[AMDRC]\s+/)) {
-          // This is a file change line (A=added, M=modified, D=deleted, R=renamed, C=copied)
-          const filename = line.substring(2).trim();
-          if (filename) {
-            currentFiles.push(filename);
+        } else if (line.trim() && currentCommit) {
+          // This is a file line (format: A/M/D filename)
+          const parts = line.trim().split(/\s+/);
+          if (parts.length >= 2) {
+            // Extract just the filename (second part)
+            currentFiles.push(parts[1]);
           }
         }
       }
-      
-      // Don't forget the last commit
+
+      // Add the last commit
       if (currentCommit) {
-        commits.push({
-          ...currentCommit,
-          files: currentFiles,
-        } as GitCommit);
+        currentCommit.files = currentFiles;
+        commits.push(currentCommit);
       }
 
       return commits;
@@ -282,26 +304,7 @@ export class GitWorktreeManager {
   }
 
   /**
-   * Get files changed in a commit (kept for backward compatibility)
-   */
-  private async getFilesInCommit(worktreePath: string, commitHash: string): Promise<string[]> {
-    try {
-      const result = await this.executeGitCommand(
-        ["diff-tree", "--no-commit-id", "--name-only", "-r", commitHash],
-        worktreePath,
-      );
-
-      return result
-        .trim()
-        .split("\n")
-        .filter((file) => file.trim());
-    } catch {
-      return [];
-    }
-  }
-
-  /**
-   * Create a descriptive branch name from issue details with uniqueness check
+   * Create a descriptive branch name from issue details
    */
   createDescriptiveBranchName(
     issueIdentifier: string, 
@@ -314,65 +317,52 @@ export class GitWorktreeManager {
       .replace(/^-|-$/g, "")
       .substring(0, 50);
     
-    // Create base branch name
-    const baseName = `claude/${issueIdentifier.toLowerCase()}-${sanitizedTitle}`;
-    
-    // Add timestamp suffix for uniqueness
+    // Add timestamp to ensure uniqueness
     const timestamp = Date.now().toString(36);
     
-    return `${baseName}-${timestamp}`;
+    // Create branch name
+    return `claude/${issueIdentifier.toLowerCase()}-${sanitizedTitle}-${timestamp}`;
   }
 
   /**
-   * Validate and sanitize working directory path
+   * Validate path to prevent directory traversal
    */
-  private validatePath(path: string): string {
-    const resolvedPath = resolve(path);
-    const projectRoot = resolve(this.projectRoot);
-    
-    // Ensure path is within project root or worktree directory
-    if (!resolvedPath.startsWith(projectRoot) && !resolvedPath.startsWith(resolve(this.worktreeBaseDir))) {
-      throw new Error(`Path traversal detected: ${path}`);
+  private validatePath(path: string): void {
+    // Ensure path is absolute
+    if (!isAbsolute(path)) {
+      throw new Error(`Path must be absolute: ${path}`);
     }
-    
-    return resolvedPath;
+
+    // Ensure path is within allowed directories
+    const normalizedPath = resolve(path);
+    const normalizedWorktreeBase = resolve(this.worktreeBaseDir);
+    const normalizedProjectRoot = resolve(this.projectRoot);
+
+    if (
+      !normalizedPath.startsWith(normalizedWorktreeBase) &&
+      !normalizedPath.startsWith(normalizedProjectRoot)
+    ) {
+      throw new Error(
+        `Path traversal detected. Path must be within worktree base or project root: ${path}`
+      );
+    }
   }
 
   /**
-   * Execute git command with path validation and timeout
+   * Execute git command
    */
-  private executeGitCommand(args: string[], cwd: string, timeoutMs: number = 30000): Promise<string> {
+  private executeGitCommand(args: string[], cwd: string): Promise<string> {
+    // Validate working directory
+    this.validatePath(cwd);
+    
     return new Promise((resolve, reject) => {
-      // Validate the working directory path
-      let validatedCwd: string;
-      try {
-        validatedCwd = this.validatePath(cwd);
-      } catch (error) {
-        reject(error);
-        return;
-      }
-
       const process = spawn("git", args, {
-        cwd: validatedCwd,
+        cwd,
         stdio: ["ignore", "pipe", "pipe"],
-        env: {
-          ...process.env,
-          // Remove potentially dangerous env vars
-          GIT_DIR: undefined,
-          GIT_WORK_TREE: undefined,
-        },
       });
 
       let stdout = "";
       let stderr = "";
-      let isTimedOut = false;
-
-      // Set timeout
-      const timeout = setTimeout(() => {
-        isTimedOut = true;
-        process.kill('SIGTERM');
-        reject(new Error(`Git command timed out after ${timeoutMs}ms: git ${args.join(' ')}`));
-      }, timeoutMs);
 
       process.stdout?.on("data", (data) => {
         stdout += data.toString();
@@ -383,9 +373,6 @@ export class GitWorktreeManager {
       });
 
       process.on("close", (code) => {
-        clearTimeout(timeout);
-        if (isTimedOut) return; // Already handled by timeout
-        
         if (code === 0) {
           resolve(stdout);
         } else {
@@ -393,12 +380,7 @@ export class GitWorktreeManager {
         }
       });
 
-      process.on("error", (error) => {
-        clearTimeout(timeout);
-        if (!isTimedOut) {
-          reject(error);
-        }
-      });
+      process.on("error", reject);
     });
   }
 }

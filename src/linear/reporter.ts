@@ -29,7 +29,8 @@ export class LinearReporter {
   private logger: Logger;
   private sessionManager?: SessionManager;
   private progressComments = new Map<string, string>(); // sessionId -> commentId
-  private commentRetryAttempts = new Map<string, number>(); // Track retry attempts per session
+  private maxRetries = 3; // Maximum number of retries for API calls
+  private retryDelay = 1000; // Initial delay in ms (will be increased exponentially)
 
   constructor(linearClient: LinearClient, logger: Logger) {
     this.linearClient = linearClient;
@@ -68,20 +69,31 @@ export class LinearReporter {
 
     this.sessionManager.on("session:completed", async (session, result) => {
       await this.reportResults(session, result);
+      // Clean up progress comment reference
       this.cleanupProgressComment(session.id);
     });
 
     this.sessionManager.on("session:failed", async (session, error) => {
       await this.reportError(session, error);
+      // Clean up progress comment reference
       this.cleanupProgressComment(session.id);
     });
 
     this.sessionManager.on("session:cancelled", async (session) => {
       await this.reportCancelled(session);
+      // Clean up progress comment reference
       this.cleanupProgressComment(session.id);
     });
 
     this.logger.debug("Linear reporter event listeners setup");
+  }
+
+  /**
+   * Clean up progress comment reference
+   */
+  private cleanupProgressComment(sessionId: string): void {
+    this.progressComments.delete(sessionId);
+    this.logger.debug("Cleaned up progress comment reference", { sessionId });
   }
 
   /**
@@ -103,9 +115,8 @@ ${session.branchName ? `I'll be working in branch \`${session.branchName}\`.` : 
     `.trim();
 
     try {
-      const comment = await this.linearClient.createComment(
-        session.issueId,
-        message,
+      const comment = await this.retryApiCall(() => 
+        this.linearClient.createComment(session.issueId, message)
       );
 
       if (comment) {
@@ -150,7 +161,34 @@ ${progress.details}
 ${session.branchName ? `*Branch: \`${session.branchName}\`*` : ""}
     `.trim();
 
-    return this.updateOrCreateComment(session.id, session.issueId, message);
+    try {
+      // Check if we already have a progress comment
+      const existingCommentId = this.progressComments.get(session.id);
+
+      if (existingCommentId) {
+        // Update existing comment with retry logic
+        const comment = await this.retryApiCall(() => 
+          this.linearClient.updateComment(existingCommentId, message)
+        );
+        return comment;
+      } else {
+        // Create new comment with retry logic
+        const comment = await this.retryApiCall(() => 
+          this.linearClient.createComment(session.issueId, message)
+        );
+
+        if (comment) {
+          this.progressComments.set(session.id, comment.id);
+        }
+
+        return comment;
+      }
+    } catch (error) {
+      this.logger.error("Failed to report session progress", error as Error, {
+        sessionId: session.id,
+      });
+      return null;
+    }
   }
 
   /**
@@ -219,7 +257,29 @@ ${session.branchName ? `**Branch:** \`${session.branchName}\`` : ""}
       `.trim();
     }
 
-    return this.updateOrCreateComment(session.id, session.issueId, message);
+    try {
+      // Check if we already have a progress comment
+      const existingCommentId = this.progressComments.get(session.id);
+
+      if (existingCommentId) {
+        // Update existing comment with retry logic
+        const comment = await this.retryApiCall(() => 
+          this.linearClient.updateComment(existingCommentId, message)
+        );
+        return comment;
+      } else {
+        // Create new comment with retry logic
+        const comment = await this.retryApiCall(() => 
+          this.linearClient.createComment(session.issueId, message)
+        );
+        return comment;
+      }
+    } catch (error) {
+      this.logger.error("Failed to report session results", error as Error, {
+        sessionId: session.id,
+      });
+      return null;
+    }
   }
 
   /**
@@ -249,7 +309,31 @@ Please check the logs for more details.
 *Error: ${new Date().toISOString()}*
     `.trim();
 
-    return this.updateOrCreateComment(session.id, session.issueId, message);
+    try {
+      // Check if we already have a progress comment
+      const existingCommentId = this.progressComments.get(session.id);
+
+      if (existingCommentId) {
+        // Update existing comment with retry logic
+        const comment = await this.retryApiCall(() => 
+          this.linearClient.updateComment(existingCommentId, message)
+        );
+        return comment;
+      } else {
+        // Create new comment with retry logic
+        const comment = await this.retryApiCall(() => 
+          this.linearClient.createComment(session.issueId, message)
+        );
+        return comment;
+      }
+    } catch (commentError) {
+      this.logger.error(
+        "Failed to report session error",
+        commentError as Error,
+        { sessionId: session.id },
+      );
+      return null;
+    }
   }
 
   /**
@@ -273,74 +357,29 @@ The session was cancelled, possibly due to timeout or manual intervention.
 *Cancelled: ${session.completedAt?.toISOString() || new Date().toISOString()}*
     `.trim();
 
-    return this.updateOrCreateComment(session.id, session.issueId, message);
-  }
-
-  /**
-   * Update or create comment with retry logic
-   */
-  private async updateOrCreateComment(
-    sessionId: string,
-    issueId: string,
-    message: string,
-    maxRetries: number = 3
-  ): Promise<Comment | null> {
-    const existingCommentId = this.progressComments.get(sessionId);
-    let attempt = this.commentRetryAttempts.get(sessionId) || 0;
-
     try {
-      if (existingCommentId) {
-        // Try to update existing comment with retry logic
-        for (let retry = 0; retry <= maxRetries; retry++) {
-          try {
-            const comment = await this.linearClient.updateComment(
-              existingCommentId,
-              message,
-            );
-            // Reset retry counter on success
-            this.commentRetryAttempts.delete(sessionId);
-            return comment;
-          } catch (error) {
-            if (retry === maxRetries) {
-              // If update fails after retries, fall back to creating new comment
-              this.logger.warn(
-                "Failed to update comment after retries, creating new one",
-                { sessionId, error: (error as Error).message }
-              );
-              this.progressComments.delete(sessionId);
-              break;
-            }
-            // Wait before retry (exponential backoff)
-            await new Promise(resolve => setTimeout(resolve, Math.pow(2, retry) * 1000));
-          }
-        }
-      }
+      // Check if we already have a progress comment
+      const existingCommentId = this.progressComments.get(session.id);
 
-      // Create new comment
-      const comment = await this.linearClient.createComment(issueId, message);
-      if (comment) {
-        this.progressComments.set(sessionId, comment.id);
-        this.commentRetryAttempts.delete(sessionId);
+      if (existingCommentId) {
+        // Update existing comment with retry logic
+        const comment = await this.retryApiCall(() => 
+          this.linearClient.updateComment(existingCommentId, message)
+        );
+        return comment;
+      } else {
+        // Create new comment with retry logic
+        const comment = await this.retryApiCall(() => 
+          this.linearClient.createComment(session.issueId, message)
+        );
+        return comment;
       }
-      return comment;
     } catch (error) {
-      this.commentRetryAttempts.set(sessionId, attempt + 1);
-      this.logger.error(
-        "Failed to update or create comment",
-        error as Error,
-        { sessionId, attempt: attempt + 1 }
-      );
+      this.logger.error("Failed to report session cancelled", error as Error, {
+        sessionId: session.id,
+      });
       return null;
     }
-  }
-
-  /**
-   * Clean up progress comment tracking
-   */
-  private cleanupProgressComment(sessionId: string): void {
-    this.progressComments.delete(sessionId);
-    this.commentRetryAttempts.delete(sessionId);
-    this.logger.debug("Cleaned up progress comment tracking", { sessionId });
   }
 
   /**
@@ -359,6 +398,37 @@ The session was cancelled, possibly due to timeout or manual intervention.
     const empty = "░".repeat(emptyBlocks);
 
     return `\`${filled}${empty}\` ${clampedPercentage}%`;
+  }
+
+  /**
+   * Retry API call with exponential backoff
+   * @param apiCall Function that makes the API call
+   * @returns Result of the API call
+   */
+  private async retryApiCall<T>(apiCall: () => Promise<T>): Promise<T> {
+    let lastError: Error | null = null;
+    let delay = this.retryDelay;
+
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        return await apiCall();
+      } catch (error) {
+        lastError = error as Error;
+        this.logger.warn(`API call failed (attempt ${attempt}/${this.maxRetries})`, {
+          error: lastError.message,
+          retryIn: `${delay}ms`,
+        });
+
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        // Exponential backoff
+        delay *= 2;
+      }
+    }
+
+    // If we get here, all retries failed
+    throw lastError || new Error("API call failed after retries");
   }
 }
 
