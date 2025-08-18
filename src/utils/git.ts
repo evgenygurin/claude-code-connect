@@ -5,7 +5,7 @@
 import { spawn } from "child_process";
 import { promises as fs } from "fs";
 import { join, resolve } from "path";
-import type { Logger } from "../core/types.js";
+import type { Logger, GitCommit } from "../core/types.js";
 
 /**
  * Git worktree manager for process isolation
@@ -24,16 +24,20 @@ export class GitWorktreeManager {
   /**
    * Create a new worktree for an issue
    */
-  async createWorktree(issueId: string, baseBranch: string): Promise<string> {
-    // Create a unique branch name based on issue ID
-    const branchName = `claude-${issueId}-${Date.now().toString(36)}`;
+  async createWorktree(
+    issueId: string, 
+    baseBranch: string, 
+    branchName?: string
+  ): Promise<string> {
+    // Use provided branch name or create a unique one based on issue ID
+    const finalBranchName = branchName || `claude-${issueId}-${Date.now().toString(36)}`;
 
     // Create a unique worktree path
-    const worktreePath = join(this.worktreeBaseDir, branchName);
+    const worktreePath = join(this.worktreeBaseDir, finalBranchName.replace(/\//g, '-'));
 
     this.logger.debug("Creating git worktree", {
       issueId,
-      branchName,
+      branchName: finalBranchName,
       worktreePath,
       baseBranch,
     });
@@ -44,13 +48,13 @@ export class GitWorktreeManager {
 
       // Create worktree
       await this.executeGitCommand(
-        ["worktree", "add", "-b", branchName, worktreePath, baseBranch],
+        ["worktree", "add", "-b", finalBranchName, worktreePath, baseBranch],
         this.projectRoot,
       );
 
       this.logger.info("Git worktree created successfully", {
         issueId,
-        branchName,
+        branchName: finalBranchName,
         worktreePath,
       });
 
@@ -58,7 +62,7 @@ export class GitWorktreeManager {
     } catch (error) {
       this.logger.error("Failed to create git worktree", error as Error, {
         issueId,
-        branchName,
+        branchName: finalBranchName,
         worktreePath,
       });
       throw error;
@@ -209,7 +213,7 @@ export class GitWorktreeManager {
   /**
    * Get commits in worktree
    */
-  async getCommits(worktreePath: string, count: number = 10): Promise<any[]> {
+  async getCommits(worktreePath: string, count: number = 10): Promise<GitCommit[]> {
     try {
       const result = await this.executeGitCommand(
         [
@@ -222,7 +226,7 @@ export class GitWorktreeManager {
         worktreePath,
       );
 
-      const commits: any[] = [];
+      const commits: GitCommit[] = [];
       const lines = result
         .trim()
         .split("\n")
@@ -236,15 +240,55 @@ export class GitWorktreeManager {
             message: message.trim(),
             author: author.trim(),
             timestamp: new Date(date.trim()),
-            files: [], // Could be enhanced to get file list
+            files: await this.getFilesInCommit(worktreePath, hash.trim()),
           });
         }
       }
 
       return commits;
+    } catch (error) {
+      this.logger.error("Failed to get commits", error as Error, {
+        worktreePath,
+      });
+      return [];
+    }
+  }
+
+  /**
+   * Get files changed in a commit
+   */
+  private async getFilesInCommit(worktreePath: string, commitHash: string): Promise<string[]> {
+    try {
+      const result = await this.executeGitCommand(
+        ["diff-tree", "--no-commit-id", "--name-only", "-r", commitHash],
+        worktreePath,
+      );
+
+      return result
+        .trim()
+        .split("\n")
+        .filter((file) => file.trim());
     } catch {
       return [];
     }
+  }
+
+  /**
+   * Create a descriptive branch name from issue details
+   */
+  createDescriptiveBranchName(
+    issueIdentifier: string, 
+    issueTitle: string
+  ): string {
+    // Sanitize issue title for branch name
+    const sanitizedTitle = issueTitle
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .substring(0, 50);
+    
+    // Create branch name
+    return `claude/${issueIdentifier.toLowerCase()}-${sanitizedTitle}`;
   }
 
   /**
@@ -280,3 +324,4 @@ export class GitWorktreeManager {
     });
   }
 }
+

@@ -53,19 +53,22 @@ export class IntegrationServer {
     // Initialize components
     this.linearClient = new LinearClient(config, this.logger);
 
-    // Use SQLite storage for production
+    // Create session storage
     const storage = createSessionStorage("file", this.logger, {
       storageDir: join(config.projectRootDir, ".claude-sessions"),
     });
 
-    // Create Linear reporter
-    this.linearReporter = new LinearReporter(this.linearClient, this.logger);
-
-    // Create session manager with new architecture
+    // Create session manager
     this.sessionManager = new SessionManager(config, this.logger, storage);
 
+    // Create Linear reporter and connect to session manager
+    this.linearReporter = new LinearReporter(this.linearClient, this.logger);
+    this.linearReporter.setSessionManager(this.sessionManager);
+
+    // Create webhook handler
     this.webhookHandler = new LinearWebhookHandler(config, this.logger);
 
+    // Create event handlers and router
     const eventHandlers = new DefaultEventHandlers(
       this.linearClient,
       this.sessionManager,
@@ -328,6 +331,16 @@ export class IntegrationServer {
       errors.push("PROJECT_ROOT_DIR is required");
     }
 
+    if (!this.config.defaultBranch) {
+      this.logger.warn("DEFAULT_BRANCH not specified, using 'main'");
+      this.config.defaultBranch = "main";
+    }
+
+    if (this.config.timeoutMinutes === undefined) {
+      this.logger.warn("TIMEOUT_MINUTES not specified, using 30 minutes");
+      this.config.timeoutMinutes = 30;
+    }
+
     if (errors.length > 0) {
       throw new Error(`Configuration validation failed: ${errors.join(", ")}`);
     }
@@ -392,3 +405,4 @@ export class IntegrationServer {
     };
   }
 }
+

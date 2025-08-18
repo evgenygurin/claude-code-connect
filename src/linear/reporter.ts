@@ -9,6 +9,7 @@ import type {
   Logger,
 } from "../core/types.js";
 import { LinearClient } from "./client.js";
+import { SessionManager } from "../sessions/manager.js";
 
 /**
  * Session progress information
@@ -26,11 +27,57 @@ export interface SessionProgress {
 export class LinearReporter {
   private linearClient: LinearClient;
   private logger: Logger;
+  private sessionManager?: SessionManager;
   private progressComments = new Map<string, string>(); // sessionId -> commentId
 
   constructor(linearClient: LinearClient, logger: Logger) {
     this.linearClient = linearClient;
     this.logger = logger;
+  }
+
+  /**
+   * Set session manager
+   */
+  setSessionManager(sessionManager: SessionManager): void {
+    this.sessionManager = sessionManager;
+    this.setupEventListeners();
+  }
+
+  /**
+   * Setup event listeners
+   */
+  private setupEventListeners(): void {
+    if (!this.sessionManager) {
+      this.logger.warn("Cannot setup event listeners: session manager not set");
+      return;
+    }
+
+    // Listen for session events
+    this.sessionManager.on("session:created", async (session) => {
+      await this.reportSessionStarted(session);
+    });
+
+    this.sessionManager.on("session:started", async (session) => {
+      await this.reportProgress(session, {
+        currentStep: "Starting execution",
+        details: "Preparing environment and analyzing issue...",
+        percentage: 10,
+      });
+    });
+
+    this.sessionManager.on("session:completed", async (session, result) => {
+      await this.reportResults(session, result);
+    });
+
+    this.sessionManager.on("session:failed", async (session, error) => {
+      await this.reportError(session, error);
+    });
+
+    this.sessionManager.on("session:cancelled", async (session) => {
+      await this.reportCancelled(session);
+    });
+
+    this.logger.debug("Linear reporter event listeners setup");
   }
 
   /**
@@ -281,6 +328,54 @@ Please check the logs for more details.
   }
 
   /**
+   * Report session cancelled
+   */
+  async reportCancelled(session: ClaudeSession): Promise<Comment | null> {
+    this.logger.debug("Reporting session cancelled", {
+      sessionId: session.id,
+    });
+
+    const message = `
+🛑 **Claude Agent - ${session.issueIdentifier}**
+
+**Session Cancelled**
+
+The session was cancelled, possibly due to timeout or manual intervention.
+
+---
+*Session ID: ${session.id}*  
+*Started: ${session.startedAt.toISOString()}*  
+*Cancelled: ${session.completedAt?.toISOString() || new Date().toISOString()}*
+    `.trim();
+
+    try {
+      // Check if we already have a progress comment
+      const existingCommentId = this.progressComments.get(session.id);
+
+      if (existingCommentId) {
+        // Update existing comment
+        const comment = await this.linearClient.updateComment(
+          existingCommentId,
+          message,
+        );
+        return comment;
+      } else {
+        // Create new comment
+        const comment = await this.linearClient.createComment(
+          session.issueId,
+          message,
+        );
+        return comment;
+      }
+    } catch (error) {
+      this.logger.error("Failed to report session cancelled", error as Error, {
+        sessionId: session.id,
+      });
+      return null;
+    }
+  }
+
+  /**
    * Create progress bar
    */
   private createProgressBar(percentage?: number): string {
@@ -298,3 +393,4 @@ Please check the logs for more details.
     return `\`${filled}${empty}\` ${clampedPercentage}%`;
   }
 }
+
