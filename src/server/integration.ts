@@ -234,18 +234,24 @@ export class IntegrationServer {
 
     this.app.get(
       "/sessions/:id",
-      async (request: FastifyRequest<{ Params: { id: string } }>) => {
+      async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
         const sessionId = request.params.id;
         
         // Validate session ID format
         if (!SecurityUtils.isValidSessionId(sessionId)) {
           this.logger.warn("Invalid session ID format", { sessionId });
-          throw new Error("Invalid session ID format");
+          return reply.code(400).send({ 
+            error: "Invalid request", 
+            message: "Invalid session ID format" 
+          });
         }
         
         const session = await this.sessionManager.getSession(sessionId);
         if (!session) {
-          throw new Error("Session not found");
+          return reply.code(404).send({ 
+            error: "Not found", 
+            message: "Session not found" 
+          });
         }
         return { session };
       },
@@ -253,13 +259,16 @@ export class IntegrationServer {
 
     this.app.delete(
       "/sessions/:id",
-      async (request: FastifyRequest<{ Params: { id: string } }>) => {
+      async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
         const sessionId = request.params.id;
         
         // Validate session ID format
         if (!SecurityUtils.isValidSessionId(sessionId)) {
           this.logger.warn("Invalid session ID format", { sessionId });
-          throw new Error("Invalid session ID format");
+          return reply.code(400).send({ 
+            error: "Invalid request", 
+            message: "Invalid session ID format" 
+          });
         }
         
         await this.sessionManager.cancelSession(sessionId);
@@ -338,7 +347,7 @@ export class IntegrationServer {
       if (processedEvent) {
         // Log security event for successful webhook processing
         await this.securityAgent.logSecurityEvent({
-          type: SecurityEventType.AUTHENTICATION_FAILURE,
+          type: SecurityEventType.WEBHOOK_PROCESSED,
           severity: SecuritySeverity.LOW,
           source: "webhook_processor",
           message: "Webhook processed successfully",
@@ -356,7 +365,7 @@ export class IntegrationServer {
       
       // Log security event for webhook processing failure
       await this.securityAgent.logSecurityEvent({
-        type: SecurityEventType.AUTHENTICATION_FAILURE,
+        type: SecurityEventType.WEBHOOK_PROCESSING_ERROR,
         severity: SecuritySeverity.MEDIUM,
         source: "webhook_processor",
         message: "Failed to process webhook",
