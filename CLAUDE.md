@@ -129,6 +129,7 @@ The system automatically determines:
 
 ### Webhooks
 
+- `GET /webhooks/linear` - Linear webhook status and verification endpoint
 - `POST /webhooks/linear` - Linear webhook endpoint (requires proper signature if `LINEAR_WEBHOOK_SECRET` is set)
 
 ### Example Responses

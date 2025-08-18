@@ -126,7 +126,24 @@ export class IntegrationServer {
       },
     );
 
-    // Linear webhook endpoint
+    // Linear webhook endpoints
+    
+    // GET endpoint for webhook verification and status
+    this.app.get(
+      "/webhooks/linear",
+      async (_request: FastifyRequest, _reply: FastifyReply) => {
+        return {
+          status: "active",
+          description: "Linear webhook endpoint",
+          version: "1.0.0",
+          acceptedMethods: ["POST"],
+          documentation: "See CLAUDE.md for webhook configuration details",
+          timestamp: new Date().toISOString(),
+        };
+      },
+    );
+    
+    // POST endpoint for webhook processing
     this.app.post<WebhookRequest>(
       "/webhooks/linear",
       async (request, reply) => {

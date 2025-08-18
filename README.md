@@ -146,6 +146,7 @@ Assign an issue to your Claude agent user (requires configuration).
 | `/sessions/active` | GET | List active sessions only |
 | `/sessions/:id` | GET | Get session details |
 | `/stats` | GET | Server statistics |
+| `/webhooks/linear` | GET | Linear webhook status and verification endpoint |
 | `/webhooks/linear` | POST | Linear webhook endpoint |
 
 ### Example Response
