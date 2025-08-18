@@ -21,6 +21,7 @@ import { EventRouter, DefaultEventHandlers } from "../webhooks/router.js";
 import { createSessionStorage } from "../sessions/storage.js";
 import { createLogger } from "../utils/logger.js";
 import { LinearReporter } from "../linear/reporter.js";
+import { initializeLinearOAuth } from "../linear/oauth/index.js";
 
 /**
  * Webhook request body type
@@ -105,6 +106,12 @@ export class IntegrationServer {
    * Setup HTTP routes
    */
   private setupRoutes(): void {
+    // Initialize OAuth if enabled
+    if (this.config.enableOAuth) {
+      this.logger.info("Initializing OAuth integration");
+      initializeLinearOAuth(this.app, this.config, this.logger);
+    }
+    
     // Health check endpoint
     this.app.get(
       "/health",
@@ -114,6 +121,7 @@ export class IntegrationServer {
           timestamp: new Date().toISOString(),
           version: "1.0.0",
           uptime: process.uptime(),
+          oauthEnabled: this.config.enableOAuth || false,
         };
       },
     );
@@ -463,4 +471,3 @@ export class IntegrationServer {
     };
   }
 }
-

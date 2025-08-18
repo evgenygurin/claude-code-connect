@@ -12,6 +12,12 @@ export interface IntegrationConfig {
   linearApiToken: string;
   /** Linear workspace/organization ID */
   linearOrganizationId: string;
+  /** Linear client ID for OAuth */
+  linearClientId?: string;
+  /** Linear client secret for OAuth */
+  linearClientSecret?: string;
+  /** OAuth redirect URI */
+  oauthRedirectUri?: string;
   /** Claude Code CLI path (optional, defaults to 'claude-code') */
   claudeCodePath?: string;
   /** Claude executable path (optional, defaults to 'claude') */
@@ -32,6 +38,8 @@ export interface IntegrationConfig {
   agentUserId?: string;
   /** Debug mode */
   debug?: boolean;
+  /** Enable OAuth flow */
+  enableOAuth?: boolean;
 }
 
 /**

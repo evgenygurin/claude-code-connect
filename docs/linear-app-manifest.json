@@ -1,0 +1,57 @@
+{
+  "name": "Claude Code",
+  "description": "Integrate Claude Code with Linear to automate software development tasks",
+  "icon": "https://example.com/claude-code-icon.png",
+  "applicationUrl": "https://your-app-url.com",
+  "redirectUrl": "https://your-app-url.com/oauth/callback",
+  "developer": "Your Company Name",
+  "developerUrl": "https://your-company-website.com",
+  "termsUrl": "https://your-company-website.com/terms",
+  "privacyUrl": "https://your-company-website.com/privacy",
+  "supportUrl": "https://your-company-website.com/support",
+  "installUrl": "https://your-app-url.com/install",
+  "scopes": [
+    "read",
+    "write",
+    "app:assignable",
+    "app:mentionable"
+  ],
+  "webhookUrl": "https://your-app-url.com/webhooks/linear",
+  "webhookEvents": [
+    "Issue",
+    "Comment"
+  ],
+  "features": [
+    {
+      "name": "AI-powered issue resolution",
+      "description": "Claude Code analyzes and implements solutions for your issues"
+    },
+    {
+      "name": "Automated code generation",
+      "description": "Generate code based on issue descriptions and requirements"
+    },
+    {
+      "name": "Code review and analysis",
+      "description": "Get AI-powered code reviews and suggestions"
+    },
+    {
+      "name": "Documentation generation",
+      "description": "Automatically generate documentation for your code"
+    }
+  ],
+  "screenshots": [
+    {
+      "url": "https://example.com/screenshot1.png",
+      "alt": "Claude Code analyzing an issue"
+    },
+    {
+      "url": "https://example.com/screenshot2.png",
+      "alt": "Claude Code generating code based on requirements"
+    },
+    {
+      "url": "https://example.com/screenshot3.png",
+      "alt": "Claude Code providing a code review"
+    }
+  ]
+}
+
