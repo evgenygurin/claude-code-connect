@@ -41,12 +41,14 @@
     "@anthropic-ai/claude-code": "^1.0.0",
     "@linear/sdk": "^26.0.0",
     "@tacticlaunch/mcp-linear": "^1.0.0",
+    "@types/uuid": "^10.0.0",
     "dotenv": "^16.3.1",
     "fastify": "^4.25.0",
     "glob": "^10.3.0",
     "nanoid": "^5.0.4",
     "rate-limiter-flexible": "^7.2.0",
     "tsx": "^4.7.0",
+    "uuid": "^11.1.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
