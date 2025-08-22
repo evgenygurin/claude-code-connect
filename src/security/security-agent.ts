@@ -36,6 +36,8 @@ export enum SecurityEventType {
   PATH_TRAVERSAL_ATTEMPT = "path_traversal_attempt",
   RESOURCE_EXHAUSTION = "resource_exhaustion",
   SUSPICIOUS_ACTIVITY = "suspicious_activity",
+  WEBHOOK_PROCESSED = "webhook_processed",
+  WEBHOOK_PROCESSING_ERROR = "webhook_processing_error"
 }
 
 /**
@@ -649,7 +651,7 @@ export class SecurityAgent {
   /**
    * Log security event
    */
-  private async logSecurityEvent(event: SecurityEvent): Promise<void> {
+  public async logSecurityEvent(event: SecurityEvent): Promise<void> {
     this.securityEvents.push(event);
 
     // Keep only recent events (last 1000)
