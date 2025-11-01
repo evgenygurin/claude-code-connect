@@ -40,6 +40,12 @@ export interface IntegrationConfig {
   debug?: boolean;
   /** Enable OAuth flow */
   enableOAuth?: boolean;
+  /** GitHub token for PR creation */
+  githubToken?: string;
+  /** GitHub repository owner */
+  githubOwner?: string;
+  /** GitHub repository name */
+  githubRepo?: string;
 }
 
 /**
@@ -253,6 +259,8 @@ export interface ClaudeExecutionResult {
   duration: number;
   /** Exit code */
   exitCode: number;
+  /** Pull request URL (if PR was created) */
+  prUrl?: string;
 }
 
 /**

@@ -25,6 +25,9 @@ const ENV_MAPPING = {
   claudeExecutablePath: "CLAUDE_EXECUTABLE_PATH",
   timeoutMinutes: "SESSION_TIMEOUT_MINUTES",
   debug: "DEBUG",
+  githubToken: "GITHUB_TOKEN",
+  githubOwner: "GITHUB_OWNER",
+  githubRepo: "GITHUB_REPO",
 } as const;
 
 /**

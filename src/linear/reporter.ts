@@ -54,20 +54,10 @@ export class LinearReporter {
       return;
     }
 
-    // DISABLED: No spammy progress updates
-    // Only send ONE final comment when completed or failed
-
-    // this.sessionManager.on("session:created", async (session) => {
-    //   await this.reportSessionStarted(session);
-    // });
-
-    // this.sessionManager.on("session:started", async (session) => {
-    //   await this.reportProgress(session, {
-    //     currentStep: "Starting execution",
-    //     details: "Preparing environment and analyzing issue...",
-    //     percentage: 10,
-    //   });
-    // });
+    // Send quick emoji acknowledgment when session is created
+    this.sessionManager.on("session:created", async (session) => {
+      await this.reportAcknowledgment(session);
+    });
 
     this.sessionManager.on("session:completed", async (session, result) => {
       await this.reportResults(session, result);
@@ -102,6 +92,32 @@ export class LinearReporter {
   private cleanupProgressComment(sessionId: string): void {
     this.progressComments.delete(sessionId);
     this.logger.debug("Cleaned up progress comment reference", { sessionId });
+  }
+
+  /**
+   * Report quick acknowledgment that Claude is working on it
+   */
+  async reportAcknowledgment(session: ClaudeSession): Promise<Comment | null> {
+    this.logger.debug("Reporting acknowledgment", { sessionId: session.id });
+
+    const message = "👀 On it!";
+
+    try {
+      const comment = await this.retryApiCall(() =>
+        this.linearClient.createComment(session.issueId, message)
+      );
+
+      if (comment) {
+        this.progressComments.set(session.id, comment.id);
+      }
+
+      return comment;
+    } catch (error) {
+      this.logger.error("Failed to report acknowledgment", error as Error, {
+        sessionId: session.id,
+      });
+      return null;
+    }
   }
 
   /**
@@ -241,11 +257,24 @@ ${result.filesModified.map((file) => `- \`${file}\``).join("\n")}
 
 ${session.branchName ? `**Branch:** \`${session.branchName}\`` : ""}
 
+${result.prUrl ? `**Pull Request:** ${result.prUrl}` : ""}
+
+${
+  result.output && result.output.trim()
+    ? `
+**Claude Output:**
+\`\`\`
+${result.output.trim()}
+\`\`\`
+`
+    : ""
+}
+
 **Duration:** ${Math.round(result.duration / 1000)}s
 
 ---
-*Session ID: ${session.id}*  
-*Started: ${session.startedAt.toISOString()}*  
+*Session ID: ${session.id}*
+*Started: ${session.startedAt.toISOString()}*
 *Completed: ${session.completedAt?.toISOString() || new Date().toISOString()}*
       `.trim();
     } else {
@@ -256,11 +285,22 @@ ${session.branchName ? `**Branch:** \`${session.branchName}\`` : ""}
 
 **Error:** ${result.error || "Unknown error"}
 
+${
+  result.output && result.output.trim()
+    ? `
+**Claude Output:**
+\`\`\`
+${result.output.trim()}
+\`\`\`
+`
+    : ""
+}
+
 **Duration:** ${Math.round(result.duration / 1000)}s
 
 ---
-*Session ID: ${session.id}*  
-*Started: ${session.startedAt.toISOString()}*  
+*Session ID: ${session.id}*
+*Started: ${session.startedAt.toISOString()}*
 *Failed: ${session.completedAt?.toISOString() || new Date().toISOString()}*
       `.trim();
     }

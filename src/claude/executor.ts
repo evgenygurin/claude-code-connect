@@ -113,20 +113,19 @@ export class ClaudeExecutor {
     const prompt = await fs.readFile(promptFile, "utf-8");
 
     return new Promise((resolve, reject) => {
-      // Use --print for non-interactive mode and pass prompt directly
-      const args = [
-        "--print",
-        prompt
-      ];
+      // Use shell to redirect prompt file to stdin
+      // This avoids command line length limits and escaping issues
+      const shellCommand = `${claudePath} --print < ${promptFile}`;
 
       this.logger.info("Spawning Claude process", {
-        command: claudePath,
+        command: shellCommand,
         workingDir,
+        promptFile,
         promptLength: prompt.length,
         sessionId: session.id,
       });
 
-      const claudeProcess = spawn(claudePath, args, {
+      const claudeProcess = spawn("sh", ["-c", shellCommand], {
         cwd: workingDir,
         stdio: "pipe",
         env: {
@@ -148,6 +147,7 @@ export class ClaudeExecutor {
         output += chunk;
         // Log Claude's output in real-time
         console.log(`[Claude ${session.id.substring(0, 8)}] ${chunk}`);
+        this.logger.debug("Claude stdout", { sessionId: session.id, chunk });
       });
 
       claudeProcess.stderr?.on("data", (data) => {
@@ -155,6 +155,7 @@ export class ClaudeExecutor {
         errorOutput += chunk;
         // Log Claude's errors in real-time
         console.error(`[Claude ${session.id.substring(0, 8)} ERROR] ${chunk}`);
+        this.logger.warn("Claude stderr", { sessionId: session.id, chunk });
       });
 
       claudeProcess.on("close", (code) => {
@@ -215,82 +216,17 @@ export class ClaudeExecutor {
   private async generatePrompt(
     context: ClaudeExecutionContext,
   ): Promise<string> {
-    const { issue, triggerComment, session } = context;
+    const { issue, triggerComment } = context;
 
     const issueDescription = issue.description || "No description provided";
     const triggerText = triggerComment?.body || "";
 
     const prompt = `
-# Linear Issue: ${issue.identifier} - ${issue.title}
+# ${issue.identifier}: ${issue.title}
 
-## Issue Description
 ${issueDescription}
 
-${
-  triggerComment
-    ? `
-## Trigger Comment
-${triggerText}
-`
-    : ""
-}
-
-## Context
-- **Issue ID**: ${issue.id}
-- **Issue URL**: ${issue.url}
-- **Session ID**: ${session.id}
-- **Working Directory**: ${session.workingDir}
-${session.branchName ? `- **Git Branch**: ${session.branchName}` : ""}
-
-## Instructions
-
-You are Claude, an AI assistant helping with software development tasks in Linear. You have been assigned to work on this issue.
-
-### Your Task
-${
-  triggerComment
-    ? "Analyze the trigger comment above and follow the instructions provided there."
-    : "Analyze the issue description and implement the requested changes."
-}
-
-### Guidelines
-1. **Read the issue carefully** - Understand what needs to be done
-2. **Explore the codebase** - Use file operations to understand the project structure  
-3. **Make targeted changes** - Focus on the specific requirements
-4. **Test your changes** - Run tests if available
-5. **Follow code standards** - Maintain consistency with existing code
-6. **Commit your work** - Make clear, descriptive git commits
-
-### Available Tools
-You have access to all standard Claude Code tools:
-- File operations (Read, Write, Edit, etc.)
-- Git operations (via Bash tool)
-- Code analysis and search tools
-- Testing and build tools
-
-### Working Directory
-You are working in: ${session.workingDir}
-
-${
-  session.branchName
-    ? `
-### Git Branch
-A new branch has been created for this work: ${session.branchName}
-All changes should be committed to this branch.
-`
-    : ""
-}
-
-### Completion
-When you're done:
-1. Ensure all changes are committed
-2. Verify tests pass (if applicable)
-3. Provide a summary of what was implemented
-4. The system will automatically report back to Linear
-
----
-
-**Important**: Focus on delivering working, tested code that addresses the issue requirements. Be thorough but efficient.
+${triggerComment ? `\n---\n\n${triggerText}` : ""}
     `.trim();
 
     return prompt;
