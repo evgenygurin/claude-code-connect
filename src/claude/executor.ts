@@ -146,21 +146,25 @@ export class ClaudeExecutor {
       claudeProcess.stdout?.on("data", (data) => {
         const chunk = data.toString();
         output += chunk;
-        this.logger.debug("Claude stdout", { sessionId: session.id, chunk });
+        // Log Claude's output in real-time
+        console.log(`[Claude ${session.id.substring(0, 8)}] ${chunk}`);
       });
 
       claudeProcess.stderr?.on("data", (data) => {
         const chunk = data.toString();
         errorOutput += chunk;
-        this.logger.debug("Claude stderr", { sessionId: session.id, chunk });
+        // Log Claude's errors in real-time
+        console.error(`[Claude ${session.id.substring(0, 8)} ERROR] ${chunk}`);
       });
 
       claudeProcess.on("close", (code) => {
         this.activeProcesses.delete(session.id);
 
-        this.logger.debug("Claude process finished", {
+        this.logger.info("🏁 Claude process finished", {
           sessionId: session.id,
           exitCode: code,
+          outputLength: output.length,
+          errorLength: errorOutput.length
         });
 
         resolve({
