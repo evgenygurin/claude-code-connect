@@ -179,7 +179,11 @@ export class IntegrationServer {
     this.app.post<WebhookRequest>(
       "/webhooks/linear",
       async (request, reply) => {
-        const signature = request.headers["x-linear-signature"];
+        const signature = request.headers["linear-signature"];
+        console.log('===============')
+        console.log('Signature header:', signature)
+        console.log('All headers:', Object.keys(request.headers))
+        console.log('===============')
         const userAgent = request.headers["user-agent"];
         const clientIp = request.ip;
         const payloadString = JSON.stringify(request.body);
@@ -204,8 +208,6 @@ export class IntegrationServer {
         }
 
         // Security validation is now handled by the SecurityAgent
-        }
-
         // Then apply security validation (from feature branch)
         const securityResult = await this.securityAgent.validateWebhook(
           payloadString,
