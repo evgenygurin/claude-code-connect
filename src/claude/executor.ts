@@ -107,14 +107,22 @@ export class ClaudeExecutor {
     promptFile: string,
   ): Promise<{ output: string; error?: string; exitCode: number }> {
     const { session, config, workingDir } = context;
-    const claudePath = config.claudeCodePath || "claude-code";
+    const claudePath = config.claudeExecutablePath || "claude";
+
+    // Read the prompt from file
+    const prompt = await fs.readFile(promptFile, "utf-8");
 
     return new Promise((resolve, reject) => {
-      const args = ["--prompt-file", promptFile, "--working-dir", workingDir];
+      // Use --print for non-interactive mode and pass prompt directly
+      const args = [
+        "--print",
+        prompt
+      ];
 
-      this.logger.debug("Spawning Claude process", {
+      this.logger.info("Spawning Claude process", {
         command: claudePath,
-        args,
+        workingDir,
+        promptLength: prompt.length,
         sessionId: session.id,
       });
 
@@ -300,13 +308,20 @@ When you're done:
       // Ensure working directory exists
       await fs.mkdir(workingDir, { recursive: true });
 
-      // Copy project files if working directory is different from project root
-      if (resolve(workingDir) !== resolve(projectRoot)) {
-        await this.copyProjectFiles(projectRoot, workingDir);
-      }
+      // Check if this is a git worktree (already has .git file)
+      const isWorktree = await this.isGitWorktree(workingDir);
 
-      // Ensure git is initialized
-      await this.ensureGitRepo(workingDir);
+      if (!isWorktree) {
+        this.logger.debug("Not a git worktree, copying project files");
+        // Copy project files if working directory is different from project root
+        if (resolve(workingDir) !== resolve(projectRoot)) {
+          await this.copyProjectFiles(projectRoot, workingDir);
+        }
+        // Ensure git is initialized
+        await this.ensureGitRepo(workingDir);
+      } else {
+        this.logger.debug("Using existing git worktree", { workingDir });
+      }
     } catch (error) {
       this.logger.error("Failed to prepare working directory", error as Error, {
         workingDir,
@@ -349,6 +364,32 @@ When you're done:
         target,
       });
       throw error;
+    }
+  }
+
+  /**
+   * Check if directory is a git worktree
+   */
+  private async isGitWorktree(workingDir: string): Promise<boolean> {
+    try {
+      const gitPath = join(workingDir, ".git");
+      const stats = await fs.stat(gitPath);
+
+      // Git worktrees have a .git file (not directory) pointing to the main repo
+      if (stats.isFile()) {
+        return true;
+      }
+
+      // Also check if it's a regular git directory with files
+      if (stats.isDirectory()) {
+        const headPath = join(gitPath, "HEAD");
+        await fs.access(headPath);
+        return true;
+      }
+
+      return false;
+    } catch {
+      return false;
     }
   }
 

@@ -54,18 +54,20 @@ export class LinearReporter {
       return;
     }
 
-    // Listen for session events
-    this.sessionManager.on("session:created", async (session) => {
-      await this.reportSessionStarted(session);
-    });
+    // DISABLED: No spammy progress updates
+    // Only send ONE final comment when completed or failed
 
-    this.sessionManager.on("session:started", async (session) => {
-      await this.reportProgress(session, {
-        currentStep: "Starting execution",
-        details: "Preparing environment and analyzing issue...",
-        percentage: 10,
-      });
-    });
+    // this.sessionManager.on("session:created", async (session) => {
+    //   await this.reportSessionStarted(session);
+    // });
+
+    // this.sessionManager.on("session:started", async (session) => {
+    //   await this.reportProgress(session, {
+    //     currentStep: "Starting execution",
+    //     details: "Preparing environment and analyzing issue...",
+    //     percentage: 10,
+    //   });
+    // });
 
     this.sessionManager.on("session:completed", async (session, result) => {
       await this.reportResults(session, result);
@@ -73,8 +75,14 @@ export class LinearReporter {
       this.cleanupProgressComment(session.id);
     });
 
+    // DISABLED: Don't spam error comments during development
+    // Re-enable once git worktree setup is stable
     this.sessionManager.on("session:failed", async (session, error) => {
-      await this.reportError(session, error);
+      this.logger.info("Session failed (not posting to Linear)", {
+        sessionId: session.id,
+        error: error.message
+      });
+      // await this.reportError(session, error);
       // Clean up progress comment reference
       this.cleanupProgressComment(session.id);
     });

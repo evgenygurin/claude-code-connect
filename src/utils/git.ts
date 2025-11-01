@@ -18,7 +18,8 @@ export class GitWorktreeManager {
   constructor(projectRoot: string, logger: Logger, worktreeBaseDir?: string) {
     this.projectRoot = resolve(projectRoot);
     this.logger = logger;
-    this.worktreeBaseDir = worktreeBaseDir || join(process.cwd(), "worktrees");
+    // Create worktrees inside the project root, not where the server is running
+    this.worktreeBaseDir = worktreeBaseDir || join(this.projectRoot, ".claude-worktrees");
   }
 
   /**
@@ -354,7 +355,12 @@ export class GitWorktreeManager {
   private executeGitCommand(args: string[], cwd: string): Promise<string> {
     // Validate working directory
     this.validatePath(cwd);
-    
+
+    this.logger.debug("Executing git command", {
+      command: `git ${args.join(" ")}`,
+      cwd
+    });
+
     return new Promise((resolve, reject) => {
       const process = spawn("git", args, {
         cwd,
@@ -374,13 +380,29 @@ export class GitWorktreeManager {
 
       process.on("close", (code) => {
         if (code === 0) {
+          this.logger.debug("Git command succeeded", {
+            command: `git ${args.join(" ")}`,
+            output: stdout.substring(0, 200)
+          });
           resolve(stdout);
         } else {
+          this.logger.error("Git command failed", new Error(stderr), {
+            command: `git ${args.join(" ")}`,
+            code,
+            cwd,
+            stderr: stderr.substring(0, 500)
+          });
           reject(new Error(`Git command failed with code ${code}: ${stderr}`));
         }
       });
 
-      process.on("error", reject);
+      process.on("error", (err) => {
+        this.logger.error("Git process error", err, {
+          command: `git ${args.join(" ")}`,
+          cwd
+        });
+        reject(err);
+      });
     });
   }
 }

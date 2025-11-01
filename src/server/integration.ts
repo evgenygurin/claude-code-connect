@@ -180,16 +180,14 @@ export class IntegrationServer {
       "/webhooks/linear",
       async (request, reply) => {
         const signature = request.headers["linear-signature"];
-        console.log('===============')
-        console.log('Signature header:', signature)
-        console.log('All headers:', Object.keys(request.headers))
-        console.log('===============')
         const userAgent = request.headers["user-agent"];
         const clientIp = request.ip;
         const payloadString = JSON.stringify(request.body);
         const sourceIp = clientIp || "unknown";
 
-        this.logger.debug("Received webhook", {
+        this.logger.info("📥 Webhook received", {
+          type: (request.body as any)?.type,
+          action: (request.body as any)?.action,
           signature: signature ? "present" : "missing",
           userAgent,
           clientIp,
@@ -402,22 +400,24 @@ export class IntegrationServer {
    */
   private async processWebhookAsync(event: LinearWebhookEvent): Promise<void> {
     try {
+      this.logger.info("🔵 Processing webhook event", { type: event.type, action: event.action });
+
       const processedEvent = await this.webhookHandler.processWebhook(event);
+
       if (processedEvent) {
-        // Log security event for successful webhook processing
-        await this.securityAgent.logSecurityEvent({
-          type: SecurityEventType.WEBHOOK_PROCESSED,
-          severity: SecuritySeverity.LOW,
-          source: "webhook_processor",
-          message: "Webhook processed successfully",
-          details: {
-            eventType: processedEvent.type,
-            action: processedEvent.action,
-            shouldTrigger: processedEvent.shouldTrigger
-          }
+        this.logger.info("🔵 Event processed", {
+          shouldTrigger: processedEvent.shouldTrigger,
+          reason: processedEvent.triggerReason
         });
-        
-        await this.eventRouter.routeEvent(processedEvent);
+
+        if (processedEvent.shouldTrigger) {
+          this.logger.info("✅ Triggering event handler...");
+          await this.eventRouter.routeEvent(processedEvent);
+        } else {
+          this.logger.info("⏭️  Event not triggered", { reason: processedEvent.triggerReason });
+        }
+      } else {
+        this.logger.warn("⚠️  Webhook returned null - event not processed");
       }
     } catch (error) {
       this.logger.error("Failed to process webhook", error as Error);

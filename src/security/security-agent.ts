@@ -751,7 +751,11 @@ export class SecurityAgent {
     }
 
     // Sort by timestamp (newest first)
-    events.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    events.sort((a, b) => {
+      const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return bTime - aTime;
+    });
 
     if (limit) {
       events = events.slice(0, limit);

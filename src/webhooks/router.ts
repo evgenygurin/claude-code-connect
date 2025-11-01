@@ -97,10 +97,14 @@ export class DefaultEventHandlers implements EventHandlers {
 
     try {
       // Create a new session for the assigned issue
-      await this.sessionManager.createSession(issue);
+      const session = await this.sessionManager.createSession(issue);
+
+      // Start the session and execute Claude Code
+      await this.sessionManager.startSession(session.id, issue);
 
       this.logger.info("Issue assignment handled successfully", {
         issueId: issue.id,
+        sessionId: session.id,
       });
     } catch (error) {
       this.logger.error("Failed to handle issue assignment", error as Error, {
@@ -135,12 +139,18 @@ export class DefaultEventHandlers implements EventHandlers {
     });
 
     try {
+      this.logger.info("🔵 Creating session for comment mention...");
       // Create a new session for the comment mention
-      await this.sessionManager.createSession(issue, comment);
+      const session = await this.sessionManager.createSession(issue, comment);
 
-      this.logger.info("Comment mention handled successfully", {
+      this.logger.info("🔵 Starting session...", { sessionId: session.id });
+      // Start the session and execute Claude Code
+      await this.sessionManager.startSession(session.id, issue, comment);
+
+      this.logger.info("✅ Comment mention handled successfully", {
         issueId: issue.id,
         commentId: comment.id,
+        sessionId: session.id,
       });
     } catch (error) {
       this.logger.error("Failed to handle comment mention", error as Error, {

@@ -225,9 +225,24 @@ export class SessionManager extends EventEmitter {
   ): Promise<void> {
     const { session, issue } = context;
 
+    this.logger.info("🚀 EXECUTING CLAUDE CODE", {
+      sessionId: session.id,
+      issueId: issue.id,
+      issueIdentifier: issue.identifier,
+      workingDir: context.workingDir,
+      branchName: context.branchName,
+    });
+
     try {
       // Execute Claude Code
+      this.logger.info("📝 Calling executor.execute()...");
       const result = await this.executor.execute(context);
+
+      this.logger.info("✅ Executor returned result", {
+        success: result.success,
+        duration: result.duration,
+        commits: result.commits?.length || 0,
+      });
 
       // Update session status
       if (result.success) {

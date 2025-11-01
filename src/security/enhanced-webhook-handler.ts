@@ -74,7 +74,7 @@ const SecureIssueSchema = z.object({
     id: z.string().uuid(),
     name: z.string().min(1).max(100),
     type: z.string().min(1).max(50),
-  }),
+  }).optional(),
   assignee: z
     .object({
       id: z.string().uuid(),
@@ -84,14 +84,14 @@ const SecureIssueSchema = z.object({
   creator: z.object({
     id: z.string().uuid(),
     name: z.string().min(1).max(100),
-  }),
+  }).optional(),
   team: z.object({
     id: z.string().uuid(),
     name: z.string().min(1).max(100),
     key: z.string().min(1).max(20),
-  }),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  }).optional(),
+  createdAt: z.string().datetime().optional(),
+  updatedAt: z.string().datetime().optional(),
 });
 
 /**
