@@ -26,17 +26,12 @@ export class GitWorktreeManager {
    * Create a new worktree for an issue
    */
   async createWorktree(
-    issueId: string, 
-    baseBranch: string, 
+    issueId: string,
+    baseBranch: string,
     branchName?: string
   ): Promise<string> {
     // Use provided branch name or create a unique one based on issue ID
-    let finalBranchName = branchName || `claude-${issueId}-${Date.now().toString(36)}`;
-    
-    // Ensure branch name uniqueness by adding timestamp if not already present
-    if (!finalBranchName.includes(Date.now().toString(36))) {
-      finalBranchName = `${finalBranchName}-${Date.now().toString(36)}`;
-    }
+    const finalBranchName = branchName || `claude-${issueId}-${Date.now().toString(36)}`;
 
     // Create a unique worktree path
     const worktreePath = join(this.worktreeBaseDir, finalBranchName.replace(/\//g, '-'));

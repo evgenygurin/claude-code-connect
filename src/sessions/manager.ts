@@ -4,20 +4,16 @@
 
 import { EventEmitter } from "events";
 import { promises as fs } from "fs";
-import { join } from "path";
 import type {
   ClaudeSession,
   ClaudeExecutionContext,
   ClaudeExecutionResult,
   IntegrationConfig,
   Logger,
-  SessionStatus,
   SessionStorage,
   SessionMetadata,
   SessionPermissions,
-  SessionSecurityContext,
 } from "../core/types.js";
-import { SessionStatusValues } from "../core/types.js";
 import { ClaudeExecutor } from "../claude/executor.js";
 import { createSession } from "./storage.js";
 import { GitWorktreeManager } from "../utils/git.js";
@@ -494,18 +490,22 @@ export class SessionManager extends EventEmitter {
     workingDir: string,
     result: ClaudeExecutionResult
   ): Promise<void> {
-    if (!this.githubClient || !this.config.githubOwner || !this.config.githubRepo || !session.branchName) {
+    if (!this.githubClient || !this.config.githubOwner || !this.config.githubRepo) {
       return;
     }
 
     try {
+      // Get the actual branch name from the worktree
+      const actualBranchName = await this.gitManager.getBranchName(workingDir);
+
       this.logger.info("Creating draft PR", {
         sessionId: session.id,
-        branchName: session.branchName,
+        branchName: actualBranchName,
+        workingDir,
       });
 
       // Push branch to remote
-      const pushed = await this.githubClient.pushBranch(workingDir, session.branchName);
+      const pushed = await this.githubClient.pushBranch(workingDir, actualBranchName);
 
       if (!pushed) {
         this.logger.warn("Failed to push branch, skipping PR creation");
@@ -536,7 +536,7 @@ ${result.filesModified && result.filesModified.length > 0 ? `\n### Files Modifie
       const pr = await this.githubClient.createDraftPR({
         owner: this.config.githubOwner,
         repo: this.config.githubRepo,
-        head: session.branchName,
+        head: actualBranchName,
         base: this.config.defaultBranch,
         title: issue.title,
         body: prBody,

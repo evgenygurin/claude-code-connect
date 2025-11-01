@@ -115,7 +115,7 @@ export class ClaudeExecutor {
     return new Promise((resolve, reject) => {
       // Use shell to redirect prompt file to stdin
       // This avoids command line length limits and escaping issues
-      const shellCommand = `${claudePath} --print < ${promptFile}`;
+      const shellCommand = `${claudePath} --print --disallowedTools NotebookRead NotebookEdit --dangerously-skip-permissions < ${promptFile}`;
 
       this.logger.info("Spawning Claude process", {
         command: shellCommand,

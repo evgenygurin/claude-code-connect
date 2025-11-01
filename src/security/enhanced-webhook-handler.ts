@@ -697,9 +697,9 @@ export class EnhancedLinearWebhookHandler {
       return { should: false, reason: "Invalid actor ID" };
     }
 
-    // Only trigger on comment creation or update
-    if (action !== "create" && action !== "update") {
-      return { should: false, reason: "Not a create or update action" };
+    // Only trigger on comment creation (not updates - those are our own comment updates)
+    if (action !== "create") {
+      return { should: false, reason: "Only process comment creation, not updates" };
     }
 
     // Check if comment mentions the agent
