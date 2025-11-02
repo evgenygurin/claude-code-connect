@@ -40,18 +40,25 @@ describe("EnhancedLinearWebhookHandler", () => {
   let webhookHandler: EnhancedLinearWebhookHandler;
   let securityAgent: SecurityAgent;
   let securityMonitor: SecurityMonitor;
+  let mockLinearClient: any;
 
   beforeEach(
     standardBeforeEach(() => {
+      // Mock Linear client
+      mockLinearClient = {
+        getIssue: vi.fn().mockResolvedValue(null),
+      };
+
       // Mock the security agent to always return valid for tests
       securityAgent = new SecurityAgent(testEnv.config, testEnv.logger);
       securityAgent.validateWebhook = vi.fn().mockResolvedValue({ valid: true });
       securityAgent.verifyWebhookSignature = vi.fn().mockReturnValue(true);
-      
+
       securityMonitor = new SecurityMonitor(testEnv.config, testEnv.logger, securityAgent);
       webhookHandler = new EnhancedLinearWebhookHandler(
-        testEnv.config, 
+        testEnv.config,
         testEnv.logger,
+        mockLinearClient,
         securityAgent,
         securityMonitor
       );
@@ -63,8 +70,9 @@ describe("EnhancedLinearWebhookHandler", () => {
   describe("instantiation", () => {
     it("should create instance with valid config and logger", () => {
       const handler = new EnhancedLinearWebhookHandler(
-        testEnv.config, 
+        testEnv.config,
         testEnv.logger,
+        mockLinearClient,
         securityAgent,
         securityMonitor
       );
@@ -73,8 +81,9 @@ describe("EnhancedLinearWebhookHandler", () => {
 
     it("should create instance without explicit security components", () => {
       const handler = new EnhancedLinearWebhookHandler(
-        testEnv.config, 
-        testEnv.logger
+        testEnv.config,
+        testEnv.logger,
+        mockLinearClient
       );
       expect(handler).toBeInstanceOf(EnhancedLinearWebhookHandler);
     });

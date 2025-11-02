@@ -15,6 +15,7 @@ import type { Issue, Comment, User } from "@linear/sdk";
 import { SecurityAgent, SecuritySeverity } from "./security-agent.js";
 import { SecurityValidator, SecurityUtils } from "./validators.js";
 import { SecurityMonitor } from "./monitoring.js";
+import type { LinearClient } from "../linear/client.js";
 
 /**
  * Enhanced webhook validation schema with security constraints
@@ -122,6 +123,7 @@ const SecureCommentSchema = z.object({
 export class EnhancedLinearWebhookHandler {
   private config: IntegrationConfig;
   private logger: Logger;
+  private linearClient: LinearClient;
   private securityAgent: SecurityAgent;
   private securityValidator: SecurityValidator;
   private securityMonitor: SecurityMonitor;
@@ -130,11 +132,13 @@ export class EnhancedLinearWebhookHandler {
   constructor(
     config: IntegrationConfig,
     logger: Logger,
+    linearClient: LinearClient,
     securityAgent?: SecurityAgent,
     securityMonitor?: SecurityMonitor,
   ) {
     this.config = config;
     this.logger = logger;
+    this.linearClient = linearClient;
     this.securityAgent = securityAgent || new SecurityAgent(config, logger);
     this.securityValidator = new SecurityValidator();
     this.securityMonitor =
@@ -530,10 +534,22 @@ export class EnhancedLinearWebhookHandler {
         });
       }
 
+      // Fetch the full issue object to get description and all fields
+      const issueFromComment = await comment.issue;
+      const fullIssue = await this.linearClient.getIssue(issueFromComment.id);
+
+      if (!fullIssue) {
+        this.logger.warn("Failed to fetch full issue for comment", {
+          commentId: comment.id,
+          issueId: issueFromComment.id,
+        });
+        return null;
+      }
+
       const processedEvent: ProcessedEvent = {
         type: LinearEventTypeValues.COMMENT_CREATE,
         action: event.action,
-        issue: comment.issue as any, // Type assertion needed for Linear SDK compatibility
+        issue: fullIssue as any, // Type assertion needed for Linear SDK compatibility
         comment: comment as any, // Type assertion needed for Linear SDK compatibility
         actor: event.actor as User,
         shouldTrigger: false,

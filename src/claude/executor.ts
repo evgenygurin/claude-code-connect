@@ -115,7 +115,7 @@ export class ClaudeExecutor {
     return new Promise((resolve, reject) => {
       // Use shell to redirect prompt file to stdin
       // This avoids command line length limits and escaping issues
-      const shellCommand = `${claudePath} --print --disallowedTools NotebookRead NotebookEdit --dangerously-skip-permissions < ${promptFile}`;
+      const shellCommand = `${claudePath} --disallowedTools NotebookRead NotebookEdit --dangerously-skip-permissions < ${promptFile}`;
 
       this.logger.info("Spawning Claude process", {
         command: shellCommand,
@@ -221,13 +221,28 @@ export class ClaudeExecutor {
     const issueDescription = issue.description || "No description provided";
     const triggerText = triggerComment?.body || "";
 
+    this.logger.info("Generating prompt for Claude", {
+      issueId: issue.id,
+      identifier: issue.identifier,
+      title: issue.title,
+      hasDescription: !!issue.description,
+      descriptionLength: issue.description?.length || 0,
+      hasTriggerComment: !!triggerComment,
+      triggerCommentLength: triggerComment?.body?.length || 0,
+    });
+
     const prompt = `
 # ${issue.identifier}: ${issue.title}
 
 ${issueDescription}
 
-${triggerComment ? `\n---\n\n${triggerText}` : ""}
+${triggerComment ? `\n---\n\nComment:\n${triggerText}` : ""}
     `.trim();
+
+    this.logger.info("Generated prompt", {
+      promptLength: prompt.length,
+      promptPreview: prompt.substring(0, 200),
+    });
 
     return prompt;
   }

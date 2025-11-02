@@ -132,8 +132,9 @@ export class IntegrationServer {
 
     // Create enhanced webhook handler with security features
     this.webhookHandler = new EnhancedLinearWebhookHandler(
-      config, 
+      config,
       this.logger,
+      this.linearClient,
       this.securityAgent,
       this.securityMonitor
     );

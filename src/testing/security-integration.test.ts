@@ -61,14 +61,19 @@ describe("Security Integration Tests", () => {
           maxCpuUsagePercent: 80
         }
       });
-      
+
+      const mockLinearClient = {
+        getIssue: vi.fn().mockResolvedValue(null),
+      };
+
       webhookHandler = new EnhancedLinearWebhookHandler(
-        testEnv.config, 
+        testEnv.config,
         testEnv.logger,
+        mockLinearClient as any,
         securityAgent,
         securityMonitor
       );
-      
+
       // Start security monitoring
       await securityMonitor.startMonitoring();
     }),
