@@ -1,0 +1,427 @@
+name: PR Metadata Automation
+
+# Automatically populate PR metadata: reviewers, assignees, labels, projects, milestone, linked issues
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  # Job 1: Auto-assign reviewers and assignees
+  assign-reviewers-assignees:
+    name: Assign Reviewers & Assignees
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Assign reviewers and assignees
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const prAuthor = context.payload.pull_request.user.login;
+            const branchName = context.payload.pull_request.head.ref;
+
+            // Configuration: Update these with your team members
+            const REVIEWERS = [
+              'evgenygurin'  // Repository owner
+              // Add more reviewers here
+            ];
+
+            const DEFAULT_ASSIGNEE = 'evgenygurin';  // Default assignee
+
+            // Filter out PR author from reviewers
+            const reviewersToAssign = REVIEWERS.filter(reviewer => reviewer !== prAuthor);
+
+            try {
+              // Assign reviewers (exclude PR author)
+              if (reviewersToAssign.length > 0) {
+                await github.rest.pulls.requestReviewers({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: prNumber,
+                  reviewers: reviewersToAssign
+                });
+                core.info(`✅ Assigned reviewers: ${reviewersToAssign.join(', ')}`);
+              }
+
+              // Assign to PR author or default assignee
+              const assignee = prAuthor || DEFAULT_ASSIGNEE;
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                assignees: [assignee]
+              });
+              core.info(`✅ Assigned to: ${assignee}`);
+
+            } catch (error) {
+              core.warning(`⚠️ Failed to assign reviewers/assignees: ${error.message}`);
+            }
+
+  # Job 2: Auto-label based on branch name and PR content
+  auto-label:
+    name: Auto-label PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Auto-label based on branch and content
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const branchName = context.payload.pull_request.head.ref;
+            const prTitle = context.payload.pull_request.title.toLowerCase();
+            const prBody = (context.payload.pull_request.body || '').toLowerCase();
+            const labels = [];
+
+            // Label mapping based on branch name patterns
+            const branchPatterns = {
+              'claude/': ['claude-agent', 'automated'],
+              'feature/': ['feature', 'enhancement'],
+              'fix/': ['bug', 'bugfix'],
+              'hotfix/': ['hotfix', 'urgent'],
+              'docs/': ['documentation'],
+              'test/': ['tests'],
+              'refactor/': ['refactoring'],
+              'chore/': ['maintenance']
+            };
+
+            // Add labels based on branch name
+            for (const [pattern, patternLabels] of Object.entries(branchPatterns)) {
+              if (branchName.startsWith(pattern)) {
+                labels.push(...patternLabels);
+                break;
+              }
+            }
+
+            // Add labels based on PR content keywords
+            const contentKeywords = {
+              'breaking change': 'breaking-change',
+              'security': 'security',
+              'performance': 'performance',
+              'api': 'api',
+              'database': 'database',
+              'ui': 'ui',
+              'ux': 'ux'
+            };
+
+            const allText = `${prTitle} ${prBody}`;
+            for (const [keyword, label] of Object.entries(contentKeywords)) {
+              if (allText.includes(keyword)) {
+                labels.push(label);
+              }
+            }
+
+            // Size labels based on changed files
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+
+            const changedFiles = files.length;
+            const additions = files.reduce((sum, file) => sum + file.additions, 0);
+            const deletions = files.reduce((sum, file) => sum + file.deletions, 0);
+            const totalChanges = additions + deletions;
+
+            if (totalChanges < 50) {
+              labels.push('size/xs');
+            } else if (totalChanges < 200) {
+              labels.push('size/s');
+            } else if (totalChanges < 500) {
+              labels.push('size/m');
+            } else if (totalChanges < 1000) {
+              labels.push('size/l');
+            } else {
+              labels.push('size/xl');
+            }
+
+            // Remove duplicates
+            const uniqueLabels = [...new Set(labels)];
+
+            if (uniqueLabels.length > 0) {
+              try {
+                // First, create labels if they don't exist
+                for (const label of uniqueLabels) {
+                  try {
+                    await github.rest.issues.createLabel({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      name: label,
+                      color: getColorForLabel(label)
+                    });
+                  } catch (error) {
+                    // Label already exists, continue
+                  }
+                }
+
+                // Add labels to PR
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  labels: uniqueLabels
+                });
+
+                core.info(`✅ Added labels: ${uniqueLabels.join(', ')}`);
+              } catch (error) {
+                core.warning(`⚠️ Failed to add labels: ${error.message}`);
+              }
+            }
+
+            // Helper function for label colors
+            function getColorForLabel(label) {
+              const colorMap = {
+                'claude-agent': '9B59B6',
+                'automated': '3498DB',
+                'feature': '2ECC71',
+                'enhancement': '00D084',
+                'bug': 'D73A4A',
+                'bugfix': 'D73A4A',
+                'hotfix': 'B60205',
+                'urgent': 'B60205',
+                'documentation': '0075CA',
+                'tests': 'F9D0C4',
+                'refactoring': 'FBCA04',
+                'maintenance': 'FEF2C0',
+                'breaking-change': 'B60205',
+                'security': 'B60205',
+                'performance': 'FBCA04',
+                'api': '1D76DB',
+                'database': '5319E7',
+                'ui': 'D4C5F9',
+                'ux': 'C5DEF5',
+                'size/xs': 'EDEDED',
+                'size/s': 'D4C5F9',
+                'size/m': 'BFD4F2',
+                'size/l': 'FFA500',
+                'size/xl': 'FF0000'
+              };
+              return colorMap[label] || 'EDEDED';
+            }
+
+  # Job 3: Link PR to issues automatically
+  link-issues:
+    name: Link to Issues
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Extract and link issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const branchName = context.payload.pull_request.head.ref;
+            const prBody = context.payload.pull_request.body || '';
+
+            // Extract issue number from branch name (e.g., claude/issue-123-description -> 123)
+            const branchIssueMatch = branchName.match(/issue[_-]?(\d+)/i);
+            const issueNumbers = new Set();
+
+            if (branchIssueMatch) {
+              issueNumbers.add(branchIssueMatch[1]);
+            }
+
+            // Extract issue numbers from PR body (e.g., #123, closes #456)
+            const bodyIssueMatches = prBody.matchAll(/#(\d+)/g);
+            for (const match of bodyIssueMatches) {
+              issueNumbers.add(match[1]);
+            }
+
+            if (issueNumbers.size > 0) {
+              const issueList = Array.from(issueNumbers).map(num => `#${num}`).join(', ');
+
+              // Add comment linking to issues
+              const comment = `🔗 **Auto-linked Issues**\n\nThis PR is related to: ${issueList}\n\n` +
+                `Branch: \`${branchName}\`\n\n` +
+                `> **Note**: To automatically close issues, use keywords like:\n` +
+                `> - \`Closes #123\`\n` +
+                `> - \`Fixes #456\`\n` +
+                `> - \`Resolves #789\``;
+
+              try {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body: comment
+                });
+                core.info(`✅ Linked issues: ${issueList}`);
+              } catch (error) {
+                core.warning(`⚠️ Failed to link issues: ${error.message}`);
+              }
+            }
+
+  # Job 4: Add to GitHub Project (if configured)
+  add-to-project:
+    name: Add to GitHub Project
+    runs-on: ubuntu-latest
+    if: false  # Enable by changing to true and configuring PROJECT_ID
+
+    steps:
+      - name: Add PR to project
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}  # Requires PAT with project permissions
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const prNodeId = context.payload.pull_request.node_id;
+
+            // Configuration: Replace with your project details
+            const PROJECT_ID = 'PVT_xxx';  // Your GitHub Project ID (get from project settings)
+
+            try {
+              // Add PR to project
+              await github.graphql(`
+                mutation($project:ID!, $pr:ID!) {
+                  addProjectV2ItemById(input: {projectId: $project, contentId: $pr}) {
+                    item {
+                      id
+                    }
+                  }
+                }
+              `, {
+                project: PROJECT_ID,
+                pr: prNodeId
+              });
+
+              core.info(`✅ Added PR to project: ${PROJECT_ID}`);
+            } catch (error) {
+              core.warning(`⚠️ Failed to add to project: ${error.message}`);
+            }
+
+  # Job 5: Set milestone based on version or date
+  set-milestone:
+    name: Set Milestone
+    runs-on: ubuntu-latest
+    if: false  # Enable by changing to true and configuring milestones
+
+    steps:
+      - name: Auto-set milestone
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const branchName = context.payload.pull_request.head.ref;
+
+            // Configuration: Milestone mapping
+            const MILESTONE_MAP = {
+              'v1.0': 'MVP Release',
+              'v1.1': 'Feature Update 1.1',
+              'hotfix': 'Hotfixes',
+              'default': 'Next Release'
+            };
+
+            // Determine milestone from branch name or use default
+            let milestoneName = MILESTONE_MAP.default;
+
+            for (const [pattern, name] of Object.entries(MILESTONE_MAP)) {
+              if (branchName.includes(pattern)) {
+                milestoneName = name;
+                break;
+              }
+            }
+
+            try {
+              // Get all milestones
+              const { data: milestones } = await github.rest.issues.listMilestones({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open'
+              });
+
+              // Find milestone by name
+              const milestone = milestones.find(m => m.title === milestoneName);
+
+              if (milestone) {
+                // Set milestone
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  milestone: milestone.number
+                });
+
+                core.info(`✅ Set milestone: ${milestoneName}`);
+              } else {
+                core.warning(`⚠️ Milestone not found: ${milestoneName}`);
+              }
+            } catch (error) {
+              core.warning(`⚠️ Failed to set milestone: ${error.message}`);
+            }
+
+  # Job 6: Post summary comment
+  post-summary:
+    name: Post Metadata Summary
+    runs-on: ubuntu-latest
+    needs: [assign-reviewers-assignees, auto-label, link-issues]
+    if: always()
+
+    steps:
+      - name: Post automation summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const prAuthor = context.payload.pull_request.user.login;
+            const branchName = context.payload.pull_request.head.ref;
+
+            const summary = `🤖 **PR Metadata Automation Summary**\n\n` +
+              `✅ **Reviewers assigned** - Repository maintainers will review this PR\n` +
+              `✅ **Assignee set** - Assigned to @${prAuthor}\n` +
+              `✅ **Labels added** - Auto-labeled based on branch and content\n` +
+              `✅ **Issues linked** - Related issues detected from branch name\n\n` +
+              `📋 **Branch**: \`${branchName}\`\n\n` +
+              `> All metadata has been automatically populated. Review and adjust as needed!`;
+
+            try {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: summary
+              });
+              core.info('✅ Posted automation summary');
+            } catch (error) {
+              core.warning(`⚠️ Failed to post summary: ${error.message}`);
+            }
+
+# ================================================================================
+# PR Metadata Automation Configuration
+# ================================================================================
+#
+# This workflow automatically populates PR metadata when a PR is opened:
+#
+# ENABLED BY DEFAULT:
+# ✅ Reviewers - Auto-assigns repository maintainers
+# ✅ Assignees - Assigns PR author
+# ✅ Labels - Based on branch name, content, and PR size
+# ✅ Issue Linking - Detects and links related issues
+#
+# OPTIONAL (configure to enable):
+# ⚪ GitHub Projects - Requires PROJECT_TOKEN secret and PROJECT_ID
+# ⚪ Milestones - Requires milestone configuration
+#
+# CONFIGURATION:
+#
+# 1. Reviewers: Edit REVIEWERS array in assign-reviewers-assignees job
+# 2. Labels: Customize branchPatterns and contentKeywords in auto-label job
+# 3. Projects: Set if: true and configure PROJECT_ID in add-to-project job
+# 4. Milestones: Set if: true and configure MILESTONE_MAP in set-milestone job
+#
+# ISSUE LINKING:
+# Automatically detects issues from:
+# - Branch names: feature/issue-123-description
+# - PR body: #123, Closes #456, Fixes #789
+#
+# LABEL CATEGORIES:
+# - Type: feature, bug, hotfix, docs, tests, refactor, chore
+# - Size: xs (<50), s (<200), m (<500), l (<1000), xl (>1000)
+# - Content: security, performance, api, database, ui, ux
+# - Special: claude-agent, automated, breaking-change
+#
+# ================================================================================
