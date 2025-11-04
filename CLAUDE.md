@@ -450,6 +450,206 @@ gh issue list --label sentry
 6. **Port Validation**: Ensures port is valid (1-65535)
 7. **Type Parsing**: Converts strings to appropriate types (boolean, number)
 
+## 🔍 SonarQube Integration
+
+**Status**: ✅ **ENABLED** - Automated code quality and security analysis
+
+### Overview
+
+SonarQube integration provides continuous code quality monitoring with automatic analysis on every push and pull request. The system analyzes TypeScript code for bugs, vulnerabilities, code smells, and maintains code coverage metrics.
+
+**Key Features:**
+
+- ✅ **Automated Analysis** - Runs on every push and PR
+- ✅ **Code Coverage** - Tracks test coverage with 70% target threshold
+- ✅ **Quality Gate** - Enforces quality standards before merge
+- ✅ **Security Scanning** - Detects vulnerabilities and security hotspots
+- ✅ **Branch Analysis** - Supports main, develop, and Claude branches
+- ✅ **TypeScript Support** - Native TypeScript/JavaScript analysis
+
+### Quick Setup
+
+```bash
+# 1. Configure SonarQube project (Cloud or Server)
+# Follow guide: docs/SONARQUBE-SETUP.md
+
+# 2. Add GitHub Secrets
+# SONAR_TOKEN: Your authentication token
+# SONAR_HOST_URL: Your SonarQube server URL (if self-hosted)
+
+# 3. Run analysis locally
+npm run test:coverage
+npm run build
+
+# 4. Push to trigger workflow
+git push
+```
+
+### Workflow Configuration
+
+**Trigger Events:**
+
+- Push to `main`, `develop`, `claude/**` branches
+- Pull requests to `main` and `develop`
+
+**Analysis Steps:**
+
+1. Checkout code with full history (fetch-depth: 0)
+2. Setup Node.js 20 with npm cache
+3. Install dependencies
+4. Run tests with coverage (vitest)
+5. Execute SonarQube scan
+6. Check quality gate status
+
+### Project Metrics
+
+**Coverage Thresholds:**
+
+- Lines: 70%
+- Functions: 70%
+- Branches: 70%
+- Statements: 70%
+
+**Analysis Scope:**
+
+- **Included**: `src/**/*.ts`
+- **Excluded**: `node_modules`, `dist`, `coverage`, test files, scripts
+
+**Coverage Report Format:**
+
+- Primary: LCOV (for SonarQube)
+- Additional: HTML, JSON, Text
+
+### Configuration Files
+
+**Workflow:** `.github/workflows/sonarqube.yml`
+
+```yaml
+on:
+  push:
+    branches: [main, develop, 'claude/**']
+  pull_request:
+    branches: [main, develop]
+```
+
+**Project Config:** `sonar-project.properties`
+
+```properties
+sonar.projectKey=claude-code-connect
+sonar.sources=src
+sonar.tests=src
+sonar.javascript.lcov.reportPaths=coverage/lcov.info
+```
+
+**Test Config:** `vitest.config.ts`
+
+```typescript
+coverage: {
+  provider: 'v8',
+  reporter: ['text', 'lcov', 'html', 'json'],
+  lines: 70,
+  functions: 70,
+  branches: 70,
+}
+```
+
+### Running Analysis
+
+**Local Coverage:**
+
+```bash
+# Generate coverage report
+npm run test:coverage
+
+# View HTML report
+open coverage/index.html
+
+# Check coverage/lcov.info for SonarQube
+cat coverage/lcov.info
+```
+
+**Manual Workflow Trigger:**
+
+```bash
+# Trigger via git push
+git add .
+git commit -m "chore: Trigger SonarQube analysis"
+git push
+
+# Check workflow status
+gh run list --workflow=sonarqube.yml
+gh run watch
+```
+
+### Quality Gate
+
+The workflow includes automatic quality gate verification:
+
+- **Status Check**: Runs after analysis completes
+- **Timeout**: 5 minutes
+- **Behavior**: Currently set to `continue-on-error: true` for gradual adoption
+- **Future**: Will block merges when quality gate fails
+
+**Quality Gate Conditions:**
+
+- Coverage on new code
+- Duplicated lines
+- Maintainability rating
+- Reliability rating
+- Security rating
+
+### Viewing Results
+
+**SonarCloud:**
+
+1. Go to [sonarcloud.io/projects](https://sonarcloud.io/projects)
+2. Select your organization
+3. Click on `claude-code-connect`
+4. View dashboard with metrics
+
+**Self-Hosted SonarQube:**
+
+1. Navigate to your SonarQube Server URL
+2. Go to **Projects**
+3. Click `claude-code-connect`
+4. Review analysis results
+
+**GitHub Actions:**
+
+1. Go to repository **Actions** tab
+2. Select "SonarQube Analysis" workflow
+3. View logs and status
+
+### Troubleshooting
+
+**Common Issues:**
+
+1. **No coverage found**: Ensure `npm run test:coverage` runs successfully
+2. **Quality gate failed**: Review SonarQube dashboard for specific issues
+3. **Authentication failed**: Verify `SONAR_TOKEN` secret is configured
+4. **Project not found**: Check `sonar.projectKey` matches SonarQube project
+
+**Debug Steps:**
+
+```bash
+# Test coverage generation
+npm run test:coverage
+ls -la coverage/lcov.info
+
+# Verify vitest config
+cat vitest.config.ts
+
+# Check SonarQube properties
+cat sonar-project.properties
+```
+
+### Documentation
+
+- **Setup Guide**: [docs/SONARQUBE-SETUP.md](docs/SONARQUBE-SETUP.md) - Complete setup instructions
+- **Official Action**: [SonarQube Scan Action](https://github.com/marketplace/actions/official-sonarqube-scan)
+- **SonarQube Docs**: [docs.sonarqube.org](https://docs.sonarqube.org/)
+- **TypeScript Analysis**: [TypeScript/JavaScript Analysis](https://docs.sonarqube.org/latest/analyzing-source-code/languages/typescript/)
+
 ## 🌐 API Endpoints
 
 ### Health & Status
@@ -801,6 +1001,7 @@ Success Rate: 100% for webhook processing
 - [README.md](README.md) - Main project documentation
 - [Quick Start Guide](docs/QUICK-START-GUIDE.md) - Get started in 5 minutes
 - [Linear Webhook Setup](docs/LINEAR-WEBHOOK-SETUP.md) - Detailed webhook configuration
+- [SonarQube Setup Guide](docs/SONARQUBE-SETUP.md) - Code quality analysis configuration
 - [Roadmap & Improvements](docs/ROADMAP-IMPROVEMENTS.md) - Future development plans
 
 ## ⚠️ Known Issues & Limitations
