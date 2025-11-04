@@ -1,0 +1,274 @@
+name: CircleCI + Codegen Integration
+
+# ================================================================================
+# CircleCI Integration Workflow
+# ================================================================================
+# This workflow provides integration between CircleCI and Codegen for:
+# - Build failure notifications
+# - Automatic error detection and fixing
+# - Status synchronization between GitHub and CircleCI
+#
+# IMPORTANT: The actual CI/CD work is done by CircleCI (.circleci/config.yml)
+# This workflow only handles integration and notifications.
+#
+# SETUP REQUIRED:
+# 1. Enable project in CircleCI: https://app.circleci.com/projects/
+# 2. Configure CircleCI webhook to Codegen: docs/CIRCLECI-SETUP.md
+# 3. Install Codegen GitHub App: https://github.com/apps/codegen-sh
+# ================================================================================
+
+on:
+  # Trigger on all push events (CircleCI runs separately)
+  push:
+    branches:
+      - '**'  # All branches
+
+  # Pull request events
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+  # Manual workflow dispatch for testing
+  workflow_dispatch:
+    inputs:
+      test_integration:
+        description: 'Test CircleCI integration'
+        required: false
+        type: boolean
+        default: false
+
+# Permissions required for integration
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  statuses: write
+  checks: write
+
+jobs:
+  # Job 1: Notify CircleCI build start
+  circleci-notify:
+    name: CircleCI Integration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get CircleCI build status
+        id: circleci-status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get all check runs for this commit
+            const { data: checkRuns } = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              per_page: 100
+            });
+
+            // Filter CircleCI check runs
+            const circleCIChecks = checkRuns.check_runs.filter(check =>
+              check.app?.slug === 'circleci-checks' ||
+              check.name.toLowerCase().includes('circleci')
+            );
+
+            console.log(`Found ${circleCIChecks.length} CircleCI check runs`);
+
+            return {
+              total: circleCIChecks.length,
+              pending: circleCIChecks.filter(c => c.status === 'queued' || c.status === 'in_progress').length,
+              success: circleCIChecks.filter(c => c.conclusion === 'success').length,
+              failure: circleCIChecks.filter(c => c.conclusion === 'failure').length
+            };
+
+      - name: Post CircleCI status comment (PR only)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = ${{ steps.circleci-status.outputs.result }};
+            const prNumber = context.payload.pull_request.number;
+            const sha = context.sha.substring(0, 7);
+
+            let statusEmoji = '🔄';
+            let statusText = 'Pending';
+
+            if (status.failure > 0) {
+              statusEmoji = '❌';
+              statusText = 'Failed';
+            } else if (status.success > 0 && status.pending === 0) {
+              statusEmoji = '✅';
+              statusText = 'Passed';
+            }
+
+            const body = `## ${statusEmoji} CircleCI Status\n\n` +
+              `**Commit**: \`${sha}\`\n` +
+              `**Status**: ${statusText}\n\n` +
+              `📊 **Check Results:**\n` +
+              `- ✅ Success: ${status.success}\n` +
+              `- ❌ Failed: ${status.failure}\n` +
+              `- 🔄 Pending: ${status.pending}\n` +
+              `- 📋 Total: ${status.total}\n\n` +
+              `---\n\n` +
+              `**🤖 Codegen Auto-fixer:**\n`;
+
+            let additionalInfo = '';
+
+            if (status.failure > 0) {
+              additionalInfo = `⚠️ **Failures detected!**\n\n` +
+                `Codegen will automatically analyze the failures and attempt to fix them.\n\n` +
+                `🔧 **Auto-fix process:**\n` +
+                `1. Codegen receives webhook from CircleCI\n` +
+                `2. AI agent analyzes failure logs\n` +
+                `3. Agent creates fix commit(s)\n` +
+                `4. CircleCI re-runs automatically\n` +
+                `5. Repeat up to 3 times if needed\n\n` +
+                `📊 Track agent runs: [codegen.com/runs](https://codegen.com/runs)\n\n` +
+                `> **Note**: Make sure CircleCI webhook is configured to send failure notifications to Codegen.\n` +
+                `> See: [docs/CIRCLECI-SETUP.md](../blob/main/docs/CIRCLECI-SETUP.md)`;
+            } else if (status.success > 0 && status.pending === 0) {
+              additionalInfo = `✅ All CircleCI checks passed!\n\n` +
+                `View detailed results in CircleCI dashboard.`;
+            } else {
+              additionalInfo = `🔄 CircleCI builds are running...\n\n` +
+                `Results will be updated automatically.`;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: body + additionalInfo
+            });
+
+  # Job 2: Codegen integration health check
+  codegen-integration-check:
+    name: Check Codegen Integration
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.test_integration == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check .codegen/config.yml
+        run: |
+          echo "Checking Codegen configuration..."
+
+          if [ ! -f .codegen/config.yml ]; then
+            echo "❌ ERROR: .codegen/config.yml not found"
+            exit 1
+          fi
+
+          echo "✅ Configuration file exists"
+
+          # Check if CircleCI integration is enabled
+          if grep -q "circleci:" .codegen/config.yml; then
+            echo "✅ CircleCI integration configuration found"
+
+            if grep -A 5 "circleci:" .codegen/config.yml | grep -q "enabled: true"; then
+              echo "✅ CircleCI integration is ENABLED"
+            else
+              echo "⚠️  WARNING: CircleCI integration is DISABLED"
+              echo "   Enable it in .codegen/config.yml"
+            fi
+          else
+            echo "⚠️  WARNING: CircleCI integration not configured"
+          fi
+
+      - name: Check CircleCI configuration
+        run: |
+          echo "Checking CircleCI configuration..."
+
+          if [ ! -f .circleci/config.yml ]; then
+            echo "❌ ERROR: .circleci/config.yml not found"
+            exit 1
+          fi
+
+          echo "✅ CircleCI configuration file exists"
+
+          # Validate YAML syntax
+          if command -v yamllint &> /dev/null; then
+            yamllint .circleci/config.yml || true
+          else
+            echo "ℹ️  yamllint not installed, skipping validation"
+          fi
+
+      - name: Integration status report
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            const report = {
+              codegen_config: fs.existsSync('.codegen/config.yml'),
+              circleci_config: fs.existsSync('.circleci/config.yml'),
+              github_workflow: fs.existsSync('.github/workflows/circleci.yml'),
+              documentation: fs.existsSync('docs/CIRCLECI-SETUP.md')
+            };
+
+            console.log('Integration Status Report:');
+            console.log('========================');
+            console.log(`Codegen config: ${report.codegen_config ? '✅' : '❌'}`);
+            console.log(`CircleCI config: ${report.circleci_config ? '✅' : '❌'}`);
+            console.log(`GitHub workflow: ${report.github_workflow ? '✅' : '❌'}`);
+            console.log(`Documentation: ${report.documentation ? '✅' : '❌'}`);
+
+            const allGood = Object.values(report).every(v => v === true);
+
+            if (allGood) {
+              console.log('\n✅ All integration files present!');
+            } else {
+              console.log('\n⚠️  Some integration files are missing');
+            }
+
+            core.setOutput('status', allGood ? 'success' : 'partial');
+
+# ================================================================================
+# CircleCI + Codegen Integration Architecture
+# ================================================================================
+#
+# WORKFLOW DIAGRAM:
+#
+#   GitHub Push → CircleCI Build → CircleCI Webhook → Codegen
+#                       ↓                                ↓
+#                   Pass/Fail                       AI Analysis
+#                       ↓                                ↓
+#                GitHub Status ← ← ← ← ← ←  Fix Commit Push
+#
+# COMPONENTS:
+#
+# 1. **CircleCI Configuration** (.circleci/config.yml)
+#    - Defines CI/CD pipeline
+#    - Runs tests, linting, build
+#    - Sends webhooks on completion
+#
+# 2. **Codegen Configuration** (.codegen/config.yml)
+#    - Enables CircleCI integration
+#    - Configures auto-fix behavior
+#    - Sets retry limits
+#
+# 3. **GitHub Workflow** (.github/workflows/circleci.yml - THIS FILE)
+#    - Monitors CircleCI status
+#    - Posts status comments on PRs
+#    - Validates integration setup
+#
+# 4. **Codegen GitHub App** (installed separately)
+#    - Receives CircleCI webhooks
+#    - Analyzes build failures
+#    - Creates fix commits
+#    - Triggers CircleCI re-runs
+#
+# SETUP STEPS:
+#
+# 1. ✅ Create CircleCI configuration (.circleci/config.yml)
+# 2. ✅ Enable project in CircleCI dashboard
+# 3. ✅ Install Codegen GitHub App (https://github.com/apps/codegen-sh)
+# 4. ✅ Connect CircleCI to Codegen (https://codegen.com/settings/integrations)
+# 5. ✅ Configure CircleCI webhook to Codegen
+# 6. ✅ Enable CircleCI integration in .codegen/config.yml
+#
+# For detailed setup instructions, see: docs/CIRCLECI-SETUP.md
+#
+# ================================================================================
