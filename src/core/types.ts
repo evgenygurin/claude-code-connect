@@ -318,4 +318,6 @@ export interface SessionStorage {
   delete(sessionId: string): Promise<void>;
   /** Update session status */
   updateStatus(sessionId: string, status: SessionStatus): Promise<void>;
+  /** Clean up old sessions */
+  cleanupOldSessions(maxAgeDays: number): Promise<number>;
 }

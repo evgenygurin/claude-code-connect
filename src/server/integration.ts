@@ -204,7 +204,6 @@ export class IntegrationServer {
         }
 
         // Security validation is now handled by the SecurityAgent
-        }
 
         // Then apply security validation (from feature branch)
         const securityResult = await this.securityAgent.validateWebhook(
@@ -404,15 +403,18 @@ export class IntegrationServer {
       if (processedEvent) {
         // Log security event for successful webhook processing
         await this.securityAgent.logSecurityEvent({
+          id: `webhook-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
           type: SecurityEventType.WEBHOOK_PROCESSED,
           severity: SecuritySeverity.LOW,
+          timestamp: new Date(),
           source: "webhook_processor",
           message: "Webhook processed successfully",
           details: {
             eventType: processedEvent.type,
             action: processedEvent.action,
             shouldTrigger: processedEvent.shouldTrigger
-          }
+          },
+          blocked: false
         });
         
         await this.eventRouter.routeEvent(processedEvent);
@@ -422,11 +424,14 @@ export class IntegrationServer {
       
       // Log security event for webhook processing failure
       await this.securityAgent.logSecurityEvent({
+        id: `webhook-error-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         type: SecurityEventType.WEBHOOK_PROCESSING_ERROR,
         severity: SecuritySeverity.MEDIUM,
+        timestamp: new Date(),
         source: "webhook_processor",
         message: "Failed to process webhook",
-        details: { error: (error as Error).message }
+        details: { error: (error as Error).message },
+        blocked: false
       });
     }
   }
