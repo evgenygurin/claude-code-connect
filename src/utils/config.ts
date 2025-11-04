@@ -16,6 +16,10 @@ const ENV_MAPPING = {
   linearClientSecret: "LINEAR_CLIENT_SECRET",
   oauthRedirectUri: "OAUTH_REDIRECT_URI",
   enableOAuth: "ENABLE_OAUTH",
+  githubToken: "GITHUB_TOKEN",
+  githubWebhookSecret: "GITHUB_WEBHOOK_SECRET",
+  githubOwner: "GITHUB_OWNER",
+  githubRepo: "GITHUB_REPO",
   agentUserId: "CLAUDE_AGENT_USER_ID",
   webhookSecret: "LINEAR_WEBHOOK_SECRET",
   projectRootDir: "PROJECT_ROOT_DIR",
@@ -261,7 +265,7 @@ export function printConfigSummary(config: IntegrationConfig): void {
   console.log(`  Session Timeout: ${config.timeoutMinutes} minutes`);
   console.log(`  Claude Executable: ${config.claudeExecutablePath}`);
   console.log(`  Debug Mode: ${config.debug}`);
-  
+
   // Auth method
   if (config.enableOAuth) {
     console.log(`  Auth Method: OAuth`);
@@ -273,9 +277,16 @@ export function printConfigSummary(config: IntegrationConfig): void {
     console.log(`  Linear Organization: ${config.linearOrganizationId || "Not configured"}`);
     console.log(`  Has API Token: ${config.linearApiToken ? "✓" : "✗"}`);
   }
-  
+
   console.log(`  Has Webhook Secret: ${config.webhookSecret ? "✓" : "✗"}`);
   console.log(`  Has Agent User ID: ${config.agentUserId ? "✓" : "✗"}`);
+
+  // GitHub configuration
+  console.log(`  GitHub Integration:`);
+  console.log(`    Has Token: ${config.githubToken ? "✓" : "✗"}`);
+  console.log(`    Has Webhook Secret: ${config.githubWebhookSecret ? "✓" : "✗"}`);
+  console.log(`    Owner: ${config.githubOwner || "Not configured"}`);
+  console.log(`    Repository: ${config.githubRepo || "Not configured"}`);
 
   // Boss Agent configuration
   if (config.enableBossAgent) {

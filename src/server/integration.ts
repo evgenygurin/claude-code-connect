@@ -26,6 +26,9 @@ import { SecurityValidator, SecurityUtils, defaultSecurityValidator } from "../s
 import { SecurityAgent, SecuritySeverity, SecurityEventType } from "../security/security-agent.js";
 import { SecurityMonitor } from "../security/monitoring.js";
 import { initializeLinearOAuth } from "../linear/oauth/index.js";
+import { GitHubClient } from "../github/client.js";
+import { GitHubWebhookHandler } from "../github/webhook-handler.js";
+import { GitHubPRAgent } from "../github/pr-agent.js";
 
 /**
  * Webhook request body type
@@ -46,6 +49,9 @@ export class IntegrationServer {
   private config: IntegrationConfig;
   private logger: Logger;
   private linearClient: LinearClient;
+  private githubClient?: GitHubClient;
+  private githubWebhookHandler?: GitHubWebhookHandler;
+  private githubPRAgent?: GitHubPRAgent;
   private sessionManager: SessionManager;
   private webhookHandler: EnhancedLinearWebhookHandler;
   private eventRouter: EventRouter;
@@ -80,7 +86,21 @@ export class IntegrationServer {
 
     // Initialize components
     this.linearClient = new LinearClient(config, this.logger);
-    
+
+    // Initialize GitHub client if token is provided
+    if (config.githubToken) {
+      try {
+        this.githubClient = new GitHubClient(config, this.logger);
+        this.githubWebhookHandler = new GitHubWebhookHandler(config, this.logger);
+        this.githubPRAgent = new GitHubPRAgent(config, this.logger, this.githubClient);
+        this.logger.info("GitHub integration initialized");
+      } catch (error) {
+        this.logger.warn("Failed to initialize GitHub integration", {
+          error: (error as Error).message,
+        });
+      }
+    }
+
     // Initialize security validator
     this.securityValidator = new SecurityValidator({
       maxPathDepth: 10,
@@ -276,6 +296,68 @@ export class IntegrationServer {
       },
     );
 
+    // GitHub webhook endpoint
+    this.app.post<WebhookRequest>(
+      "/webhooks/github",
+      async (request, reply) => {
+        // Check if GitHub integration is enabled
+        if (!this.githubClient || !this.githubWebhookHandler || !this.githubPRAgent) {
+          this.logger.warn("GitHub webhook received but integration not configured");
+          return reply.code(503).send({
+            error: "Service unavailable",
+            message: "GitHub integration not configured",
+          });
+        }
+
+        const signature = request.headers["x-hub-signature-256"];
+        const eventType = request.headers["x-github-event"] as string;
+        const clientIp = request.ip;
+        const payloadString = JSON.stringify(request.body);
+
+        this.logger.debug("Received GitHub webhook", {
+          eventType,
+          signature: signature ? "present" : "missing",
+          clientIp,
+          bodySize: payloadString.length,
+        });
+
+        // Apply global rate limiting
+        try {
+          await this.webhookRateLimiter.consume(clientIp);
+        } catch (rateLimitError) {
+          this.logger.warn("Global rate limit exceeded", { clientIp });
+          return reply.code(429).send({
+            error: "Too many requests",
+            message: "Rate limit exceeded. Please try again later.",
+          });
+        }
+
+        // Verify signature
+        if (signature && !this.githubWebhookHandler.verifySignature(payloadString, signature as string)) {
+          this.logger.warn("GitHub webhook signature verification failed", { clientIp });
+          return reply.code(401).send({ error: "Invalid signature" });
+        }
+
+        // Validate webhook payload
+        const event = this.githubWebhookHandler.validateWebhook(request.body);
+        if (!event) {
+          this.logger.warn("Invalid GitHub webhook payload", { clientIp, eventType });
+          return reply.code(400).send({ error: "Invalid payload" });
+        }
+
+        // Only process PR comment events
+        if (eventType !== "issue_comment" && eventType !== "pull_request_review_comment") {
+          this.logger.debug("Ignoring non-comment GitHub event", { eventType });
+          return { received: true, processed: false };
+        }
+
+        // Process event asynchronously
+        this.processGitHubWebhookAsync(event, eventType);
+
+        return { received: true, processed: true };
+      },
+    );
+
     // Session management endpoints
     this.app.get("/sessions", async () => {
       const sessions = await this.sessionManager.listSessions();
@@ -432,6 +514,40 @@ export class IntegrationServer {
         details: { error: (error as Error).message },
         blocked: false
       });
+    }
+  }
+
+  /**
+   * Process GitHub webhook asynchronously
+   */
+  private async processGitHubWebhookAsync(
+    event: any,
+    eventType: string,
+  ): Promise<void> {
+    if (!this.githubWebhookHandler || !this.githubPRAgent) {
+      this.logger.error("GitHub webhook handler or PR agent not initialized");
+      return;
+    }
+
+    try {
+      const processedEvent = await this.githubWebhookHandler.processWebhook(
+        event,
+        eventType,
+      );
+
+      if (processedEvent && processedEvent.shouldTrigger) {
+        this.logger.info("Processing GitHub PR comment", {
+          type: processedEvent.type,
+          action: processedEvent.action,
+          commentId: processedEvent.comment.id,
+          repository: processedEvent.repository.full_name,
+        });
+
+        // Handle PR comment
+        await this.githubPRAgent.handlePRComment(processedEvent);
+      }
+    } catch (error) {
+      this.logger.error("Failed to process GitHub webhook", error as Error);
     }
   }
 
