@@ -413,3 +413,166 @@ export interface ProcessedGitHubEvent {
   triggerReason?: string;
   timestamp: Date;
 }
+
+/**
+ * Boss Agent - Delegation System Types
+ */
+
+/**
+ * Agent specialization types
+ */
+export const AgentTypeValues = {
+  /** Code implementation agent */
+  CODE_WRITER: "code_writer",
+  /** Test writing agent */
+  TEST_WRITER: "test_writer",
+  /** Code review agent */
+  REVIEWER: "reviewer",
+  /** Documentation agent */
+  DOCUMENTATION: "documentation",
+  /** Debugging agent */
+  DEBUGGER: "debugger",
+  /** Refactoring agent */
+  REFACTORER: "refactorer",
+  /** General purpose agent */
+  GENERAL: "general",
+} as const;
+
+export type AgentType = (typeof AgentTypeValues)[keyof typeof AgentTypeValues];
+
+/**
+ * Task complexity levels
+ */
+export const TaskComplexityValues = {
+  /** Simple task (1-3) */
+  SIMPLE: "simple",
+  /** Medium task (4-6) */
+  MEDIUM: "medium",
+  /** Complex task (7-10) */
+  COMPLEX: "complex",
+} as const;
+
+export type TaskComplexity =
+  (typeof TaskComplexityValues)[keyof typeof TaskComplexityValues];
+
+/**
+ * Task analysis result
+ */
+export interface TaskAnalysis {
+  /** Complexity score (1-10) */
+  complexityScore: number;
+  /** Complexity level */
+  complexity: TaskComplexity;
+  /** Should delegate to sub-agents */
+  shouldDelegate: boolean;
+  /** Estimated subtask count */
+  estimatedSubtasks: number;
+  /** Task type classification */
+  taskType: "feature" | "bug" | "refactor" | "test" | "docs" | "mixed";
+  /** Analysis reasoning */
+  reasoning: string;
+}
+
+/**
+ * Subtask definition
+ */
+export interface Subtask {
+  /** Unique subtask ID */
+  id: string;
+  /** Subtask title */
+  title: string;
+  /** Subtask description */
+  description: string;
+  /** Required agent type */
+  agentType: AgentType;
+  /** Dependencies (subtask IDs that must complete first) */
+  dependencies: string[];
+  /** Priority (1-10, higher = more important) */
+  priority: number;
+  /** Estimated complexity (1-10) */
+  complexity: number;
+  /** Status */
+  status: "pending" | "running" | "completed" | "failed";
+  /** Associated session ID when running */
+  sessionId?: string;
+  /** Result when completed */
+  result?: SubtaskResult;
+}
+
+/**
+ * Subtask execution result
+ */
+export interface SubtaskResult {
+  /** Success status */
+  success: boolean;
+  /** Output summary */
+  output?: string;
+  /** Error message */
+  error?: string;
+  /** Files modified */
+  filesModified: string[];
+  /** Commits made */
+  commits: GitCommit[];
+  /** Execution duration */
+  duration: number;
+}
+
+/**
+ * Task decomposition result
+ */
+export interface TaskDecomposition {
+  /** Original task description */
+  originalTask: string;
+  /** List of subtasks */
+  subtasks: Subtask[];
+  /** Execution strategy */
+  strategy: "sequential" | "parallel" | "hybrid";
+  /** Estimated total time (minutes) */
+  estimatedTime: number;
+}
+
+/**
+ * Delegation session
+ */
+export interface DelegationSession {
+  /** Unique delegation session ID */
+  id: string;
+  /** Parent issue ID */
+  issueId: string;
+  /** Task analysis */
+  analysis: TaskAnalysis;
+  /** Task decomposition */
+  decomposition: TaskDecomposition;
+  /** Status */
+  status: "planning" | "executing" | "aggregating" | "completed" | "failed";
+  /** Created at */
+  createdAt: Date;
+  /** Started at */
+  startedAt?: Date;
+  /** Completed at */
+  completedAt?: Date;
+  /** Active sub-agent sessions */
+  activeSessions: Map<string, ClaudeSession>;
+  /** Aggregated result */
+  result?: DelegationResult;
+}
+
+/**
+ * Delegation result
+ */
+export interface DelegationResult {
+  /** Overall success */
+  success: boolean;
+  /** Summary */
+  summary: string;
+  /** All files modified */
+  filesModified: string[];
+  /** All commits */
+  commits: GitCommit[];
+  /** Total duration */
+  duration: number;
+  /** Subtask results */
+  subtaskResults: SubtaskResult[];
+  /** Failed subtasks */
+  failedSubtasks: string[];
+}
