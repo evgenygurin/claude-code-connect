@@ -59,6 +59,45 @@ Think of yourself as a **senior engineering manager** who:
 - **Configuration Manager**: Environment-based config (`src/utils/config.ts`)
 - **Logger**: Structured logging (`src/utils/logger.ts`)
 
+## 🌐 Web Dashboard
+
+The project includes a **modern web dashboard** built with Next.js and shadcn/ui for monitoring and managing Boss Agent operations.
+
+### Features
+
+- 📊 **Real-time Dashboard**: Monitor sessions, tasks, and analytics
+- 🎨 **Modern UI**: Built with Next.js 15 and shadcn/ui components
+- 🔄 **Live Updates**: Integration with Boss Agent API
+- 📈 **Analytics**: Track performance metrics and success rates
+
+### Quick Start
+
+```bash
+# Navigate to web directory
+cd web
+
+# Install dependencies
+npm install
+
+# Set up environment
+cp .env.local.example .env.local
+
+# Start development server
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to view the dashboard.
+
+### Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **UI Components**: shadcn/ui
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **TypeScript**: Full type safety
+
+For detailed documentation, see [web/README.md](web/README.md).
+
 ## 🛠️ Development Commands
 
 ### 🚀 Using Makefile (Recommended)
