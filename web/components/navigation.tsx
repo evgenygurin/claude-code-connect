@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Activity, BarChart3, Settings, Home } from "lucide-react";
+import { Activity, BarChart3, Settings, Home, Github } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ export function Navigation() {
     { href: "/", label: "Dashboard", icon: Home },
     { href: "/sessions", label: "Sessions", icon: Activity },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/repos", label: "Repositories", icon: Github },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
 
