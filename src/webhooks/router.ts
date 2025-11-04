@@ -12,6 +12,7 @@ import { LinearEventTypeValues } from "../core/types.js";
 import { LinearClient } from "../linear/client.js";
 import { SessionManager } from "../sessions/manager.js";
 import type { User } from "@linear/sdk";
+import { Mem0MemoryManager } from "../memory/manager.js";
 
 /**
  * Helper to get actor name safely
@@ -34,17 +35,20 @@ function getActorName(
 export class DefaultEventHandlers implements EventHandlers {
   private linearClient: LinearClient;
   private sessionManager: SessionManager;
+  private memoryManager: Mem0MemoryManager;
   private config: IntegrationConfig;
   private logger: Logger;
 
   constructor(
     linearClient: LinearClient,
     sessionManager: SessionManager,
+    memoryManager: Mem0MemoryManager,
     config: IntegrationConfig,
     logger: Logger,
   ) {
     this.linearClient = linearClient;
     this.sessionManager = sessionManager;
+    this.memoryManager = memoryManager;
     this.config = config;
     this.logger = logger;
 
@@ -96,6 +100,12 @@ export class DefaultEventHandlers implements EventHandlers {
     });
 
     try {
+      // Store issue context in memory
+      await this.memoryManager.storeIssueContext(
+        issue,
+        event.triggerReason || "Issue assigned to agent",
+      );
+
       // Create a new session for the assigned issue
       await this.sessionManager.createSession(issue);
 
@@ -135,6 +145,9 @@ export class DefaultEventHandlers implements EventHandlers {
     });
 
     try {
+      // Store comment context in memory
+      await this.memoryManager.storeCommentContext(comment, issue);
+
       // Create a new session for the comment mention
       await this.sessionManager.createSession(issue, comment);
 

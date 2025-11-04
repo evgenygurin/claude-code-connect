@@ -58,6 +58,12 @@ export interface IntegrationConfig {
   bossAgentThreshold?: number;
   /** Maximum concurrent sub-agents */
   maxConcurrentAgents?: number;
+  /** Mem0 API key for persistent memory */
+  mem0ApiKey?: string;
+  /** Enable Mem0 integration */
+  mem0Enabled?: boolean;
+  /** Enable verbose Mem0 logging */
+  mem0VerboseLogging?: boolean;
 }
 
 /**
