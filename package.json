@@ -38,29 +38,29 @@
     "format": "prettier --write src"
   },
   "dependencies": {
-    "@anthropic-ai/claude-code": "^1.0.0",
+    "@anthropic-ai/claude-code": "^1.0.128",
     "@linear/sdk": "^26.0.0",
-    "@octokit/rest": "^20.0.2",
-    "@tacticlaunch/mcp-linear": "^1.0.0",
+    "@octokit/rest": "^20.1.2",
+    "@tacticlaunch/mcp-linear": "^1.0.12",
     "@types/uuid": "^10.0.0",
-    "dotenv": "^16.3.1",
-    "fastify": "^4.25.0",
-    "glob": "^10.3.0",
-    "nanoid": "^5.0.4",
-    "rate-limiter-flexible": "^7.2.0",
-    "tsx": "^4.7.0",
+    "dotenv": "^16.6.1",
+    "fastify": "^4.29.1",
+    "glob": "^10.4.5",
+    "nanoid": "^5.1.6",
+    "rate-limiter-flexible": "^7.4.0",
+    "tsx": "^4.20.6",
     "uuid": "^11.1.0",
-    "zod": "^3.22.4"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
+    "@types/node": "^20.19.24",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
-    "eslint": "^8.55.0",
+    "eslint": "^8.57.1",
     "prettier": "^3.1.0",
     "ts-morph": "^26.0.0",
-    "typescript": "^5.3.0",
-    "vitest": "^1.0.0"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.6"
   },
   "engines": {
     "node": ">=18.0.0"
