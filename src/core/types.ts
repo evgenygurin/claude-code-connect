@@ -325,5 +325,5 @@ export interface SessionStorage {
   /** Update session status */
   updateStatus(sessionId: string, status: SessionStatus): Promise<void>;
   /** Clean up old sessions */
-  cleanupOldSessions?(maxAgeDays: number): Promise<number>;
+  cleanupOldSessions(maxAgeDays: number): Promise<number>;
 }

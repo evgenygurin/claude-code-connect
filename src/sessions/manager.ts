@@ -355,10 +355,7 @@ export class SessionManager extends EventEmitter {
    * Clean up old sessions
    */
   async cleanupOldSessions(maxAgeDays: number): Promise<number> {
-    if (this.storage.cleanupOldSessions) {
-      return await this.storage.cleanupOldSessions(maxAgeDays);
-    }
-    return 0;
+    return await this.storage.cleanupOldSessions(maxAgeDays);
   }
 
   /**
