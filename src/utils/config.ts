@@ -26,6 +26,7 @@ const ENV_MAPPING = {
   defaultBranch: "DEFAULT_BRANCH",
   createBranches: "CREATE_BRANCHES",
   webhookPort: "WEBHOOK_PORT",
+  webhookHost: "WEBHOOK_HOST",
   claudeExecutablePath: "CLAUDE_EXECUTABLE_PATH",
   timeoutMinutes: "SESSION_TIMEOUT_MINUTES",
   debug: "DEBUG",

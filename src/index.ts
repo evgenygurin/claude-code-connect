@@ -64,7 +64,36 @@ const commands: Command[] = [
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const commandName = args[0] || "start";
+
+  // Filter out options AND their values to find the command
+  const commandArgs: string[] = [];
+  let skipNext = false;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    // Skip if this is a value for the previous flag
+    if (skipNext) {
+      skipNext = false;
+      continue;
+    }
+
+    // If it's a flag with = (--key=value), skip it
+    if (arg.startsWith('--') && arg.includes('=')) {
+      continue;
+    }
+
+    // If it's a flag without = (--key), skip it and its value
+    if (arg.startsWith('--')) {
+      skipNext = true;
+      continue;
+    }
+
+    // It's not a flag, so it's a potential command
+    commandArgs.push(arg);
+  }
+
+  const commandName = commandArgs[0] || "start";
 
   // Find and execute command
   const command = commands.find((cmd) => cmd.name === commandName);
@@ -75,13 +104,38 @@ async function main(): Promise<void> {
   }
 
   try {
-    await command.handler(args.slice(1));
+    // Pass all arguments (including options) to the handler
+    await command.handler(args);
   } catch (error) {
     console.error(
       `Error: ${error instanceof Error ? error.message : String(error)}`,
     );
     process.exit(1);
   }
+}
+
+/**
+ * Parse CLI argument value supporting both formats:
+ * --key=value and --key value
+ */
+function parseArgValue(args: string[], key: string): string | undefined {
+  // Try format: --key=value
+  const withEquals = args.find((arg) => arg.startsWith(`--${key}=`));
+  if (withEquals) {
+    return withEquals.split("=")[1];
+  }
+
+  // Try format: --key value
+  const flagIndex = args.indexOf(`--${key}`);
+  if (flagIndex !== -1 && flagIndex + 1 < args.length) {
+    const nextArg = args[flagIndex + 1];
+    // Make sure next arg is not another flag
+    if (!nextArg.startsWith("--")) {
+      return nextArg;
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -93,11 +147,21 @@ async function startCommand(args: string[]): Promise<void> {
   logger.info("🚀 Starting Claude Code + Linear Integration");
 
   try {
+    // Parse command-line arguments
+    const configPath = parseArgValue(args, "config");
+    const hostArg = parseArgValue(args, "host");
+    const portArg = parseArgValue(args, "port");
+
     // Load configuration
-    const configPath = args
-      .find((arg) => arg.startsWith("--config="))
-      ?.split("=")[1];
     const config = loadConfig(configPath);
+
+    // Override with CLI arguments if provided
+    if (hostArg) {
+      (config as any).webhookHost = hostArg;
+    }
+    if (portArg) {
+      config.webhookPort = parseInt(portArg, 10);
+    }
 
     if (config.debug) {
       printConfigSummary(config);
@@ -252,6 +316,8 @@ async function helpCommand(): Promise<void> {
   console.log("");
   console.log("Options:");
   console.log("  --config=path    Use custom configuration file");
+  console.log("  --host=address   Server bind address (default: 0.0.0.0)");
+  console.log("  --port=number    Server port (default: 3000 for Web Preview, 3005 for local)");
   console.log("  --force          Force overwrite (for init command)");
   console.log("");
   console.log("Examples:");
@@ -259,6 +325,7 @@ async function helpCommand(): Promise<void> {
   console.log("  npm start                    # Start the integration server");
   console.log("  npm run test                 # Test Linear API connection");
   console.log("  npm start start --config=.env.prod  # Use custom config");
+  console.log("  npm start start --host=127.0.0.1 --port=3000  # Custom host/port");
   console.log("");
   console.log("Environment Variables:");
   console.log("  LINEAR_API_TOKEN             Linear API token (required)");

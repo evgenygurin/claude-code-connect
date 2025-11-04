@@ -32,6 +32,8 @@ export interface IntegrationConfig {
   claudeExecutablePath: string;
   /** Port for webhook server */
   webhookPort: number;
+  /** Host for webhook server (defaults to 0.0.0.0) */
+  webhookHost?: string;
   /** Webhook secret for validation */
   webhookSecret?: string;
   /** Project root directory for code operations */

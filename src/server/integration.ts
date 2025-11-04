@@ -589,7 +589,7 @@ export class IntegrationServer {
       // Start HTTP server
       await this.app.listen({
         port: this.config.webhookPort,
-        host: "0.0.0.0",
+        host: this.config.webhookHost || "0.0.0.0",
       });
       
       // Start security monitoring
