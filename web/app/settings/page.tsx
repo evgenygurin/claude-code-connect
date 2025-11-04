@@ -1,13 +1,30 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Database, Link, Shield, Bell, Zap } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { Settings, Database, Link, Shield, Bell, Zap, Save } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 
 export default function SettingsPage() {
+  const { toast } = useToast();
+  const [sessionTimeout, setSessionTimeout] = useState("30");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  const handleSaveSettings = () => {
+    toast({
+      title: "Settings saved",
+      description: "Your configuration has been updated successfully.",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
       <Navigation />
@@ -32,27 +49,46 @@ export default function SettingsPage() {
                 <CardTitle>General Settings</CardTitle>
                 <CardDescription>Basic configuration for Boss Agent</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Project Root Directory</p>
-                    <p className="text-sm text-muted-foreground">/home/user/claude-code-connect</p>
-                  </div>
-                  <Button variant="outline">Change</Button>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="project-root">Project Root Directory</Label>
+                  <Input
+                    id="project-root"
+                    defaultValue="/home/user/claude-code-connect"
+                    placeholder="Enter project root path"
+                  />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Webhook Port</p>
-                    <p className="text-sm text-muted-foreground">3005 (Backend) / 3000 (Web)</p>
-                  </div>
-                  <Button variant="outline">Configure</Button>
+
+                <div className="space-y-2">
+                  <Label htmlFor="webhook-port">Webhook Port</Label>
+                  <Input
+                    id="webhook-port"
+                    type="number"
+                    defaultValue="3005"
+                    placeholder="Enter port number"
+                  />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Session Timeout</p>
-                    <p className="text-sm text-muted-foreground">30 minutes</p>
-                  </div>
-                  <Button variant="outline">Adjust</Button>
+
+                <div className="space-y-2">
+                  <Label htmlFor="session-timeout">Session Timeout (minutes)</Label>
+                  <Select value={sessionTimeout} onValueChange={setSessionTimeout}>
+                    <SelectTrigger id="session-timeout">
+                      <SelectValue placeholder="Select timeout" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="15">15 minutes</SelectItem>
+                      <SelectItem value="30">30 minutes</SelectItem>
+                      <SelectItem value="60">1 hour</SelectItem>
+                      <SelectItem value="120">2 hours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between pt-4">
+                  <Button onClick={handleSaveSettings}>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -232,34 +268,60 @@ export default function SettingsPage() {
                 </CardTitle>
                 <CardDescription>Configure alerts and updates</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Enable Notifications</p>
+                    <p className="text-sm text-muted-foreground">Receive all system notifications</p>
+                  </div>
+                  <Switch
+                    checked={notificationsEnabled}
+                    onCheckedChange={setNotificationsEnabled}
+                  />
+                </div>
+
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">Session Started</p>
                     <p className="text-sm text-muted-foreground">Notify when new session begins</p>
                   </div>
-                  <Badge variant="default">On</Badge>
+                  <Switch defaultChecked disabled={!notificationsEnabled} />
                 </div>
+
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">Session Completed</p>
                     <p className="text-sm text-muted-foreground">Alert on successful completion</p>
                   </div>
-                  <Badge variant="default">On</Badge>
+                  <Switch defaultChecked disabled={!notificationsEnabled} />
                 </div>
+
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">Session Failed</p>
                     <p className="text-sm text-muted-foreground">Immediate alert on failures</p>
                   </div>
-                  <Badge variant="default">On</Badge>
+                  <Switch defaultChecked disabled={!notificationsEnabled} />
                 </div>
+
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">System Updates</p>
                     <p className="text-sm text-muted-foreground">Boss Agent version updates</p>
                   </div>
-                  <Badge variant="secondary">Off</Badge>
+                  <Switch disabled={!notificationsEnabled} />
+                </div>
+
+                <div className="pt-4">
+                  <Button onClick={() => {
+                    toast({
+                      title: "Notification settings saved",
+                      description: "Your notification preferences have been updated.",
+                    });
+                  }}>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Preferences
+                  </Button>
                 </div>
               </CardContent>
             </Card>
