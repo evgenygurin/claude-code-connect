@@ -1,0 +1,52 @@
+name: SonarQube Analysis
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'claude/**'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+      - develop
+
+jobs:
+  sonarqube:
+    name: SonarQube Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Disable shallow clone for better analysis
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+        continue-on-error: true  # Don't fail if tests fail, still run analysis
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          LC_ALL: en_US.UTF-8  # Support for non-ASCII filenames
+
+      - name: SonarQube Quality Gate check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        continue-on-error: true  # Don't fail workflow on quality gate failure initially

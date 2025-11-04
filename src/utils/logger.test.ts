@@ -2,7 +2,7 @@
  * Tests for logger utility
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   createLogger,
   createSilentLogger,
@@ -14,6 +14,10 @@ describe("Logger", () => {
 
   beforeEach(() => {
     consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
   });
 
   it("should create logger with debug mode", () => {

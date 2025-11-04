@@ -288,10 +288,71 @@ export class SecurityValidator {
   }
 
   /**
+   * Simplified path validation without project root
+   */
+  validatePath(
+    path: string | null | undefined,
+  ): { valid: boolean; error?: string } {
+    try {
+      // Check for null or undefined
+      if (path === null || path === undefined) {
+        return {
+          valid: false,
+          error: "Invalid path: Path cannot be null or undefined",
+        };
+      }
+
+      // Check for empty path
+      if (path === "") {
+        return {
+          valid: false,
+          error: "Invalid path: Path cannot be empty",
+        };
+      }
+
+      // Check for path traversal
+      if (path.includes("..")) {
+        return {
+          valid: false,
+          error: "Invalid path: Path contains path traversal attempt",
+        };
+      }
+
+      // Check for blocked paths
+      for (const blockedPath of this.blockedPaths) {
+        if (path.startsWith(blockedPath)) {
+          return {
+            valid: false,
+            error: `Invalid path: Access to ${blockedPath} is a blocked path`,
+          };
+        }
+      }
+
+      // Check path depth
+      const depth = path.split("/").filter((p) => p !== "").length;
+      if (depth > this.maxPathDepth) {
+        return {
+          valid: false,
+          error: `Invalid path: Path depth ${depth} exceeds maximum path depth ${this.maxPathDepth}`,
+        };
+      }
+
+      return {
+        valid: true,
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        error: `Path validation error: ${(error as Error).message}`,
+      };
+    }
+  }
+
+  /**
    * Validate command for execution
    */
   validateCommand(
-    command: string,
+    command: string | null | undefined,
     args: string[] = [],
   ): {
     valid: boolean;
@@ -299,6 +360,22 @@ export class SecurityValidator {
     error?: string;
   } {
     try {
+      // Check for null or undefined
+      if (command === null || command === undefined) {
+        return {
+          valid: false,
+          error: "Invalid command: Command cannot be null or undefined",
+        };
+      }
+
+      // Empty command is valid (for now)
+      if (command === "") {
+        return {
+          valid: true,
+          sanitized: { command: "", args: [] },
+        };
+      }
+
       // SECURITY: Check for injection attempts in command
       const commandInjectionCheck = this.detectInjectionAttempts(command);
       if (
@@ -332,7 +409,7 @@ export class SecurityValidator {
       if (this.blockedCommands.has(baseCommand)) {
         return {
           valid: false,
-          error: `Command '${baseCommand}' is blocked for security reasons`,
+          error: `Command '${baseCommand}' is a blocked command for security reasons`,
         };
       }
 
@@ -458,10 +535,18 @@ export class SecurityValidator {
   /**
    * Validate webhook payload size
    */
-  validateWebhookPayloadSize(payload: string): {
+  validateWebhookPayloadSize(payload: string | null | undefined): {
     valid: boolean;
     error?: string;
   } {
+    // Check for null or undefined
+    if (payload === null || payload === undefined) {
+      return {
+        valid: false,
+        error: "Invalid payload: Payload cannot be null or undefined",
+      };
+    }
+
     const size = Buffer.byteLength(payload, "utf8");
 
     if (size > MAX_WEBHOOK_PAYLOAD_SIZE) {
@@ -601,7 +686,7 @@ export class SecurityValidator {
 
     for (const pattern of commandPatterns) {
       if (pattern.test(input)) {
-        threats.push("Command injection attempt");
+        threats.push("command injection attempt");
         severity = "high";
         break;
       }
@@ -731,11 +816,46 @@ export const SecurityUtils = {
   /**
    * Remove dangerous characters
    */
-  sanitizeString: (str: string): string => {
+  sanitizeString: (str: string | null | undefined): string => {
+    if (str === null || str === undefined) {
+      return "";
+    }
     return str
       .replace(/[<>'"&]/g, "") // Remove HTML/XML characters
       .replace(/\0/g, "") // Remove null bytes
       .replace(/[\r\n]/g, " ") // Replace line breaks with spaces
       .trim();
+  },
+
+  /**
+   * Check if path contains traversal attempt
+   */
+  isPathTraversal: (path: string): boolean => {
+    // Check for various path traversal patterns
+    return (
+      path.includes("..") ||
+      path.includes("~") ||
+      path.includes("%2e%2e") || // URL encoded ..
+      path.includes("%2E%2E") || // URL encoded .. (uppercase)
+      path.includes("..\\") || // Windows style
+      path.includes("../") || // Unix style
+      /\.\.[\/\\]/.test(path) // Regex for .. followed by slash
+    );
+  },
+
+  /**
+   * Check if command contains injection attempt
+   */
+  isCommandInjection: (command: string): boolean => {
+    const injectionPatterns = [
+      /[;&|`$(){}]/,
+      /\|\|/,
+      /&&/,
+      />/,
+      /<</,
+      /\n/,
+      /\r/,
+    ];
+    return injectionPatterns.some((pattern) => pattern.test(command));
   },
 };
