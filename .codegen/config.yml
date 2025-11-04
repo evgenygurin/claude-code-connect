@@ -1,251 +1,313 @@
-# Codegen Configuration
+# ================================================================================
+# Codegen Configuration for GitHub App Integration
+# ================================================================================
 # Documentation: https://docs.codegen.com/settings/settings
+# Setup Guide: docs/CODEGEN-GITHUB-APP-SETUP.md
+#
+# This configuration works with the Codegen GitHub App (webhook-based).
+# NO API TOKENS NEEDED - authentication is handled via OAuth.
+#
+# IMPORTANT: Install GitHub App first: https://github.com/apps/codegen-sh
+# ================================================================================
 
 # Organization settings
 organization:
   # Your Codegen organization ID
   # Get it from: https://codegen.com/settings
+  # Note: This is auto-detected by the GitHub App, but can be set explicitly
   id: ${CODEGEN_ORG_ID}
 
-# Agent behavior configuration
+# ================================================================================
+# Agent Behavior Configuration
+# ================================================================================
+
 agent:
-  # Default model to use (sonnet-4.5, opus-4, etc.)
+  # AI Model Selection
+  # Options: "sonnet-4.5" (recommended), "opus-4" (most powerful), "haiku-3" (fastest)
   model: "sonnet-4.5"
 
-  # Agent permissions
+  # Agent Permissions (Security Settings)
   permissions:
-    # Can the agent create pull requests?
-    create_prs: true
+    create_prs: true          # ✅ Allow creating pull requests
+    push_commits: true        # ✅ Allow pushing commits to branches
+    merge_prs: false          # ❌ Require human approval for merging
+    delete_branches: false    # ❌ Prevent accidental branch deletions
+    modify_workflows: false   # ❌ Protect CI/CD workflows from changes
 
-    # Can the agent push commits directly?
-    push_commits: true
-
-    # Can the agent merge PRs?
-    merge_prs: false
-
-    # Can the agent delete branches?
-    delete_branches: false
-
-    # Can the agent modify workflows?
-    modify_workflows: false
-
-  # Retry configuration
+  # Retry Configuration for Failed Operations
   retries:
-    # Number of times to retry fixing failed checks
-    check_suite_failures: 3
+    check_suite_failures: 3   # Retry fixing failed checks up to 3 times
+    delay_seconds: 30         # Wait 30 seconds between retry attempts
 
-    # Retry delay in seconds
-    delay_seconds: 30
-
-  # Timeout configuration
+  # Timeout Configuration (Safety Limits)
   timeouts:
-    # Maximum time for agent run (in minutes)
-    max_run_time: 60
+    max_run_time: 60          # Maximum 60 minutes per agent run
+    operation_timeout: 10     # Timeout individual operations after 10 minutes
 
-    # Timeout for individual operations
-    operation_timeout: 10
+# ================================================================================
+# Code Quality Rules & Guidelines
+# ================================================================================
 
-# Repository rules
 rules:
-  # Global rules that apply to all agent tasks
+  # Global Rules (Apply to ALL tasks)
   global:
-    - "Always write TypeScript with strict type safety"
-    - "Follow the existing code style and conventions"
-    - "Write comprehensive tests for new functionality"
-    - "Update documentation when changing APIs"
-    - "Use meaningful commit messages following conventional commits"
-    - "Never commit secrets or sensitive data"
-    - "Prefer small, focused commits over large monolithic changes"
+    - "Write TypeScript with strict type safety - no any types"
+    - "Follow existing code style and project conventions"
+    - "Use meaningful commit messages (conventional commits format)"
+    - "Never commit secrets, API tokens, or sensitive data"
+    - "Prefer small, focused changes over large monolithic commits"
+    - "Always run tests, linting, and type checking before committing"
 
-  # Code quality rules
+  # Code Quality Standards
   code_quality:
-    - "Run linter and fix all linting errors before committing"
-    - "Ensure type checking passes with no errors"
-    - "Remove unused imports and variables"
-    - "Add JSDoc comments for public APIs"
+    - "Run `npm run lint` and fix all linting errors"
+    - "Run `npm run typecheck` and ensure no type errors"
+    - "Remove unused imports, variables, and dead code"
+    - "Add JSDoc comments for public APIs and complex functions"
     - "Follow DRY principle - avoid code duplication"
+    - "Use async/await for all async operations"
+    - "Handle errors properly with try-catch blocks"
 
-  # Testing rules
+  # Testing Requirements
   testing:
-    - "Achieve at least 80% code coverage for new code"
-    - "Write unit tests for all new functions and classes"
-    - "Include integration tests for API endpoints"
-    - "Test edge cases and error conditions"
-    - "Ensure all tests pass before creating PR"
+    - "Write unit tests using Vitest for all new functions"
+    - "Include integration tests for API endpoints and services"
+    - "Test edge cases, error conditions, and boundary values"
+    - "Ensure all tests pass: `npm test`"
+    - "Aim for 80%+ code coverage for new code"
+    - "Use descriptive test names that explain what is being tested"
 
-  # Security rules
+  # Security Best Practices
   security:
     - "Validate and sanitize all user inputs"
-    - "Use parameterized queries for database operations"
-    - "Never log sensitive information"
+    - "Never log sensitive information (tokens, passwords, keys)"
+    - "Use environment variables for configuration"
+    - "Run `npm audit` and fix critical vulnerabilities"
     - "Keep dependencies up to date"
-    - "Run security audit before merging"
+    - "Follow OWASP security guidelines"
 
-  # PR rules
+  # Pull Request Guidelines
   pull_requests:
-    - "Keep PRs focused on a single concern"
-    - "Write clear PR descriptions explaining what and why"
-    - "Request reviews from appropriate team members"
-    - "Respond to review comments promptly"
-    - "Squash commits before merging if needed"
+    - "Keep PRs focused on a single feature or fix"
+    - "Write clear PR titles and descriptions (what + why)"
+    - "Link related issues using 'Fixes #123' or 'Closes #456'"
+    - "Request review from appropriate team members"
+    - "Respond to review comments within 24 hours"
+    - "Ensure CI/CD passes before requesting merge"
 
-# Check suite auto-fixer configuration
+  # Project-Specific Rules (Claude Code + Linear Integration)
+  project_specific:
+    - "Follow the architecture in src/ directory structure"
+    - "Use the Logger interface for all logging (src/utils/logger.ts)"
+    - "Follow session lifecycle patterns (src/sessions/manager.ts)"
+    - "Use IntegrationConfig for configuration (src/utils/config.ts)"
+    - "Add tests in *.test.ts files alongside implementation"
+    - "Update CLAUDE.md with significant architectural changes"
+
+# ================================================================================
+# Check Suite Auto-fixer Configuration
+# ================================================================================
+
 check_suite:
-  # Enable auto-fixer for failed checks
+  # Enable automatic fixing of failed CI/CD checks
   auto_fix: true
 
-  # Which types of failures to auto-fix
+  # Types of Failures to Auto-fix
   fix_types:
-    - "test_failures"
-    - "lint_errors"
-    - "type_errors"
-    - "build_failures"
-    - "security_warnings"
+    - "test_failures"       # Fix failing unit/integration tests
+    - "lint_errors"         # Auto-format and fix linting issues
+    - "type_errors"         # Add missing types and fix type errors
+    - "build_failures"      # Fix compilation and build errors
+    - "security_warnings"   # Address security vulnerabilities
 
-  # Exclude certain checks from auto-fixing
+  # Exclude Specific Checks (Don't auto-fix these)
   exclude_checks:
-    - "manual-approval"
-    - "security-scan"
+    - "manual-approval"     # Require human approval
+    - "security-scan"       # Security scans need manual review
+    - "deployment"          # Deployment should be manual
 
-  # Create separate commits for each fix?
-  separate_commits: true
+  # Commit Strategy
+  separate_commits: true    # Create separate commits for each type of fix
+  comment_on_fixes: true    # Post PR comments explaining what was fixed
 
-  # Create PR comments explaining fixes?
-  comment_on_fixes: true
+  # Retry Logic
+  max_attempts: 3           # Try up to 3 times before giving up
+  backoff_seconds: 30       # Wait 30s between retry attempts
 
-# PR review configuration
+# ================================================================================
+# PR Review Configuration
+# ================================================================================
+
 pr_review:
-  # Enable automatic PR reviews
+  # Enable Automatic PR Reviews
   enabled: true
+  review_on_push: true      # Re-review when new commits are pushed
 
-  # Review on every push?
-  review_on_push: true
+  # PR Size Limits
+  min_size: 10              # Only review PRs with 10+ lines changed
+  max_size: 1000            # Skip review for massive PRs (> 1000 lines)
 
-  # Minimum PR size to trigger review (lines changed)
-  min_size: 10
-
-  # Maximum PR size for review (lines changed)
-  max_size: 1000
-
-  # Focus areas for reviews
+  # Review Focus Areas (Prioritized)
   focus_areas:
-    - "security"
-    - "performance"
-    - "maintainability"
-    - "test_coverage"
-    - "documentation"
+    - "security"            # Security vulnerabilities and best practices
+    - "performance"         # Performance issues and optimizations
+    - "maintainability"     # Code quality and readability
+    - "test_coverage"       # Test completeness and quality
+    - "documentation"       # Comments and documentation updates
 
-  # Post review as PR comment or review?
-  review_format: "comment"  # or "review"
+  # Review Output Format
+  review_format: "comment"  # Post as comment (alternative: "review")
 
-  # Auto-approve PRs that meet quality standards?
-  auto_approve: false
+  # Approval Settings
+  auto_approve: false       # Never auto-approve - require human review
 
-# Trigger configuration
+# ================================================================================
+# Trigger Configuration (When Codegen Activates)
+# ================================================================================
+
 triggers:
-  # Keywords that activate Codegen in comments
+  # Comment-based Triggers (Keywords in PR/Issue comments)
   mention_keywords:
-    - "@codegen"
-    - "@agent"
-    - "codegen:"
-    - "bot:"
+    - "@codegen"            # Direct mention
+    - "@agent"              # Alternative mention
+    - "codegen:"            # Task prefix (e.g., "codegen: fix tests")
+    - "bot:"                # Generic bot mention
 
-  # Labels that trigger Codegen
+  # Label-based Triggers (Labels that activate Codegen)
   labels:
-    - "codegen"
-    - "codegen:bug-fix"
-    - "codegen:feature"
-    - "codegen:refactor"
-    - "codegen:auto-fix"
-    - "codegen:review"
-    - "codegen:tests"
-    - "codegen:docs"
-    - "bug-fix"
-    - "feature-request"
-    - "auto-fix"
+    - "codegen"             # Generic task
+    - "codegen:bug-fix"     # Fix bugs
+    - "codegen:feature"     # Implement features
+    - "codegen:refactor"    # Refactor code
+    - "codegen:auto-fix"    # Auto-fix CI failures
+    - "codegen:review"      # Code review
+    - "codegen:tests"       # Add tests
+    - "codegen:docs"        # Update documentation
 
-  # Events that trigger auto-fixer
+  # Webhook Events that Trigger Codegen
   events:
-    - "check_suite.completed"
-    - "check_run.completed"
+    - "pull_request.opened"           # New PRs (optional review)
+    - "pull_request.synchronize"      # PR updated
+    - "check_suite.completed"         # CI/CD finished
+    - "check_run.completed"           # Individual check finished
+    - "issue_comment.created"         # Comments on issues/PRs
 
-# Integration settings
-# Configure at: https://codegen.com/settings/integrations
+# ================================================================================
+# Integrations Configuration
+# ================================================================================
+# Configure integrations at: https://codegen.com/settings/integrations
+# Authentication is handled via OAuth - no API tokens needed in this file
+# ================================================================================
+
 integrations:
-  # GitHub (via Codegen GitHub App)
+  # ---- GitHub Integration (REQUIRED) ----
   github:
     enabled: true
-    create_checks: true
-    update_status: true
-    use_draft_prs: false
-    auto_pr_review: true
-    auto_fix_checks: true
+    create_checks: true         # Create GitHub check runs
+    update_status: true         # Update commit statuses
+    use_draft_prs: false        # Create regular PRs (not drafts)
+    auto_pr_review: true        # Auto-review new/updated PRs
+    auto_fix_checks: true       # Auto-fix failing CI/CD checks
 
-  # CircleCI Integration
+  # ---- CircleCI Integration (Optional) ----
+  # Setup: https://codegen.com/settings/integrations/circleci
   circleci:
-    enabled: false
-    auto_fix: true
-    max_retries: 3
+    enabled: false              # Enable at Codegen dashboard
+    auto_fix: true              # Auto-fix failing CircleCI builds
+    max_retries: 3              # Retry up to 3 times
+    notify_on_fix: true         # Post PR comments when fixed
 
-  # Sentry Integration
+  # ---- Sentry Integration (Optional) ----
+  # Setup: https://codegen.com/settings/integrations/sentry
   sentry:
-    enabled: false
-    auto_create_issues: true
-    priority_threshold: "high"
+    enabled: false              # Enable at Codegen dashboard
+    auto_create_issues: true    # Create GitHub issues from Sentry errors
+    auto_fix: false             # Don't auto-fix production errors (too risky)
+    priority_threshold: "high"  # Only handle high/critical errors
 
-  # Linear Integration
+  # ---- Linear Integration (Optional) ----
+  # Setup: https://codegen.com/settings/integrations/linear
   linear:
-    enabled: false
-    auto_create_prs: true
-    sync_pr_status: true
+    enabled: false              # Enable at Codegen dashboard
+    auto_create_prs: true       # Create PRs from Linear issues with "codegen" label
+    sync_pr_status: true        # Sync PR status back to Linear
+    auto_close_on_merge: true   # Close Linear issue when PR merges
 
-  # Slack Integration
+  # ---- Slack Integration (Optional) ----
+  # Setup: https://codegen.com/settings/integrations/slack
   slack:
-    enabled: false
+    enabled: false              # Enable at Codegen dashboard
     default_channel: "#dev-bots"
     notify_on_completion: true
+    notify_on_error: true
 
-# Sandbox configuration
+# ================================================================================
+# Sandbox Configuration (Agent Execution Environment)
+# ================================================================================
+
 sandbox:
-  # Environment variables for agent sandbox
+  # Environment Variables for Agent Sandbox
   env_vars:
     NODE_ENV: "test"
     CI: "true"
+    DEBUG: "false"
 
-  # Setup commands to run before agent tasks
+  # Setup Commands (Run before agent tasks)
   setup_commands:
-    - "npm ci"
-    - "npm run build"
+    - "npm ci"                # Install exact dependencies
+    - "npm run build"         # Build TypeScript
 
-  # Timeout for setup (in minutes)
-  setup_timeout: 10
+  # Timeout for Setup Phase
+  setup_timeout: 10           # 10 minutes max for setup
 
-# Monitoring and analytics
+# ================================================================================
+# Monitoring & Analytics
+# ================================================================================
+
 monitoring:
-  # Enable detailed logging?
-  verbose_logging: true
+  # Logging Configuration
+  verbose_logging: true       # Enable detailed logs for debugging
 
-  # Track agent performance metrics?
-  track_metrics: true
+  # Performance Metrics
+  track_metrics: true         # Track agent performance
+  send_analytics: true        # Send anonymized analytics to Codegen
 
-  # Send analytics to Codegen?
-  send_analytics: true
+# ================================================================================
+# Rate Limiting (Prevent Runaway Costs)
+# ================================================================================
 
-# Rate limiting
 rate_limits:
-  # Maximum agent runs per hour
-  max_runs_per_hour: 50
+  # Agent Run Limits
+  max_runs_per_hour: 50       # Maximum 50 agent runs per hour
+  max_concurrent_runs: 3      # Maximum 3 simultaneous agent runs
 
-  # Maximum concurrent agent runs
-  max_concurrent_runs: 3
+  # Cooldown Period
+  cooldown_seconds: 60        # Wait 60s between runs for same PR
 
-# Cost controls (if applicable)
+# ================================================================================
+# Cost Controls (Budget Management)
+# ================================================================================
+
 cost_controls:
-  # Maximum cost per agent run (in credits)
-  max_cost_per_run: 100
+  # Per-run Limits
+  max_cost_per_run: 100       # Maximum 100 credits per agent run
 
-  # Maximum total cost per day
-  max_daily_cost: 1000
+  # Daily Limits
+  max_daily_cost: 1000        # Maximum 1000 credits per day
 
-  # Alert when approaching limits?
-  cost_alerts: true
+  # Alerts
+  cost_alerts: true           # Send alerts when approaching limits
+  alert_threshold: 80         # Alert at 80% of budget
+
+# ================================================================================
+# End of Configuration
+# ================================================================================
+#
+# For more information:
+# - Documentation: https://docs.codegen.com
+# - Setup Guide: docs/CODEGEN-GITHUB-APP-SETUP.md
+# - Integrations: docs/CODEGEN-INTEGRATIONS.md
+# - GitHub App: https://github.com/apps/codegen-sh
+# - Dashboard: https://codegen.com/settings
+#
+# ================================================================================
