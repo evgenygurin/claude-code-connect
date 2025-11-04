@@ -115,8 +115,8 @@ ${session.branchName ? `I'll be working in branch \`${session.branchName}\`.` : 
     `.trim();
 
     try {
-      const comment = await this.retryApiCall(() => 
-        this.linearClient.createComment(session.issueId, message)
+      const comment = await this.retryApiCall(() =>
+        this.linearClient.createComment(session.issueId, message),
       );
 
       if (comment) {
@@ -167,14 +167,14 @@ ${session.branchName ? `*Branch: \`${session.branchName}\`*` : ""}
 
       if (existingCommentId) {
         // Update existing comment with retry logic
-        const comment = await this.retryApiCall(() => 
-          this.linearClient.updateComment(existingCommentId, message)
+        const comment = await this.retryApiCall(() =>
+          this.linearClient.updateComment(existingCommentId, message),
         );
         return comment;
       } else {
         // Create new comment with retry logic
-        const comment = await this.retryApiCall(() => 
-          this.linearClient.createComment(session.issueId, message)
+        const comment = await this.retryApiCall(() =>
+          this.linearClient.createComment(session.issueId, message),
         );
 
         if (comment) {
@@ -263,14 +263,14 @@ ${session.branchName ? `**Branch:** \`${session.branchName}\`` : ""}
 
       if (existingCommentId) {
         // Update existing comment with retry logic
-        const comment = await this.retryApiCall(() => 
-          this.linearClient.updateComment(existingCommentId, message)
+        const comment = await this.retryApiCall(() =>
+          this.linearClient.updateComment(existingCommentId, message),
         );
         return comment;
       } else {
         // Create new comment with retry logic
-        const comment = await this.retryApiCall(() => 
-          this.linearClient.createComment(session.issueId, message)
+        const comment = await this.retryApiCall(() =>
+          this.linearClient.createComment(session.issueId, message),
         );
         return comment;
       }
@@ -315,14 +315,14 @@ Please check the logs for more details.
 
       if (existingCommentId) {
         // Update existing comment with retry logic
-        const comment = await this.retryApiCall(() => 
-          this.linearClient.updateComment(existingCommentId, message)
+        const comment = await this.retryApiCall(() =>
+          this.linearClient.updateComment(existingCommentId, message),
         );
         return comment;
       } else {
         // Create new comment with retry logic
-        const comment = await this.retryApiCall(() => 
-          this.linearClient.createComment(session.issueId, message)
+        const comment = await this.retryApiCall(() =>
+          this.linearClient.createComment(session.issueId, message),
         );
         return comment;
       }
@@ -363,14 +363,14 @@ The session was cancelled, possibly due to timeout or manual intervention.
 
       if (existingCommentId) {
         // Update existing comment with retry logic
-        const comment = await this.retryApiCall(() => 
-          this.linearClient.updateComment(existingCommentId, message)
+        const comment = await this.retryApiCall(() =>
+          this.linearClient.updateComment(existingCommentId, message),
         );
         return comment;
       } else {
         // Create new comment with retry logic
-        const comment = await this.retryApiCall(() => 
-          this.linearClient.createComment(session.issueId, message)
+        const comment = await this.retryApiCall(() =>
+          this.linearClient.createComment(session.issueId, message),
         );
         return comment;
       }
@@ -414,14 +414,17 @@ The session was cancelled, possibly due to timeout or manual intervention.
         return await apiCall();
       } catch (error) {
         lastError = error as Error;
-        this.logger.warn(`API call failed (attempt ${attempt}/${this.maxRetries})`, {
-          error: lastError.message,
-          retryIn: `${delay}ms`,
-        });
+        this.logger.warn(
+          `API call failed (attempt ${attempt}/${this.maxRetries})`,
+          {
+            error: lastError.message,
+            retryIn: `${delay}ms`,
+          },
+        );
 
         // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
+        await new Promise((resolve) => setTimeout(resolve, delay));
+
         // Exponential backoff
         delay *= 2;
       }
@@ -431,4 +434,3 @@ The session was cancelled, possibly due to timeout or manual intervention.
     throw lastError || new Error("API call failed after retries");
   }
 }
-

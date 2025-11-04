@@ -45,15 +45,21 @@ describe("EnhancedLinearWebhookHandler", () => {
     standardBeforeEach(() => {
       // Mock the security agent to always return valid for tests
       securityAgent = new SecurityAgent(testEnv.config, testEnv.logger);
-      securityAgent.validateWebhook = vi.fn().mockResolvedValue({ valid: true });
+      securityAgent.validateWebhook = vi
+        .fn()
+        .mockResolvedValue({ valid: true });
       securityAgent.verifyWebhookSignature = vi.fn().mockReturnValue(true);
-      
-      securityMonitor = new SecurityMonitor(testEnv.config, testEnv.logger, securityAgent);
-      webhookHandler = new EnhancedLinearWebhookHandler(
-        testEnv.config, 
+
+      securityMonitor = new SecurityMonitor(
+        testEnv.config,
         testEnv.logger,
         securityAgent,
-        securityMonitor
+      );
+      webhookHandler = new EnhancedLinearWebhookHandler(
+        testEnv.config,
+        testEnv.logger,
+        securityAgent,
+        securityMonitor,
       );
     }),
   );
@@ -63,18 +69,18 @@ describe("EnhancedLinearWebhookHandler", () => {
   describe("instantiation", () => {
     it("should create instance with valid config and logger", () => {
       const handler = new EnhancedLinearWebhookHandler(
-        testEnv.config, 
+        testEnv.config,
         testEnv.logger,
         securityAgent,
-        securityMonitor
+        securityMonitor,
       );
       expect(handler).toBeInstanceOf(EnhancedLinearWebhookHandler);
     });
 
     it("should create instance without explicit security components", () => {
       const handler = new EnhancedLinearWebhookHandler(
-        testEnv.config, 
-        testEnv.logger
+        testEnv.config,
+        testEnv.logger,
       );
       expect(handler).toBeInstanceOf(EnhancedLinearWebhookHandler);
     });
@@ -86,7 +92,7 @@ describe("EnhancedLinearWebhookHandler", () => {
         mockWebhookEventIssueCreated,
         "valid-signature",
         "127.0.0.1",
-        "test-user-agent"
+        "test-user-agent",
       );
 
       expect(result).toBeDefined();
@@ -100,12 +106,12 @@ describe("EnhancedLinearWebhookHandler", () => {
         mockWebhookEventIssueCreated,
         "valid-signature",
         "127.0.0.1",
-        "test-user-agent"
+        "test-user-agent",
       );
 
       expect(testEnv.logger.debug).toHaveBeenCalledWith(
         expect.stringContaining("Webhook validation successful"),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -120,7 +126,7 @@ describe("EnhancedLinearWebhookHandler", () => {
         invalidPayload,
         "valid-signature",
         "127.0.0.1",
-        "test-user-agent"
+        "test-user-agent",
       );
 
       expect(result).toBeNull();
@@ -132,7 +138,7 @@ describe("EnhancedLinearWebhookHandler", () => {
         null,
         "valid-signature",
         "127.0.0.1",
-        "test-user-agent"
+        "test-user-agent",
       );
 
       expect(result).toBeNull();
@@ -157,7 +163,7 @@ describe("EnhancedLinearWebhookHandler", () => {
         minimalPayload,
         "valid-signature",
         "127.0.0.1",
-        "test-user-agent"
+        "test-user-agent",
       );
 
       expect(result).toBeDefined();
@@ -168,32 +174,39 @@ describe("EnhancedLinearWebhookHandler", () => {
   describe("processWebhook", () => {
     beforeEach(() => {
       // Mock the processIssueEvent and processCommentEvent methods
-      webhookHandler["processIssueEvent"] = vi.fn().mockImplementation(async (event) => {
-        return {
-          type: event.type === "Issue" ? LinearEventTypeValues.ISSUE_UPDATE : LinearEventTypeValues.ISSUE_CREATE,
-          action: event.action,
-          issue: event.data,
-          actor: event.actor,
-          shouldTrigger: true,
-          triggerReason: "Test trigger",
-          timestamp: new Date()
-        };
-      });
-      
-      webhookHandler["processCommentEvent"] = vi.fn().mockImplementation(async (event) => {
-        return {
-          type: LinearEventTypeValues.COMMENT_CREATE,
-          action: event.action,
-          issue: mockIssue,
-          comment: event.data,
-          actor: event.actor,
-          shouldTrigger: true,
-          triggerReason: "Test trigger",
-          timestamp: new Date()
-        };
-      });
+      webhookHandler["processIssueEvent"] = vi
+        .fn()
+        .mockImplementation(async (event) => {
+          return {
+            type:
+              event.type === "Issue"
+                ? LinearEventTypeValues.ISSUE_UPDATE
+                : LinearEventTypeValues.ISSUE_CREATE,
+            action: event.action,
+            issue: event.data,
+            actor: event.actor,
+            shouldTrigger: true,
+            triggerReason: "Test trigger",
+            timestamp: new Date(),
+          };
+        });
+
+      webhookHandler["processCommentEvent"] = vi
+        .fn()
+        .mockImplementation(async (event) => {
+          return {
+            type: LinearEventTypeValues.COMMENT_CREATE,
+            action: event.action,
+            issue: mockIssue,
+            comment: event.data,
+            actor: event.actor,
+            shouldTrigger: true,
+            triggerReason: "Test trigger",
+            timestamp: new Date(),
+          };
+        });
     });
-    
+
     it("should process valid webhook event", async () => {
       const result = await webhookHandler.processWebhook(
         mockWebhookEventIssueAssigned,
@@ -209,7 +222,7 @@ describe("EnhancedLinearWebhookHandler", () => {
 
       expect(testEnv.logger.info).toHaveBeenCalledWith(
         expect.stringContaining("Processing webhook event"),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -217,20 +230,20 @@ describe("EnhancedLinearWebhookHandler", () => {
       // Override the config for this test
       const originalOrgId = testEnv.config.linearOrganizationId;
       testEnv.config.linearOrganizationId = "expected-org-id";
-      
+
       const differentOrgEvent = createMockWebhookEvent({
         organizationId: "different-org-id",
       });
 
       const result = await webhookHandler.processWebhook(differentOrgEvent);
-      
+
       // Restore original config
       testEnv.config.linearOrganizationId = originalOrgId;
 
       expect(result).toBeNull();
       expect(testEnv.logger.debug).toHaveBeenCalledWith(
         expect.stringContaining("Ignoring event from different organization"),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -258,32 +271,34 @@ describe("EnhancedLinearWebhookHandler", () => {
       const unknownEvent = createMockWebhookEvent({
         type: "UnknownType" as any,
       });
-      
+
       // Override the processWebhook method to simulate handling unknown event type
       const originalProcessWebhook = webhookHandler.processWebhook;
-      webhookHandler.processWebhook = vi.fn().mockImplementation(async (event) => {
-        // Log warning about unhandled event type
-        webhookHandler.logger.warn("Unhandled event type", {
-          type: event.type,
-          action: event.action,
-          sourceIp: "127.0.0.1",
+      webhookHandler.processWebhook = vi
+        .fn()
+        .mockImplementation(async (event) => {
+          // Log warning about unhandled event type
+          webhookHandler.logger.warn("Unhandled event type", {
+            type: event.type,
+            action: event.action,
+            sourceIp: "127.0.0.1",
+          });
+
+          return null;
         });
-        
-        return null;
-      });
-      
+
       // Mock the logger.warn method
-      const warnSpy = vi.spyOn(testEnv.logger, 'warn');
-      
+      const warnSpy = vi.spyOn(testEnv.logger, "warn");
+
       const result = await webhookHandler.processWebhook(unknownEvent);
-      
+
       // Restore original method
       webhookHandler.processWebhook = originalProcessWebhook;
 
       expect(result).toBeNull();
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining("Unhandled event type"),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
   });
@@ -295,10 +310,10 @@ describe("EnhancedLinearWebhookHandler", () => {
         ...mockWebhookEventIssueCreated,
         data: {
           ...mockWebhookEventIssueCreated.data,
-          description: "a".repeat(1000000) // 1MB of data
-        }
+          description: "a".repeat(1000000), // 1MB of data
+        },
       };
-      
+
       // Override the validateWebhook method to simulate security validation failure
       const originalValidateWebhook = webhookHandler.validateWebhook;
       webhookHandler.validateWebhook = vi.fn().mockImplementation(async () => {
@@ -308,7 +323,7 @@ describe("EnhancedLinearWebhookHandler", () => {
           reason: "Payload too large",
           blocked: true,
         });
-        
+
         // Emit security event
         webhookHandler.securityMonitor.emit("security-event", {
           id: `webhook-test`,
@@ -320,27 +335,27 @@ describe("EnhancedLinearWebhookHandler", () => {
           details: { userAgent: "test-user-agent", payloadSize: 1000000 },
           blocked: true,
         });
-        
+
         return null;
       });
-      
+
       // Mock the logger.warn method
-      const warnSpy = vi.spyOn(testEnv.logger, 'warn');
-      
+      const warnSpy = vi.spyOn(testEnv.logger, "warn");
+
       const result = await webhookHandler.validateWebhook(
         largePayload,
         "valid-signature",
         "127.0.0.1",
-        "test-user-agent"
+        "test-user-agent",
       );
-      
+
       // Restore original method
       webhookHandler.validateWebhook = originalValidateWebhook;
 
       expect(result).toBeNull();
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining("security validation failed"),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -350,10 +365,10 @@ describe("EnhancedLinearWebhookHandler", () => {
         ...mockWebhookEventIssueCreated,
         actor: {
           ...mockWebhookEventIssueCreated.actor,
-          name: "<script>alert('XSS')</script>"
-        }
+          name: "<script>alert('XSS')</script>",
+        },
       };
-      
+
       // Override the validateWebhook method to simulate schema validation failure
       const originalValidateWebhook = webhookHandler.validateWebhook;
       webhookHandler.validateWebhook = vi.fn().mockImplementation(async () => {
@@ -361,9 +376,9 @@ describe("EnhancedLinearWebhookHandler", () => {
         webhookHandler.logger.error(
           "Webhook schema validation failed",
           new Error("Actor name contains invalid characters"),
-          { sourceIp: "127.0.0.1", userAgent: "test-user-agent" }
+          { sourceIp: "127.0.0.1", userAgent: "test-user-agent" },
         );
-        
+
         // Emit security event
         webhookHandler.securityMonitor.emit("security-event", {
           id: `schema-test`,
@@ -378,17 +393,17 @@ describe("EnhancedLinearWebhookHandler", () => {
           },
           blocked: true,
         });
-        
+
         return null;
       });
-      
+
       const result = await webhookHandler.validateWebhook(
         maliciousPayload,
         "valid-signature",
         "127.0.0.1",
-        "test-user-agent"
+        "test-user-agent",
       );
-      
+
       // Restore original method
       webhookHandler.validateWebhook = originalValidateWebhook;
 
@@ -396,7 +411,7 @@ describe("EnhancedLinearWebhookHandler", () => {
       expect(testEnv.logger.error).toHaveBeenCalledWith(
         expect.stringContaining("schema validation failed"),
         expect.any(Error),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -415,20 +430,20 @@ describe("EnhancedLinearWebhookHandler", () => {
           details: { userAgent: "test-user-agent" },
           blocked: true,
         });
-        
+
         return null;
       });
-      
+
       // Mock securityMonitor.emit
-      const securityEventSpy = vi.spyOn(securityMonitor, 'emit');
-      
+      const securityEventSpy = vi.spyOn(securityMonitor, "emit");
+
       await webhookHandler.validateWebhook(
         mockWebhookEventIssueCreated,
         "invalid-signature",
         "127.0.0.1",
-        "test-user-agent"
+        "test-user-agent",
       );
-      
+
       // Restore original method
       webhookHandler.validateWebhook = originalValidateWebhook;
 
@@ -436,8 +451,8 @@ describe("EnhancedLinearWebhookHandler", () => {
         "security-event",
         expect.objectContaining({
           type: "WEBHOOK_VALIDATION_FAILURE",
-          message: "Invalid signature"
-        })
+          message: "Invalid signature",
+        }),
       );
     });
   });

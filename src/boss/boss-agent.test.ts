@@ -50,7 +50,7 @@ describe("BossAgent", () => {
     it("should analyze simple bug fix as low complexity", async () => {
       const issue = createMockIssue(
         "Fix typo in documentation",
-        "There is a typo in the README"
+        "There is a typo in the README",
       );
 
       const analysis = await bossAgent.analyzeIssue(issue as any);
@@ -63,7 +63,7 @@ describe("BossAgent", () => {
     it("should analyze backend API task as medium complexity", async () => {
       const issue = createMockIssue(
         "Implement user authentication API",
-        "We need to implement JWT-based authentication with login and signup endpoints"
+        "We need to implement JWT-based authentication with login and signup endpoints",
       );
 
       const analysis = await bossAgent.analyzeIssue(issue as any);
@@ -77,7 +77,7 @@ describe("BossAgent", () => {
     it("should analyze refactoring as high complexity", async () => {
       const issue = createMockIssue(
         "Refactor entire authentication architecture",
-        "Major refactor of the authentication system with breaking changes"
+        "Major refactor of the authentication system with breaking changes",
       );
 
       const analysis = await bossAgent.analyzeIssue(issue as any);
@@ -89,7 +89,7 @@ describe("BossAgent", () => {
     it("should identify multiple agent types for complex tasks", async () => {
       const issue = createMockIssue(
         "Build complete user dashboard",
-        "Implement frontend UI with React, backend API endpoints, database schema, and comprehensive tests"
+        "Implement frontend UI with React, backend API endpoints, database schema, and comprehensive tests",
       );
 
       const analysis = await bossAgent.analyzeIssue(issue as any);
@@ -106,7 +106,7 @@ describe("BossAgent", () => {
     it("should create delegation plan from analysis", async () => {
       const issue = createMockIssue(
         "Implement API endpoints",
-        "Create REST API endpoints for user management"
+        "Create REST API endpoints for user management",
       );
 
       const analysis = await bossAgent.analyzeIssue(issue as any);
@@ -129,7 +129,7 @@ describe("BossAgent", () => {
     it("should sort tasks by priority", async () => {
       const issue = createMockIssue(
         "Security audit and frontend updates",
-        "Perform security audit and update UI components"
+        "Perform security audit and update UI components",
       );
 
       const analysis = await bossAgent.analyzeIssue(issue as any);
@@ -230,7 +230,7 @@ describe("BossAgent", () => {
     it("should work at high level of abstraction", async () => {
       const issue = createMockIssue(
         "Complex refactoring task",
-        "Refactor authentication with database migration and API changes"
+        "Refactor authentication with database migration and API changes",
       );
 
       const analysis = await bossAgent.analyzeIssue(issue as any);

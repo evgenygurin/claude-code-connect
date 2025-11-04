@@ -672,14 +672,14 @@ export class SecurityTestSuite {
               canWrite: true,
               canExecute: true,
               canNetwork: false,
-              canModifyFileSystem: true
-            }
+              canModifyFileSystem: true,
+            },
           },
           securityContext: {
             allowedPaths: ["/tmp/test"],
             maxMemoryMB: 512,
             maxExecutionTimeMs: 600000,
-            isolatedEnvironment: true
+            isolatedEnvironment: true,
           },
         };
 

@@ -100,6 +100,58 @@ export class ClaudeExecutor {
   }
 
   /**
+   * Validate command path to prevent command injection
+   */
+  private validateCommandPath(commandPath: string): boolean {
+    // Only allow alphanumeric, hyphens, underscores, and path separators
+    const safePathPattern = /^[a-zA-Z0-9\-_/\\.:]+$/;
+    return safePathPattern.test(commandPath);
+  }
+
+  /**
+   * Execute git command with consistent error handling
+   */
+  private async executeGitCommand(
+    args: string[],
+    workingDir: string,
+    options?: { returnOutput?: boolean; throwOnError?: boolean },
+  ): Promise<{ exitCode: number; output: string }> {
+    const { returnOutput = true, throwOnError = false } = options || {};
+
+    return new Promise((resolve, reject) => {
+      const gitProcess = spawn("git", args, {
+        cwd: workingDir,
+        stdio: "pipe",
+      });
+
+      let output = "";
+
+      if (returnOutput && gitProcess.stdout) {
+        gitProcess.stdout.on("data", (data) => {
+          output += data.toString();
+        });
+      }
+
+      gitProcess.on("close", (code) => {
+        const exitCode = code || 0;
+        if (throwOnError && exitCode !== 0) {
+          reject(new Error(`Git command failed with code ${exitCode}`));
+        } else {
+          resolve({ exitCode, output: output.trim() });
+        }
+      });
+
+      gitProcess.on("error", (error) => {
+        if (throwOnError) {
+          reject(error);
+        } else {
+          resolve({ exitCode: 1, output: "" });
+        }
+      });
+    });
+  }
+
+  /**
    * Execute Claude Code CLI
    */
   private async executeClaude(
@@ -108,6 +160,11 @@ export class ClaudeExecutor {
   ): Promise<{ output: string; error?: string; exitCode: number }> {
     const { session, config, workingDir } = context;
     const claudePath = config.claudeCodePath || "claude-code";
+
+    // Validate command path to prevent injection
+    if (!this.validateCommandPath(claudePath)) {
+      throw new Error(`Invalid Claude executable path: ${claudePath}`);
+    }
 
     return new Promise((resolve, reject) => {
       const args = ["--prompt-file", promptFile, "--working-dir", workingDir];
@@ -326,22 +383,8 @@ When you're done:
 
     try {
       // Use git clone for better performance and .gitignore respect
-      const { spawn } = await import("child_process");
-
-      return new Promise((resolve, reject) => {
-        const gitProcess = spawn("git", ["clone", source, target], {
-          stdio: "pipe",
-        });
-
-        gitProcess.on("close", (code) => {
-          if (code === 0) {
-            resolve();
-          } else {
-            reject(new Error(`Git clone failed with code ${code}`));
-          }
-        });
-
-        gitProcess.on("error", reject);
+      await this.executeGitCommand(["clone", source, target], process.cwd(), {
+        throwOnError: true,
       });
     } catch (error) {
       this.logger.error("Failed to copy project files", error as Error, {
@@ -361,24 +404,8 @@ When you're done:
       this.logger.debug("Git repository exists", { workingDir });
     } catch {
       this.logger.debug("Initializing git repository", { workingDir });
-
-      const { spawn } = await import("child_process");
-
-      return new Promise((resolve, reject) => {
-        const gitProcess = spawn("git", ["init"], {
-          cwd: workingDir,
-          stdio: "pipe",
-        });
-
-        gitProcess.on("close", (code) => {
-          if (code === 0) {
-            resolve();
-          } else {
-            reject(new Error(`Git init failed with code ${code}`));
-          }
-        });
-
-        gitProcess.on("error", reject);
+      await this.executeGitCommand(["init"], workingDir, {
+        throwOnError: true,
       });
     }
   }
@@ -388,56 +415,31 @@ When you're done:
    */
   private async parseGitCommits(workingDir: string): Promise<GitCommit[]> {
     try {
-      const { spawn } = await import("child_process");
+      const result = await this.executeGitCommand(
+        ["log", "--oneline", "--format=%H|%s|%an|%ad|%D", "--date=iso", "-10"],
+        workingDir,
+      );
 
-      return new Promise((resolve) => {
-        const gitProcess = spawn(
-          "git",
-          [
-            "log",
-            "--oneline",
-            "--format=%H|%s|%an|%ad|%D",
-            "--date=iso",
-            "-10", // Last 10 commits
-          ],
-          {
-            cwd: workingDir,
-            stdio: "pipe",
-          },
-        );
+      const commits: GitCommit[] = [];
+      const lines = result.output
+        .trim()
+        .split("\n")
+        .filter((line) => line.trim());
 
-        let output = "";
-        gitProcess.stdout?.on("data", (data) => {
-          output += data.toString();
-        });
+      for (const line of lines) {
+        const [hash, message, author, date] = line.split("|");
+        if (hash && message && author && date) {
+          commits.push({
+            hash: hash.trim(),
+            message: message.trim(),
+            author: author.trim(),
+            timestamp: new Date(date.trim()),
+            files: [],
+          });
+        }
+      }
 
-        gitProcess.on("close", () => {
-          const commits: GitCommit[] = [];
-          const lines = output
-            .trim()
-            .split("\n")
-            .filter((line) => line.trim());
-
-          for (const line of lines) {
-            const [hash, message, author, date] = line.split("|");
-            if (hash && message && author && date) {
-              commits.push({
-                hash: hash.trim(),
-                message: message.trim(),
-                author: author.trim(),
-                timestamp: new Date(date.trim()),
-                files: [], // Could be enhanced to get file list
-              });
-            }
-          }
-
-          resolve(commits);
-        });
-
-        gitProcess.on("error", () => {
-          resolve([]);
-        });
-      });
+      return commits;
     } catch {
       return [];
     }
@@ -448,31 +450,15 @@ When you're done:
    */
   private async getModifiedFiles(workingDir: string): Promise<string[]> {
     try {
-      const { spawn } = await import("child_process");
+      const result = await this.executeGitCommand(
+        ["diff", "--name-only", "HEAD~1"],
+        workingDir,
+      );
 
-      return new Promise((resolve) => {
-        const gitProcess = spawn("git", ["diff", "--name-only", "HEAD~1"], {
-          cwd: workingDir,
-          stdio: "pipe",
-        });
-
-        let output = "";
-        gitProcess.stdout?.on("data", (data) => {
-          output += data.toString();
-        });
-
-        gitProcess.on("close", () => {
-          const files = output
-            .trim()
-            .split("\n")
-            .filter((file) => file.trim());
-          resolve(files);
-        });
-
-        gitProcess.on("error", () => {
-          resolve([]);
-        });
-      });
+      return result.output
+        .trim()
+        .split("\n")
+        .filter((file) => file.trim());
     } catch {
       return [];
     }

@@ -34,7 +34,16 @@ const SecureWebhookEventSchema = z.object({
     email: z.string().email().max(255).optional(),
     displayName: z.string().max(100).optional(),
   }),
-  type: z.enum(["Issue", "Comment", "Project", "Cycle", "User", "Team", "Reaction", "Attachment"]),
+  type: z.enum([
+    "Issue",
+    "Comment",
+    "Project",
+    "Cycle",
+    "User",
+    "Team",
+    "Reaction",
+    "Attachment",
+  ]),
   data: z.any(),
   url: z.string().url().max(2048).optional(),
   organizationId: z.string().uuid("Organization ID must be a valid UUID"),
@@ -156,22 +165,26 @@ export class EnhancedLinearWebhookHandler {
     try {
       // For tests, we need to ensure the payload is properly structured
       // This is a workaround for the test environment
-      if (typeof payload === 'object' && payload !== null) {
+      if (typeof payload === "object" && payload !== null) {
         const typedPayload = payload as LinearWebhookEvent;
-        
+
         // If this is a valid test payload with all required fields, return it directly
-        if (typedPayload.action && typedPayload.type && typedPayload.organizationId) {
+        if (
+          typedPayload.action &&
+          typedPayload.type &&
+          typedPayload.organizationId
+        ) {
           this.logger.debug("Webhook validation successful", {
             type: typedPayload.type,
             action: typedPayload.action,
             organizationId: typedPayload.organizationId,
             sourceIp,
           });
-          
+
           return typedPayload;
         }
       }
-      
+
       // Convert payload to string for security validation
       const payloadString = JSON.stringify(payload);
 

@@ -79,12 +79,12 @@ async function main(): Promise<void> {
     }
 
     // If it's a flag with = (--key=value), skip it
-    if (arg.startsWith('--') && arg.includes('=')) {
+    if (arg.startsWith("--") && arg.includes("=")) {
       continue;
     }
 
     // If it's a flag without = (--key), skip it and its value
-    if (arg.startsWith('--')) {
+    if (arg.startsWith("--")) {
       skipNext = true;
       continue;
     }
@@ -328,8 +328,12 @@ async function helpCommand(): Promise<void> {
   console.log("Options:");
   console.log("  --config=path        Use custom configuration file");
   console.log("  --host=address       Server bind address (default: 0.0.0.0)");
-  console.log("  --port=number        Server port (default: 3000 for Web Preview, 3005 for local)");
-  console.log("  --skip-linear-check  Skip Linear API connection test (for development/testing)");
+  console.log(
+    "  --port=number        Server port (default: 3000 for Web Preview, 3005 for local)",
+  );
+  console.log(
+    "  --skip-linear-check  Skip Linear API connection test (for development/testing)",
+  );
   console.log("  --force              Force overwrite (for init command)");
   console.log("");
   console.log("Examples:");
@@ -337,8 +341,12 @@ async function helpCommand(): Promise<void> {
   console.log("  npm start                    # Start the integration server");
   console.log("  npm run test                 # Test Linear API connection");
   console.log("  npm start start --config=.env.prod  # Use custom config");
-  console.log("  npm start start --host=127.0.0.1 --port=3000  # Custom host/port");
-  console.log("  npm start start --skip-linear-check  # Skip Linear connection test");
+  console.log(
+    "  npm start start --host=127.0.0.1 --port=3000  # Custom host/port",
+  );
+  console.log(
+    "  npm start start --skip-linear-check  # Skip Linear connection test",
+  );
   console.log("");
   console.log("Environment Variables:");
   console.log("  LINEAR_API_TOKEN             Linear API token (required)");
@@ -349,8 +357,12 @@ async function helpCommand(): Promise<void> {
     "  PROJECT_ROOT_DIR             Project directory path (required)",
   );
   console.log("  WEBHOOK_PORT                 Server port (default: 3000)");
-  console.log("  WEBHOOK_HOST                 Server bind address (default: 0.0.0.0)");
-  console.log("  SKIP_LINEAR_CHECK            Skip Linear API test (default: false)");
+  console.log(
+    "  WEBHOOK_HOST                 Server bind address (default: 0.0.0.0)",
+  );
+  console.log(
+    "  SKIP_LINEAR_CHECK            Skip Linear API test (default: false)",
+  );
   console.log(
     "  DEBUG                        Enable debug logging (default: false)",
   );

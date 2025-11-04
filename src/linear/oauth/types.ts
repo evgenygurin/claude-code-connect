@@ -84,4 +84,3 @@ export interface OAuthConfig {
   /** Encryption key for token storage */
   encryptionKey: string;
 }
-

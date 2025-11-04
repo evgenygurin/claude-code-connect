@@ -24,7 +24,7 @@ export class LinearOAuthService {
   constructor(
     config: OAuthConfig,
     tokenStorage: OAuthTokenStorage,
-    logger: Logger
+    logger: Logger,
   ) {
     this.config = config;
     this.tokenStorage = tokenStorage;
@@ -49,9 +49,12 @@ export class LinearOAuthService {
     this.stateStorage.set(state, stateData);
 
     // Schedule state cleanup after 10 minutes
-    setTimeout(() => {
-      this.stateStorage.delete(state);
-    }, 10 * 60 * 1000);
+    setTimeout(
+      () => {
+        this.stateStorage.delete(state);
+      },
+      10 * 60 * 1000,
+    );
 
     // Build Linear OAuth URL
     const authUrl = new URL("https://linear.app/oauth/authorize");
@@ -61,7 +64,7 @@ export class LinearOAuthService {
     authUrl.searchParams.set("state", state);
     authUrl.searchParams.set(
       "scope",
-      "read,write,app:assignable,app:mentionable"
+      "read,write,app:assignable,app:mentionable",
     );
     authUrl.searchParams.set("actor", "app");
     authUrl.searchParams.set("prompt", "consent");
@@ -77,7 +80,7 @@ export class LinearOAuthService {
    */
   async handleCallback(
     code: string,
-    state: string
+    state: string,
   ): Promise<{
     token: LinearOAuthToken;
     workspace: WorkspaceMetadata;
@@ -97,7 +100,7 @@ export class LinearOAuthService {
 
     // Get workspace info from token
     const workspaceInfo = await this.getWorkspaceInfo(
-      tokenResponse.access_token
+      tokenResponse.access_token,
     );
 
     // Create token object
@@ -127,7 +130,10 @@ export class LinearOAuthService {
 
     // Determine redirect URL
     let redirectUrl: string | undefined;
-    if (stateData.redirectUri && stateData.redirectUri !== this.config.redirectUri) {
+    if (
+      stateData.redirectUri &&
+      stateData.redirectUri !== this.config.redirectUri
+    ) {
       const redirectUri = new URL(stateData.redirectUri);
       redirectUri.searchParams.set("token", token.accessToken);
       redirectUri.searchParams.set("workspaceId", workspace.id);
@@ -145,9 +151,7 @@ export class LinearOAuthService {
   /**
    * Refresh access token
    */
-  async refreshToken(
-    workspaceId: string
-  ): Promise<LinearOAuthToken | null> {
+  async refreshToken(workspaceId: string): Promise<LinearOAuthToken | null> {
     // Load existing token
     const existingToken = await this.tokenStorage.loadToken(workspaceId);
     if (!existingToken || !existingToken.refreshToken) {
@@ -206,9 +210,7 @@ export class LinearOAuthService {
   /**
    * Get valid token (refreshing if necessary)
    */
-  async getValidToken(
-    workspaceId: string
-  ): Promise<LinearOAuthToken | null> {
+  async getValidToken(workspaceId: string): Promise<LinearOAuthToken | null> {
     // Load existing token
     const token = await this.tokenStorage.loadToken(workspaceId);
     if (!token) {
@@ -345,4 +347,3 @@ export class LinearOAuthService {
     };
   }
 }
-

@@ -4,8 +4,16 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { SecurityAgent, SecuritySeverity, SecurityEventType } from "./security-agent.js";
-import { setupTestEnvironment, standardBeforeEach, standardAfterEach } from "../testing/test-utils.js";
+import {
+  SecurityAgent,
+  SecuritySeverity,
+  SecurityEventType,
+} from "./security-agent.js";
+import {
+  setupTestEnvironment,
+  standardBeforeEach,
+  standardAfterEach,
+} from "../testing/test-utils.js";
 
 // Setup test environment
 const testEnv = setupTestEnvironment();
@@ -50,7 +58,7 @@ describe("SecurityAgent", () => {
         details: { test: "data" },
         id: "test-event-id",
         timestamp: new Date(),
-        blocked: false
+        blocked: false,
       };
 
       await securityAgent.logSecurityEvent(event);
@@ -73,11 +81,11 @@ describe("SecurityAgent", () => {
         id: "test-event-id-2",
         timestamp: new Date(),
         details: {},
-        blocked: false
+        blocked: false,
       };
 
       await securityAgent.logSecurityEvent(event);
-      
+
       const events = securityAgent.getSecurityEvents();
       expect(events.length).toBeGreaterThan(0);
       expect(events[0].type).toBe(SecurityEventType.AUTHENTICATION_FAILURE);
@@ -92,7 +100,7 @@ describe("SecurityAgent", () => {
         id: "test-event-id-3",
         timestamp: new Date(),
         details: {},
-        blocked: true
+        blocked: true,
       };
 
       await securityAgent.logSecurityEvent(event);
@@ -110,10 +118,12 @@ describe("SecurityAgent", () => {
       // Create a real signature using Node.js crypto
       const payload = '{"test":"data"}';
       const crypto = require("crypto");
-      const signature = "sha256=" + crypto
-        .createHmac("sha256", "test-secret")
-        .update(payload)
-        .digest("hex");
+      const signature =
+        "sha256=" +
+        crypto
+          .createHmac("sha256", "test-secret")
+          .update(payload)
+          .digest("hex");
 
       // Mock the verifyWebhookSignature method to return true
       securityAgent["verifyWebhookSignature"] = vi.fn().mockReturnValue(true);
@@ -122,7 +132,7 @@ describe("SecurityAgent", () => {
         payload,
         signature,
         "test-user-agent",
-        "127.0.0.1"
+        "127.0.0.1",
       );
 
       expect(result.valid).toBe(true);
@@ -143,7 +153,7 @@ describe("SecurityAgent", () => {
         payload,
         invalidSignature,
         "test-user-agent",
-        "127.0.0.1"
+        "127.0.0.1",
       );
 
       expect(result.valid).toBe(false);
@@ -152,12 +162,12 @@ describe("SecurityAgent", () => {
 
     it("should validate payload size", async () => {
       const largePayload = "a".repeat(10 * 1024 * 1024); // 10MB
-      
+
       const result = await securityAgent.validateWebhook(
         largePayload,
         "signature",
         "test-user-agent",
-        "127.0.0.1"
+        "127.0.0.1",
       );
 
       expect(result.valid).toBe(false);
@@ -181,7 +191,7 @@ describe("SecurityAgent", () => {
         '{"test":"data"}',
         "signature",
         "test-user-agent",
-        "127.0.0.1"
+        "127.0.0.1",
       );
 
       // Second request should be rate limited
@@ -189,7 +199,7 @@ describe("SecurityAgent", () => {
         '{"test":"data"}',
         "signature",
         "test-user-agent",
-        "127.0.0.1"
+        "127.0.0.1",
       );
 
       expect(firstResult.valid).toBe(true);
@@ -263,7 +273,7 @@ describe("SecurityAgent", () => {
         id: "test-event-id-4",
         timestamp: new Date(),
         details: {},
-        blocked: false
+        blocked: false,
       });
 
       await securityAgent.logSecurityEvent({
@@ -274,11 +284,11 @@ describe("SecurityAgent", () => {
         id: "test-event-id-5",
         timestamp: new Date(),
         details: {},
-        blocked: false
+        blocked: false,
       });
 
       const events = securityAgent.getSecurityEvents();
-      
+
       expect(events.length).toBe(2);
       expect(events[0].type).toBe(SecurityEventType.AUTHENTICATION_FAILURE);
       expect(events[1].type).toBe(SecurityEventType.WEBHOOK_SIGNATURE_INVALID);
@@ -294,9 +304,9 @@ describe("SecurityAgent", () => {
         message: "Auth failure",
         timestamp: new Date(),
         details: {},
-        blocked: false
+        blocked: false,
       };
-      
+
       const webhookEvent = {
         id: "test-event-id-7",
         type: SecurityEventType.WEBHOOK_SIGNATURE_INVALID,
@@ -305,14 +315,16 @@ describe("SecurityAgent", () => {
         message: "Signature invalid",
         timestamp: new Date(),
         details: {},
-        blocked: false
+        blocked: false,
       };
-      
+
       // @ts-ignore - Accessing private property for testing
       securityAgent["securityEvents"] = [authEvent, webhookEvent];
 
-      const events = securityAgent.getSecurityEvents(SecurityEventType.AUTHENTICATION_FAILURE);
-      
+      const events = securityAgent.getSecurityEvents(
+        SecurityEventType.AUTHENTICATION_FAILURE,
+      );
+
       expect(events.length).toBe(1);
       expect(events[0].type).toBe(SecurityEventType.AUTHENTICATION_FAILURE);
     });
@@ -327,9 +339,9 @@ describe("SecurityAgent", () => {
         message: "High severity",
         timestamp: new Date(),
         details: {},
-        blocked: false
+        blocked: false,
       };
-      
+
       const mediumEvent = {
         id: "test-event-id-9",
         type: SecurityEventType.WEBHOOK_SIGNATURE_INVALID,
@@ -338,14 +350,17 @@ describe("SecurityAgent", () => {
         message: "Medium severity",
         timestamp: new Date(),
         details: {},
-        blocked: false
+        blocked: false,
       };
-      
+
       // @ts-ignore - Accessing private property for testing
       securityAgent["securityEvents"] = [highEvent, mediumEvent];
 
-      const events = securityAgent.getSecurityEvents(undefined, SecuritySeverity.HIGH);
-      
+      const events = securityAgent.getSecurityEvents(
+        undefined,
+        SecuritySeverity.HIGH,
+      );
+
       expect(events.length).toBe(1);
       expect(events[0].severity).toBe(SecuritySeverity.HIGH);
     });

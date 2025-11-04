@@ -291,7 +291,15 @@ export class GitHubClient {
     owner: string,
     repo: string,
     commentId: number,
-    reaction: "+1" | "-1" | "laugh" | "confused" | "heart" | "hooray" | "rocket" | "eyes",
+    reaction:
+      | "+1"
+      | "-1"
+      | "laugh"
+      | "confused"
+      | "heart"
+      | "hooray"
+      | "rocket"
+      | "eyes",
   ): Promise<void> {
     try {
       await this.octokit.reactions.createForIssueComment({

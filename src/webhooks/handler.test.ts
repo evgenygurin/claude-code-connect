@@ -502,14 +502,14 @@ describe("LinearWebhookHandler", () => {
       // Use realistic signature verification - test actual crypto behavior
       const testPayload = '{"test":"data"}';
       const testSecret = "test-webhook-secret";
-      
+
       // Create a real expected signature using Node.js crypto
       const realCrypto = require("crypto");
       const expectedSignature = realCrypto
         .createHmac("sha256", testSecret)
         .update(testPayload)
         .digest("hex");
-      
+
       testEnv.config.webhookSecret = testSecret;
       webhookHandler = new LinearWebhookHandler(testEnv.config, testEnv.logger);
 
@@ -525,7 +525,7 @@ describe("LinearWebhookHandler", () => {
       // Use realistic signature verification - test actual crypto behavior
       const testPayload = '{"test":"data"}';
       const testSecret = "test-webhook-secret";
-      
+
       testEnv.config.webhookSecret = testSecret;
       webhookHandler = new LinearWebhookHandler(testEnv.config, testEnv.logger);
 
@@ -549,7 +549,7 @@ describe("LinearWebhookHandler", () => {
       // This should trigger the catch block in verifySignature
       const result = webhookHandler.verifySignature(
         '{"test":"data"}',
-        "sha256=invalid-hex-characters-that-will-cause-buffer-error!!!"
+        "sha256=invalid-hex-characters-that-will-cause-buffer-error!!!",
       );
 
       expect(result).toBe(false);
@@ -560,14 +560,14 @@ describe("LinearWebhookHandler", () => {
       // Test that signature with and without prefix work differently
       const testPayload = '{"test":"data"}';
       const testSecret = "test-webhook-secret";
-      
+
       // Create a real expected signature using Node.js crypto
       const realCrypto = require("crypto");
       const expectedSignature = realCrypto
         .createHmac("sha256", testSecret)
         .update(testPayload)
         .digest("hex");
-      
+
       testEnv.config.webhookSecret = testSecret;
       webhookHandler = new LinearWebhookHandler(testEnv.config, testEnv.logger);
 
