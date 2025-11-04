@@ -215,10 +215,161 @@ GitHub Event → Codegen GitHub App → AI Agent → GitHub API
 ### Codegen Documentation
 
 - **Integrations Guide**: [docs/CODEGEN-INTEGRATIONS.md](docs/CODEGEN-INTEGRATIONS.md) ← **Start here**
+- **Sentry Setup Guide**: [docs/SENTRY-SETUP.md](docs/SENTRY-SETUP.md) ← **Sentry integration**
 - **GitHub App Setup**: [docs/CODEGEN-GITHUB-APP-SETUP.md](docs/CODEGEN-GITHUB-APP-SETUP.md)
 - **Official Docs**: [docs.codegen.com](https://docs.codegen.com)
 - **Agent Runs**: [codegen.com/runs](https://codegen.com/runs)
 - **Configuration**: `.codegen/config.yml`
+
+## 🔥 Sentry Integration
+
+**Status**: ✅ **ENABLED** - Production error monitoring with AI-powered auto-fixing
+
+### Overview
+
+Sentry integration provides real-time production error monitoring with automatic issue creation and AI-powered fixing through Codegen.
+
+**Key Features:**
+- ✅ **Sentry MCP Server** - AI agents can query Sentry errors directly via Model Context Protocol
+- ✅ **Auto Issue Creation** - Sentry errors automatically create GitHub issues
+- ✅ **AI-Powered Fixes** - Codegen analyzes stack traces and creates fix PRs
+- ✅ **Priority-Based** - Only handles high/critical production errors
+- ✅ **Webhook Integration** - Real-time error notifications
+
+### Quick Setup
+
+```bash
+# 1. Set environment variables
+export SENTRY_AUTH_TOKEN="your_sentry_token"
+export SENTRY_ORG_SLUG="your-org"
+export SENTRY_PROJECT_SLUG="claude-code-connect"
+
+# 2. Run automated setup
+npx tsx scripts/setup-sentry.ts
+
+# 3. Add Sentry MCP server to Claude Code
+claude mcp add --transport http sentry https://mcp.sentry.dev/mcp
+
+# 4. Complete Codegen OAuth
+open https://codegen.com/settings/integrations
+```
+
+### Sentry MCP Server
+
+**What is it?**
+
+Sentry's Model Context Protocol (MCP) server enables AI agents to access real-time error monitoring data directly. This allows:
+
+- 🔍 Query Sentry errors from AI chat
+- 🤖 Analyze stack traces with AI
+- 🛠️ Get fix recommendations from Sentry's AI (Seer)
+- 📊 Monitor error trends and patterns
+
+**Setup:**
+
+```bash
+# Add to Claude Code
+claude mcp add --transport http sentry https://mcp.sentry.dev/mcp
+
+# Verify installation
+claude mcp list
+
+# Test connection
+claude mcp test sentry
+```
+
+**Usage in AI Chat:**
+
+```text
+User: Show me the latest production errors from Sentry
+
+AI: [Uses sentry.getIssues() MCP tool]
+    Here are the 5 most recent errors:
+    1. TypeError in user.service.ts (10 occurrences)
+    2. Database timeout in payment.controller.ts (5 occurrences)
+    ...
+
+User: Analyze the TypeError and suggest a fix
+
+AI: [Uses sentry.getSeerAnalysis() MCP tool]
+    Sentry's AI analysis:
+    - Root cause: Null reference to user.email
+    - Suggested fix: Add null check
+    - Here's the recommended code change...
+```
+
+### Configuration
+
+**Codegen Config** (`.codegen/config.yml`):
+
+```yaml
+integrations:
+  sentry:
+    enabled: true               # ✅ ENABLED
+    auto_create_issues: true    # Create GitHub issues from errors
+    auto_fix: true              # Auto-fix production errors
+    priority_threshold: "high"  # Only high/critical errors
+
+    # Which errors to auto-fix
+    fix_types:
+      - runtime_errors          # Runtime exceptions
+      - type_errors             # Type-related errors
+      - null_reference          # Null/undefined errors
+      - performance_issues      # Slow queries, memory leaks
+
+    # Issue creation
+    create_github_issues: true
+    assign_labels:
+      - "sentry"
+      - "production-bug"
+      - "high-priority"
+```
+
+### GitHub Workflow
+
+Workflow: `.github/workflows/sentry.yml`
+
+**Triggers:**
+- Sentry webhook events (via Codegen relay)
+- Issues labeled with `sentry`
+- Manual workflow dispatch
+
+**Automatic Flow:**
+
+```text
+1. Production error occurs → Sentry captures it
+2. Sentry webhook → Codegen relay
+3. GitHub issue auto-created with error details
+4. Codegen agent analyzes stack trace
+5. PR created with fix
+6. Human reviews and merges
+7. Sentry issue marked as resolved
+```
+
+### Testing
+
+```bash
+# Test MCP server connection
+claude mcp test sentry
+
+# Verify API integration
+npx tsx scripts/setup-sentry.ts --verify-only
+
+# Trigger manual workflow
+gh workflow run sentry.yml \
+  --field sentry_issue_id="TEST-001" \
+  --field error_message="Manual test error"
+
+# Check auto-created issues
+gh issue list --label sentry
+```
+
+### Documentation
+
+- **Sentry Setup Guide**: [docs/SENTRY-SETUP.md](docs/SENTRY-SETUP.md) - Complete setup instructions
+- **Sentry MCP Server**: [docs.sentry.io/product/sentry-mcp/](https://docs.sentry.io/product/sentry-mcp/)
+- **Codegen Integration**: [docs/CODEGEN-INTEGRATIONS.md](docs/CODEGEN-INTEGRATIONS.md)
+- **Setup Script**: `scripts/setup-sentry.ts`
 
 ### Configuration Loading Process
 

@@ -232,10 +232,32 @@ integrations:
   # ---- Sentry Integration (Optional) ----
   # Setup: https://codegen.com/settings/integrations/sentry
   sentry:
-    enabled: false              # Enable at Codegen dashboard
+    enabled: true               # ✅ ENABLED: Sentry integration active
     auto_create_issues: true    # Create GitHub issues from Sentry errors
-    auto_fix: false             # Don't auto-fix production errors (too risky)
+    auto_fix: true              # Auto-fix production errors with review
     priority_threshold: "high"  # Only handle high/critical errors
+
+    # Which errors to auto-fix
+    fix_types:
+      - runtime_errors          # Runtime exceptions
+      - type_errors             # Type-related errors
+      - null_reference          # Null/undefined errors
+      - performance_issues      # Slow queries, memory leaks
+
+    # Issue creation settings
+    create_github_issues: true  # Create GitHub issues from Sentry errors
+    assign_labels:
+      - "sentry"
+      - "production-bug"
+      - "high-priority"
+
+    # Commit strategy
+    separate_commits: true      # Create separate commits per fix
+    commit_message_prefix: "fix(sentry): "  # Conventional commits format
+
+    # Notification settings
+    notify_on_fix: true         # Post PR comments when fixed
+    notify_on_failure: true     # Notify if fix fails
 
   # ---- Linear Integration (Optional) ----
   # Setup: https://codegen.com/settings/integrations/linear
