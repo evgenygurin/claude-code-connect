@@ -7,6 +7,13 @@
 [![Linear SDK](https://img.shields.io/badge/Linear%20SDK-latest-purple.svg)](https://github.com/linear/linear)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 
+<!-- SonarQube badges (uncomment after configuring SonarQube) -->
+<!-- SonarCloud: -->
+<!-- [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=your-project-key&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=your-project-key) -->
+<!-- [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=your-project-key&metric=coverage)](https://sonarcloud.io/summary/new_code?id=your-project-key) -->
+<!-- Self-hosted SonarQube: -->
+<!-- [![Quality Gate Status](https://your-sonarqube-server.com/api/project_badges/measure?project=claude-code-connect&metric=alert_status)](https://your-sonarqube-server.com/dashboard?id=claude-code-connect) -->
+
 ## ✨ Features
 
 ### 🚀 Working Features (Tested & Verified)
@@ -226,11 +233,50 @@ npm run test:connection
 npm run test:integration
 ```
 
+## 🔍 Code Quality
+
+This project uses **SonarQube** for continuous code quality and security analysis.
+
+### Automated Analysis
+
+- **Workflow**: `.github/workflows/sonarqube.yml`
+- **Triggers**: Push to `main`, `develop`, `claude/**` branches and PRs
+- **Coverage**: 70% target threshold for lines, functions, branches, statements
+- **Reports**: LCOV format generated via Vitest
+
+### Running Locally
+
+```bash
+# Generate coverage report
+npm run test:coverage
+
+# View HTML report
+open coverage/index.html
+
+# Check LCOV report (used by SonarQube)
+cat coverage/lcov.info
+```
+
+### Configuration
+
+- **Project Config**: `sonar-project.properties`
+- **Test Config**: `vitest.config.ts`
+- **Setup Guide**: [SonarQube Setup](docs/SONARQUBE-SETUP.md)
+
+### Quality Metrics
+
+- ✅ Automated code smell detection
+- ✅ Security vulnerability scanning
+- ✅ Code coverage tracking
+- ✅ Duplicated code detection
+- ✅ Maintainability ratings
+
 ## 📝 Documentation
 
 - [Quick Start Guide](docs/QUICK-START-GUIDE.md) - Get started in 5 minutes
 - [Claude Code Installation Troubleshooting](docs/CLAUDE-CODE-INSTALLATION-TROUBLESHOOTING.md) - Fix installation errors
 - [Linear Webhook Setup](docs/LINEAR-WEBHOOK-SETUP.md) - Detailed webhook configuration
+- [SonarQube Setup](docs/SONARQUBE-SETUP.md) - Code quality analysis configuration
 - [PR Metadata Automation](docs/PR-METADATA-AUTOMATION.md) - Automatic PR reviewers, labels, and linking
 - [Roadmap & Improvements](docs/ROADMAP-IMPROVEMENTS.md) - Future development plans
 - [API Documentation](docs/api/) - Complete API reference
