@@ -284,6 +284,10 @@ GitHub Event → Codegen GitHub App → AI Agent → GitHub API
 ### Codegen Documentation
 
 - **Integrations Guide**: [docs/CODEGEN-INTEGRATIONS.md](docs/CODEGEN-INTEGRATIONS.md) ← **Start here**
+- **CircleCI Integration Study**: [docs/CIRCLECI-INTEGRATION-STUDY.md](docs/CIRCLECI-INTEGRATION-STUDY.md) ← **Complete CircleCI guide**
+- **CircleCI Quick Reference**: [docs/CIRCLECI-QUICK-REFERENCE.md](docs/CIRCLECI-QUICK-REFERENCE.md) ← **Quick cheat sheet**
+- **CircleCI Setup Guide**: [docs/CIRCLECI-SETUP.md](docs/CIRCLECI-SETUP.md) ← **Manual setup**
+- **CircleCI API Setup**: [docs/CIRCLECI-API-SETUP.md](docs/CIRCLECI-API-SETUP.md) ← **Automated setup**
 - **Sentry Setup Guide**: [docs/SENTRY-SETUP.md](docs/SENTRY-SETUP.md) ← **Sentry integration**
 - **GitHub App Setup**: [docs/CODEGEN-GITHUB-APP-SETUP.md](docs/CODEGEN-GITHUB-APP-SETUP.md)
 - **Official Docs**: [docs.codegen.com](https://docs.codegen.com)
