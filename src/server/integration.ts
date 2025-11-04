@@ -30,6 +30,10 @@ import { GitHubClient } from "../github/client.js";
 import { GitHubWebhookHandler } from "../github/webhook-handler.js";
 import { GitHubPRAgent } from "../github/pr-agent.js";
 import { Mem0MemoryManager } from "../memory/manager.js";
+import { BossAgent } from "../boss-agent/agent.js";
+import { CodegenClient } from "../codegen/client.js";
+import { CodegenWebhookHandler, CodegenWebhookEventType } from "../codegen/webhook-handler.js";
+import type { ProcessedCodegenEvent } from "../codegen/webhook-handler.js";
 
 /**
  * Webhook request body type
@@ -64,6 +68,9 @@ export class IntegrationServer {
   private isStarted = false;
   private webhookRateLimiter: RateLimiterMemory;
   private orgRateLimiter: RateLimiterMemory;
+  private bossAgent?: BossAgent;
+  private codegenClient?: CodegenClient;
+  private codegenWebhookHandler?: CodegenWebhookHandler;
 
   constructor(config: IntegrationConfig) {
     this.config = config;
@@ -158,6 +165,56 @@ export class IntegrationServer {
       this.logger.info("Mem0 integration enabled");
     }
 
+    // Initialize Boss Agent if enabled
+    if (config.enableBossAgent) {
+      try {
+        // Initialize Codegen client
+        if (config.codegenApiToken && config.codegenOrgId) {
+          this.codegenClient = new CodegenClient(
+            config.codegenApiToken,
+            config.codegenOrgId,
+            {
+              baseUrl: config.codegenBaseUrl,
+              defaultTimeout: config.codegenDefaultTimeout,
+            },
+            this.logger
+          );
+
+          // Initialize Boss Agent with Codegen client
+          this.bossAgent = new BossAgent(config, this.logger, this.codegenClient);
+
+          this.logger.info("Boss Agent initialized", {
+            mode: "coordinator",
+            codegenEnabled: true,
+            threshold: config.bossAgentThreshold || 6,
+            maxConcurrent: config.maxConcurrentAgents || 3,
+          });
+
+          // Initialize Codegen webhook handler if webhook callbacks enabled
+          if (config.codegenWebhookEnabled) {
+            this.codegenWebhookHandler = new CodegenWebhookHandler(this.logger, {
+              secret: config.codegenWebhookSecret,
+              debug: config.debug,
+            });
+
+            // Setup webhook event listeners
+            this.setupCodegenWebhookListeners();
+
+            this.logger.info("Codegen webhook handler initialized", {
+              hasSecret: !!config.codegenWebhookSecret,
+            });
+          }
+        } else {
+          this.logger.warn("Boss Agent enabled but Codegen credentials missing", {
+            hasApiToken: !!config.codegenApiToken,
+            hasOrgId: !!config.codegenOrgId,
+          });
+        }
+      } catch (error) {
+        this.logger.error("Failed to initialize Boss Agent", error as Error);
+      }
+    }
+
     // Create enhanced webhook handler with security features
     this.webhookHandler = new EnhancedLinearWebhookHandler(
       config,
@@ -178,6 +235,63 @@ export class IntegrationServer {
 
     this.setupRoutes();
     this.setupShutdown();
+  }
+
+  /**
+   * Setup Codegen webhook event listeners
+   */
+  private setupCodegenWebhookListeners(): void {
+    if (!this.codegenWebhookHandler) {
+      return;
+    }
+
+    // Listen for task progress updates
+    this.codegenWebhookHandler.on(CodegenWebhookEventType.TASK_PROGRESS, async (event) => {
+      this.logger.info('Codegen task progress', {
+        taskId: event.taskId,
+        percentage: event.progress?.percentage,
+        step: event.progress?.currentStep,
+      });
+
+      // Report progress to Linear
+      if (event.progress && event.shouldNotify) {
+        await this.reportCodegenProgress(event);
+      }
+    });
+
+    // Listen for task completion
+    this.codegenWebhookHandler.on(CodegenWebhookEventType.TASK_COMPLETED, async (event) => {
+      this.logger.info('Codegen task completed', {
+        taskId: event.taskId,
+        prUrl: event.result?.prUrl,
+      });
+
+      // Report success to Linear
+      await this.reportCodegenCompletion(event);
+    });
+
+    // Listen for task failure
+    this.codegenWebhookHandler.on(CodegenWebhookEventType.TASK_FAILED, async (event) => {
+      this.logger.error('Codegen task failed', undefined, {
+        taskId: event.taskId,
+        error: event.error?.message,
+      });
+
+      // Report failure to Linear
+      await this.reportCodegenFailure(event);
+    });
+
+    // Listen for task cancellation
+    this.codegenWebhookHandler.on(CodegenWebhookEventType.TASK_CANCELLED, async (event) => {
+      this.logger.warn('Codegen task cancelled', {
+        taskId: event.taskId,
+      });
+
+      // Report cancellation to Linear
+      await this.reportCodegenCancellation(event);
+    });
+
+    this.logger.debug('Codegen webhook listeners setup complete');
   }
 
   /**
@@ -367,6 +481,60 @@ export class IntegrationServer {
       },
     );
 
+    // Codegen webhook endpoint
+    this.app.post<WebhookRequest>(
+      "/webhooks/codegen",
+      async (request, reply) => {
+        // Check if Codegen integration is enabled
+        if (!this.codegenWebhookHandler) {
+          this.logger.warn("Codegen webhook received but integration not configured");
+          return reply.code(503).send({
+            error: "Service unavailable",
+            message: "Codegen webhook integration not configured",
+          });
+        }
+
+        const signature = request.headers["x-codegen-signature"] || request.headers["x-webhook-signature"];
+        const clientIp = request.ip;
+        const payloadString = JSON.stringify(request.body);
+
+        this.logger.debug("Received Codegen webhook", {
+          signature: signature ? "present" : "missing",
+          clientIp,
+          bodySize: payloadString.length,
+        });
+
+        // Apply global rate limiting
+        try {
+          await this.webhookRateLimiter.consume(clientIp);
+        } catch (rateLimitError) {
+          this.logger.warn("Global rate limit exceeded", { clientIp });
+          return reply.code(429).send({
+            error: "Too many requests",
+            message: "Rate limit exceeded. Please try again later.",
+          });
+        }
+
+        // Verify signature if provided
+        if (signature && !this.codegenWebhookHandler.verifySignature(payloadString, signature as string)) {
+          this.logger.warn("Codegen webhook signature verification failed", { clientIp });
+          return reply.code(401).send({ error: "Invalid signature" });
+        }
+
+        // Validate webhook payload
+        const event = this.codegenWebhookHandler.validateWebhook(request.body);
+        if (!event) {
+          this.logger.warn("Invalid Codegen webhook payload", { clientIp });
+          return reply.code(400).send({ error: "Invalid payload" });
+        }
+
+        // Process event asynchronously
+        this.processCodegenWebhookAsync(event);
+
+        return { received: true, processed: true };
+      },
+    );
+
     // Session management endpoints
     this.app.get("/sessions", async () => {
       const sessions = await this.sessionManager.listSessions();
@@ -506,12 +674,25 @@ export class IntegrationServer {
           },
           blocked: false
         });
-        
-        await this.eventRouter.routeEvent(processedEvent);
+
+        // Use Boss Agent if enabled and event should trigger
+        if (this.bossAgent && processedEvent.shouldTrigger) {
+          this.logger.info("Boss Agent handling event", {
+            eventType: processedEvent.type,
+            action: processedEvent.action,
+            issueId: processedEvent.issue.id,
+          });
+
+          // Execute Boss Agent workflow
+          await this.processBossAgentWorkflow(processedEvent);
+        } else {
+          // Use default event router
+          await this.eventRouter.routeEvent(processedEvent);
+        }
       }
     } catch (error) {
       this.logger.error("Failed to process webhook", error as Error);
-      
+
       // Log security event for webhook processing failure
       await this.securityAgent.logSecurityEvent({
         id: `webhook-error-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -523,6 +704,89 @@ export class IntegrationServer {
         details: { error: (error as Error).message },
         blocked: false
       });
+    }
+  }
+
+  /**
+   * Process Boss Agent workflow
+   */
+  private async processBossAgentWorkflow(processedEvent: any): Promise<void> {
+    if (!this.bossAgent) {
+      this.logger.error("Boss Agent not initialized");
+      return;
+    }
+
+    try {
+      this.logger.info("Starting Boss Agent workflow", {
+        issueId: processedEvent.issue.id,
+        issueIdentifier: processedEvent.issue.identifier,
+      });
+
+      // Report initial status to Linear
+      await this.linearReporter.reportDelegationStarted(
+        processedEvent.issue,
+        {
+          delegateTo: 'codegen',
+          message: '🤖 **Boss Agent activated!**\n\nAnalyzing task and preparing delegation to Codegen...',
+        }
+      );
+
+      // Execute Boss Agent workflow
+      const result = await this.bossAgent.executeWorkflow(
+        processedEvent.issue,
+        processedEvent.comment
+      );
+
+      this.logger.info("Boss Agent workflow completed", {
+        issueId: result.issueId,
+        status: result.status,
+        delegatedTo: result.delegatedTo,
+      });
+
+      // Report result to Linear
+      if (result.status === 'success' && result.prUrl) {
+        await this.linearReporter.reportDelegationSuccess(
+          processedEvent.issue,
+          {
+            delegateTo: result.delegatedTo || 'codegen',
+            prUrl: result.prUrl,
+            prNumber: result.prNumber,
+            filesChanged: result.filesChanged || [],
+            message: `✅ **Task completed successfully!**\n\n` +
+              `🔗 Pull Request: ${result.prUrl}\n` +
+              `📝 Files changed: ${result.filesChanged?.length || 0}\n` +
+              `⏱️ Duration: ${result.duration || 'N/A'}\n\n` +
+              `Please review and merge the PR.`,
+          }
+        );
+      } else if (result.status === 'failed') {
+        await this.linearReporter.reportDelegationFailure(
+          processedEvent.issue,
+          {
+            delegateTo: result.delegatedTo || 'codegen',
+            error: result.error || 'Unknown error',
+            message: `❌ **Task failed**\n\n` +
+              `Error: ${result.error || 'Unknown error'}\n\n` +
+              `The Boss Agent encountered an issue while processing this task.`,
+          }
+        );
+      }
+    } catch (error) {
+      this.logger.error("Boss Agent workflow failed", error as Error, {
+        issueId: processedEvent.issue.id,
+      });
+
+      // Report error to Linear
+      await this.linearReporter.reportDelegationFailure(
+        processedEvent.issue,
+        {
+          delegateTo: 'codegen',
+          error: (error as Error).message,
+          message: `❌ **Boss Agent workflow failed**\n\n` +
+            `Error: ${(error as Error).message}\n\n` +
+            `Please check the logs for more details.`,
+        }
+      );
     }
   }
 
@@ -557,6 +821,266 @@ export class IntegrationServer {
       }
     } catch (error) {
       this.logger.error("Failed to process GitHub webhook", error as Error);
+    }
+  }
+
+  /**
+   * Process Codegen webhook asynchronously
+   */
+  private async processCodegenWebhookAsync(event: any): Promise<void> {
+    if (!this.codegenWebhookHandler) {
+      this.logger.error("Codegen webhook handler not initialized");
+      return;
+    }
+
+    try {
+      const processedEvent = await this.codegenWebhookHandler.processWebhook(event);
+
+      if (processedEvent) {
+        this.logger.info("Codegen webhook processed", {
+          type: processedEvent.type,
+          taskId: processedEvent.taskId,
+          shouldNotify: processedEvent.shouldNotify,
+        });
+      }
+    } catch (error) {
+      this.logger.error("Failed to process Codegen webhook", error as Error);
+    }
+  }
+
+  /**
+   * Report Codegen progress to Linear
+   */
+  private async reportCodegenProgress(event: ProcessedCodegenEvent): Promise<void> {
+    if (!this.bossAgent) {
+      return;
+    }
+
+    try {
+      // Get task session to find associated Linear issue
+      const taskSessionManager = this.bossAgent.getTaskSessionManager();
+      const taskSession = await taskSessionManager.getSessionByTaskId(event.taskId);
+
+      if (!taskSession) {
+        this.logger.warn('Task session not found for progress update', {
+          taskId: event.taskId,
+        });
+        return;
+      }
+
+      // Update task session progress
+      if (event.progress) {
+        await taskSessionManager.updateProgress(
+          event.taskId,
+          event.progress.percentage,
+          event.progress.currentStep
+        );
+      }
+
+      // Get Linear issue
+      const issue = await this.linearClient.getIssue(taskSession.issueId);
+      if (!issue) {
+        this.logger.warn('Linear issue not found for progress update', {
+          taskId: event.taskId,
+          issueId: taskSession.issueId,
+        });
+        return;
+      }
+
+      // Report progress to Linear
+      const message = `⏳ **Task Progress: ${event.progress?.percentage || 0}%**\n\n` +
+        `Current step: ${event.progress?.currentStep || 'Processing...'}\n` +
+        `${event.progress?.details ? `\n${event.progress.details}` : ''}`;
+
+      await this.linearClient.createComment(issue.id, message);
+
+      this.logger.info("Codegen progress reported to Linear", {
+        taskId: event.taskId,
+        issueId: issue.id,
+        percentage: event.progress?.percentage,
+      });
+    } catch (error) {
+      this.logger.error('Failed to report Codegen progress', error as Error, {
+        taskId: event.taskId,
+      });
+    }
+  }
+
+  /**
+   * Report Codegen completion to Linear
+   */
+  private async reportCodegenCompletion(event: ProcessedCodegenEvent): Promise<void> {
+    if (!this.bossAgent) {
+      return;
+    }
+
+    try {
+      // Get task session to find associated Linear issue
+      const taskSessionManager = this.bossAgent.getTaskSessionManager();
+      const taskSession = await taskSessionManager.getSessionByTaskId(event.taskId);
+
+      if (!taskSession) {
+        this.logger.warn('Task session not found for completion', {
+          taskId: event.taskId,
+        });
+        return;
+      }
+
+      // Update task session
+      if (event.result) {
+        await taskSessionManager.markCompleted(event.taskId, {
+          prUrl: event.result.prUrl,
+          prNumber: event.result.prNumber,
+          filesChanged: event.result.filesChanged,
+          duration: event.result.duration,
+        });
+      }
+
+      // Get Linear issue
+      const issue = await this.linearClient.getIssue(taskSession.issueId);
+      if (!issue) {
+        this.logger.warn('Linear issue not found for completion', {
+          taskId: event.taskId,
+          issueId: taskSession.issueId,
+        });
+        return;
+      }
+
+      // Report success to Linear using existing reporter
+      await this.linearReporter.reportDelegationSuccess(issue, {
+        delegateTo: 'codegen',
+        prUrl: event.result?.prUrl,
+        prNumber: event.result?.prNumber,
+        filesChanged: event.result?.filesChanged,
+        message: `✅ **Task completed successfully!**\n\n` +
+          `${event.result?.prUrl ? `🔗 Pull Request: ${event.result.prUrl}\n` : ''}` +
+          `📝 Files changed: ${event.result?.filesChanged?.length || 0}\n` +
+          `⏱️ Duration: ${event.result?.duration ? `${Math.round(event.result.duration / 1000)}s` : 'N/A'}\n\n` +
+          `Please review and merge the PR.`,
+      });
+
+      this.logger.info("Codegen completion reported to Linear", {
+        taskId: event.taskId,
+        issueId: issue.id,
+        prUrl: event.result?.prUrl,
+      });
+    } catch (error) {
+      this.logger.error('Failed to report Codegen completion', error as Error, {
+        taskId: event.taskId,
+      });
+    }
+  }
+
+  /**
+   * Report Codegen failure to Linear
+   */
+  private async reportCodegenFailure(event: ProcessedCodegenEvent): Promise<void> {
+    if (!this.bossAgent) {
+      return;
+    }
+
+    try {
+      // Get task session to find associated Linear issue
+      const taskSessionManager = this.bossAgent.getTaskSessionManager();
+      const taskSession = await taskSessionManager.getSessionByTaskId(event.taskId);
+
+      if (!taskSession) {
+        this.logger.warn('Task session not found for failure', {
+          taskId: event.taskId,
+        });
+        return;
+      }
+
+      // Update task session
+      if (event.error) {
+        await taskSessionManager.markFailed(event.taskId, {
+          message: event.error.message,
+          code: event.error.code,
+          details: event.error.details,
+        });
+      }
+
+      // Get Linear issue
+      const issue = await this.linearClient.getIssue(taskSession.issueId);
+      if (!issue) {
+        this.logger.warn('Linear issue not found for failure', {
+          taskId: event.taskId,
+          issueId: taskSession.issueId,
+        });
+        return;
+      }
+
+      // Report failure to Linear using existing reporter
+      await this.linearReporter.reportDelegationFailure(issue, {
+        delegateTo: 'codegen',
+        error: event.error?.message || 'Unknown error',
+        message: `❌ **Task failed**\n\n` +
+          `Error: ${event.error?.message || 'Unknown error'}\n` +
+          `${event.error?.code ? `Code: ${event.error.code}\n` : ''}` +
+          `\nThe Codegen agent encountered an issue while processing this task.\n` +
+          `Please check the error details and try again.`,
+      });
+
+      this.logger.error("Codegen failure reported to Linear", undefined, {
+        taskId: event.taskId,
+        issueId: issue.id,
+        error: event.error?.message,
+      });
+    } catch (error) {
+      this.logger.error('Failed to report Codegen failure', error as Error, {
+        taskId: event.taskId,
+      });
+    }
+  }
+
+  /**
+   * Report Codegen cancellation to Linear
+   */
+  private async reportCodegenCancellation(event: ProcessedCodegenEvent): Promise<void> {
+    if (!this.bossAgent) {
+      return;
+    }
+
+    try {
+      // Get task session to find associated Linear issue
+      const taskSessionManager = this.bossAgent.getTaskSessionManager();
+      const taskSession = await taskSessionManager.getSessionByTaskId(event.taskId);
+
+      if (!taskSession) {
+        this.logger.warn('Task session not found for cancellation', {
+          taskId: event.taskId,
+        });
+        return;
+      }
+
+      // Update task session
+      await taskSessionManager.markCancelled(event.taskId);
+
+      // Get Linear issue
+      const issue = await this.linearClient.getIssue(taskSession.issueId);
+      if (!issue) {
+        this.logger.warn('Linear issue not found for cancellation', {
+          taskId: event.taskId,
+          issueId: taskSession.issueId,
+        });
+        return;
+      }
+
+      // Report cancellation to Linear
+      const message = `⚠️ **Task cancelled**\n\n` +
+        `The task was cancelled before completion.\n` +
+        `You can restart the task by commenting with @claude.`;
+
+      await this.linearClient.createComment(issue.id, message);
+
+      this.logger.warn("Codegen cancellation reported to Linear", {
+        taskId: event.taskId,
+        issueId: issue.id,
+      });
+    } catch (error) {
+      this.logger.error('Failed to report Codegen cancellation', error as Error, {
+        taskId: event.taskId,
+      });
     }
   }
 
