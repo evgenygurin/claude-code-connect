@@ -38,9 +38,9 @@ export interface SessionManagerEvents {
  * Session manager for Claude Code + Linear integration
  */
 export class SessionManager extends EventEmitter {
-  private config: IntegrationConfig;
-  private logger: Logger;
-  private storage: SessionStorage;
+  protected config: IntegrationConfig;
+  protected logger: Logger;
+  protected storage: SessionStorage;
   private executor: ClaudeExecutor;
   private gitManager: GitWorktreeManager;
   private activeExecutions = new Map<string, NodeJS.Timeout>();

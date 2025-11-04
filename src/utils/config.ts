@@ -25,6 +25,9 @@ const ENV_MAPPING = {
   claudeExecutablePath: "CLAUDE_EXECUTABLE_PATH",
   timeoutMinutes: "SESSION_TIMEOUT_MINUTES",
   debug: "DEBUG",
+  enableBossAgent: "ENABLE_BOSS_AGENT",
+  bossAgentThreshold: "BOSS_AGENT_THRESHOLD",
+  maxConcurrentAgents: "MAX_CONCURRENT_AGENTS",
 } as const;
 
 /**
@@ -38,6 +41,9 @@ const DEFAULT_CONFIG: Partial<IntegrationConfig> = {
   timeoutMinutes: 30,
   debug: false,
   enableOAuth: false,
+  enableBossAgent: false,
+  bossAgentThreshold: 6,
+  maxConcurrentAgents: 3,
 };
 
 /**
@@ -102,10 +108,13 @@ function parseEnvValue(value: string, configKey: string): any {
     case "createBranches":
     case "debug":
     case "enableOAuth":
+    case "enableBossAgent":
       return value.toLowerCase() === "true" || value === "1";
 
     case "webhookPort":
-    case "timeoutMinutes": {
+    case "timeoutMinutes":
+    case "bossAgentThreshold":
+    case "maxConcurrentAgents": {
       const numValue = parseInt(value, 10);
       if (isNaN(numValue)) {
         throw new Error(`Invalid number value for ${configKey}: ${value}`);
@@ -229,6 +238,14 @@ SESSION_TIMEOUT_MINUTES=30
 
 # Optional: Debug logging
 DEBUG=false
+
+# Optional: Boss Agent Configuration (Advanced)
+# Enable Boss Agent mode for complex task delegation
+ENABLE_BOSS_AGENT=false
+# Complexity threshold (1-10) - tasks with complexity >= threshold will be delegated
+BOSS_AGENT_THRESHOLD=6
+# Maximum number of concurrent sub-agents
+MAX_CONCURRENT_AGENTS=3
 `;
 }
 
@@ -259,4 +276,13 @@ export function printConfigSummary(config: IntegrationConfig): void {
   
   console.log(`  Has Webhook Secret: ${config.webhookSecret ? "✓" : "✗"}`);
   console.log(`  Has Agent User ID: ${config.agentUserId ? "✓" : "✗"}`);
+
+  // Boss Agent configuration
+  if (config.enableBossAgent) {
+    console.log(`  Boss Agent: Enabled`);
+    console.log(`  Complexity Threshold: ${config.bossAgentThreshold || 6}`);
+    console.log(`  Max Concurrent Agents: ${config.maxConcurrentAgents || 3}`);
+  } else {
+    console.log(`  Boss Agent: Disabled`);
+  }
 }
