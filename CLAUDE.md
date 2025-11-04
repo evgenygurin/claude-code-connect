@@ -102,6 +102,66 @@ The system automatically determines:
 - **Port**: Default 3005 (configurable via WEBHOOK_PORT)
 - **All other settings**: Use sensible defaults
 
+## 🤖 Codegen Integration
+
+This project now includes **Codegen AI agent integration** for automated code development, PR reviews, and CI/CD auto-fixing.
+
+### Quick Codegen Setup
+
+```bash
+# 1. Get Codegen credentials
+# Visit: https://codegen.com/token (API token)
+#        https://codegen.com/settings (Organization ID)
+
+# 2. Run setup script
+./scripts/setup-codegen.sh
+
+# 3. Install GitHub App (recommended)
+# Visit: https://github.com/apps/codegen-sh
+```
+
+### Codegen Features
+
+- ✅ **Automatic PR Reviews** - AI code review on every PR
+- ✅ **Check Suite Auto-fixer** - Automatically fix failing CI checks (up to 3 attempts)
+- ✅ **Code Generation** - Implement features via labels or @mentions
+- ✅ **Bug Fixing** - Automatic bug analysis and fixes
+- ✅ **Test Generation** - Add comprehensive test coverage
+- ✅ **Documentation** - Update docs and add comments
+
+### Usage
+
+**Label-Based Triggering:**
+
+```bash
+# Add labels to PRs/issues
+gh pr edit 123 --add-label "codegen:bug-fix"
+gh pr edit 123 --add-label "codegen:feature"
+gh pr edit 123 --add-label "codegen:review"
+```
+
+**Comment-Based Triggering:**
+
+```text
+@codegen please review this code
+@codegen fix the failing tests
+@codegen implement user authentication
+@codegen add tests for the API endpoints
+```
+
+**Automatic Triggers:**
+
+- New PRs → Automatic code review
+- Check suite failures → Auto-fixer activates
+- Push to PR → Re-review if configured
+
+### Codegen Documentation
+
+- **Setup Guide**: [docs/CODEGEN-SETUP.md](docs/CODEGEN-SETUP.md)
+- **Official Docs**: [docs.codegen.com](https://docs.codegen.com)
+- **Agent Runs**: [codegen.com/runs](https://codegen.com/runs)
+- **Configuration**: `.codegen/config.yml`
+
 ### Configuration Loading Process
 
 1. **Environment Variables**: System reads environment variables first
