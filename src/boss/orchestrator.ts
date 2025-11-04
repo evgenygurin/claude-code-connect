@@ -36,7 +36,10 @@ export interface OrchestratorEvents {
 /**
  * Agent Orchestrator implementation
  */
-export class AgentOrchestrator extends EventEmitter implements IAgentOrchestrator {
+export class AgentOrchestrator
+  extends EventEmitter
+  implements IAgentOrchestrator
+{
   private logger: Logger;
   private config: IntegrationConfig;
   private sessionManager: SessionManager;
@@ -51,7 +54,7 @@ export class AgentOrchestrator extends EventEmitter implements IAgentOrchestrato
     config: IntegrationConfig,
     logger: Logger,
     sessionManager: SessionManager,
-    maxConcurrentAgents: number = 3
+    maxConcurrentAgents: number = 3,
   ) {
     super();
     this.config = config;
@@ -217,7 +220,7 @@ export class AgentOrchestrator extends EventEmitter implements IAgentOrchestrato
    */
   private async executeTaskAsync(
     task: DelegatedTask,
-    agent: AgentInstance
+    agent: AgentInstance,
   ): Promise<void> {
     const startTime = Date.now();
 
@@ -260,7 +263,11 @@ export class AgentOrchestrator extends EventEmitter implements IAgentOrchestrato
       if (result.success) {
         this.emit("task:completed", task);
       } else {
-        this.emit("task:failed", task, new Error(result.error || "Unknown error"));
+        this.emit(
+          "task:failed",
+          task,
+          new Error(result.error || "Unknown error"),
+        );
       }
 
       // Remove from active agents
@@ -348,7 +355,7 @@ export class AgentOrchestrator extends EventEmitter implements IAgentOrchestrato
       (task) =>
         task.status === "completed" ||
         task.status === "failed" ||
-        task.status === "cancelled"
+        task.status === "cancelled",
     );
   }
 
@@ -380,7 +387,7 @@ export class AgentOrchestrator extends EventEmitter implements IAgentOrchestrato
    */
   on<K extends keyof OrchestratorEvents>(
     event: K,
-    listener: OrchestratorEvents[K]
+    listener: OrchestratorEvents[K],
   ): this {
     return super.on(event, listener);
   }

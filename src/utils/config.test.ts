@@ -36,9 +36,9 @@ describe("Configuration", () => {
       const config = loadConfig();
       expect(config.debug).toBe(true);
       expect(config.createBranches).toBe(false);
-    } catch (error) {
+    } catch (_error: any) {
       // Expected to fail due to missing directory, but types should be parsed
-      expect(error.message).toContain("does not exist");
+      expect(_error.message).toContain("does not exist");
     }
   });
 
@@ -53,9 +53,9 @@ describe("Configuration", () => {
       const config = loadConfig();
       expect(config.webhookPort).toBe(8080);
       expect(config.timeoutMinutes).toBe(60);
-    } catch (error) {
+    } catch (_error: any) {
       // Expected to fail due to validation, but parsing should work
-      expect(error.message).toContain("does not exist");
+      expect(_error.message).toContain("does not exist");
     }
   });
 
@@ -81,7 +81,7 @@ describe("Configuration", () => {
       expect(config.defaultBranch).toBe("main");
       expect(config.webhookPort).toBe(3000);
       expect(config.claudeExecutablePath).toBe("claude");
-    } catch (error) {
+    } catch (_error) {
       // Expected validation error
     }
   });

@@ -73,16 +73,16 @@ const CommentSchema = z.any().refine(
 export class LinearWebhookHandler {
   private config: IntegrationConfig;
   private logger: Logger;
-  
+
   // Rate limiters for DoS protection
   private webhookRateLimiter = new RateLimiterMemory({
-    keyPrefix: 'webhook_processing',
+    keyPrefix: "webhook_processing",
     points: 10, // 10 webhooks
     duration: 60, // per minute
   });
 
   private orgRateLimiter = new RateLimiterMemory({
-    keyPrefix: 'org_webhook',
+    keyPrefix: "org_webhook",
     points: 50, // 50 webhooks per org
     duration: 60, // per minute
   });
@@ -130,13 +130,13 @@ export class LinearWebhookHandler {
     try {
       // Rate limit by organization
       await this.orgRateLimiter.consume(event.organizationId);
-      
+
       // Rate limit by actor (if available)
       if (event.actor?.id) {
         await this.webhookRateLimiter.consume(event.actor.id);
       }
     } catch (rateLimitError) {
-      this.logger.warn('Rate limit exceeded', {
+      this.logger.warn("Rate limit exceeded", {
         organizationId: event.organizationId,
         actorId: event.actor?.id,
         error: rateLimitError,
@@ -274,14 +274,21 @@ export class LinearWebhookHandler {
     }
 
     // Additional bot detection patterns
-    if ('service' in _actor && _actor.service && typeof _actor.service === 'string' && _actor.service.includes('claude')) {
+    if (
+      "service" in _actor &&
+      _actor.service &&
+      typeof _actor.service === "string" &&
+      _actor.service.includes("claude")
+    ) {
       return { should: false, reason: "Bot service detected" };
     }
 
     // Check for bot-like display names
-    const actorName = _actor.name || _actor.displayName || '';
-    const botPatterns = ['claude', 'bot', 'automation', 'ai assistant'];
-    if (botPatterns.some(pattern => actorName.toLowerCase().includes(pattern))) {
+    const actorName = _actor.name || _actor.displayName || "";
+    const botPatterns = ["claude", "bot", "automation", "ai assistant"];
+    if (
+      botPatterns.some((pattern) => actorName.toLowerCase().includes(pattern))
+    ) {
       return { should: false, reason: "Bot actor detected" };
     }
 
@@ -318,14 +325,21 @@ export class LinearWebhookHandler {
     }
 
     // Additional bot detection patterns
-    if ('service' in _actor && _actor.service && typeof _actor.service === 'string' && _actor.service.includes('claude')) {
+    if (
+      "service" in _actor &&
+      _actor.service &&
+      typeof _actor.service === "string" &&
+      _actor.service.includes("claude")
+    ) {
       return { should: false, reason: "Bot service detected" };
     }
 
     // Check for bot-like display names
-    const actorName = _actor.name || _actor.displayName || '';
-    const botPatterns = ['claude', 'bot', 'automation', 'ai assistant'];
-    if (botPatterns.some(pattern => actorName.toLowerCase().includes(pattern))) {
+    const actorName = _actor.name || _actor.displayName || "";
+    const botPatterns = ["claude", "bot", "automation", "ai assistant"];
+    if (
+      botPatterns.some((pattern) => actorName.toLowerCase().includes(pattern))
+    ) {
       return { should: false, reason: "Bot actor detected" };
     }
 
@@ -353,7 +367,7 @@ export class LinearWebhookHandler {
     // NOTE: Only specific request patterns to avoid false positives
     const patterns = [
       "@claude",
-      "@agent", 
+      "@agent",
       "claude",
       "ai assistant",
       "please help",
@@ -364,7 +378,7 @@ export class LinearWebhookHandler {
       "fix this",
       "work on",
       "implement",
-      "analyze", 
+      "analyze",
       "review",
       "check",
       "optimize",

@@ -35,7 +35,7 @@ export class BossSessionManager extends SessionManager {
   constructor(
     config: IntegrationConfig,
     logger: Logger,
-    storage: SessionStorage
+    storage: SessionStorage,
   ) {
     super(config, logger, storage);
 
@@ -56,7 +56,7 @@ export class BossSessionManager extends SessionManager {
         config,
         logger,
         this,
-        this.bossConfig.maxConcurrentAgents
+        this.bossConfig.maxConcurrentAgents,
       );
 
       this.setupOrchestratorEvents();
@@ -73,7 +73,7 @@ export class BossSessionManager extends SessionManager {
    */
   async createSession(
     issue: Issue,
-    triggerComment?: Comment
+    triggerComment?: Comment,
   ): Promise<ClaudeSession> {
     // If Boss Agent disabled, use normal flow
     if (!this.bossAgent || !this.bossConfig.enabled) {
@@ -90,11 +90,14 @@ export class BossSessionManager extends SessionManager {
 
     // Check if complexity warrants delegation
     if (analysis.complexity < this.bossConfig.delegationThreshold) {
-      this.logger.info("Issue complexity below threshold, using normal execution", {
-        issueId: issue.id,
-        complexity: analysis.complexity,
-        threshold: this.bossConfig.delegationThreshold,
-      });
+      this.logger.info(
+        "Issue complexity below threshold, using normal execution",
+        {
+          issueId: issue.id,
+          complexity: analysis.complexity,
+          threshold: this.bossConfig.delegationThreshold,
+        },
+      );
       return super.createSession(issue, triggerComment);
     }
 
@@ -121,7 +124,7 @@ export class BossSessionManager extends SessionManager {
   async startSession(
     sessionId: string,
     issue: Issue,
-    triggerComment?: Comment
+    triggerComment?: Comment,
   ): Promise<void> {
     // Load session
     const session = await this.storage.load(sessionId);
@@ -130,7 +133,9 @@ export class BossSessionManager extends SessionManager {
     }
 
     // Check if this is a boss session
-    const bossAnalysis = (session as any).bossAnalysis as BossAnalysis | undefined;
+    const bossAnalysis = (session as any).bossAnalysis as
+      | BossAnalysis
+      | undefined;
 
     if (!bossAnalysis || !this.bossAgent || !this.orchestrator) {
       // Not a boss session or boss disabled, use normal flow

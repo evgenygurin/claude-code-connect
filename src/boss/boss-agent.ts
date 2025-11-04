@@ -20,10 +20,7 @@ import type {
   TaskBreakdown,
   BossAgentConfig,
 } from "./types.js";
-import type {
-  ClaudeExecutionResult,
-  Logger,
-} from "../core/types.js";
+import type { ClaudeExecutionResult, Logger } from "../core/types.js";
 import { nanoid } from "nanoid";
 
 /**
@@ -56,7 +53,13 @@ const DEFAULT_AGENT_CAPABILITIES: AgentCapability[] = [
   },
   {
     type: "security" as AgentType,
-    keywords: ["security", "auth", "authentication", "authorization", "vulnerability"],
+    keywords: [
+      "security",
+      "auth",
+      "authentication",
+      "authorization",
+      "vulnerability",
+    ],
     filePatterns: ["**/security/**", "**/auth/**"],
     technologies: ["oauth", "jwt", "passport"],
     maxComplexity: 9,
@@ -100,7 +103,10 @@ export class BossAgent implements IBossAgent {
     this.logger = logger;
 
     // Use default capabilities if none provided
-    if (!this.config.agentCapabilities || this.config.agentCapabilities.length === 0) {
+    if (
+      !this.config.agentCapabilities ||
+      this.config.agentCapabilities.length === 0
+    ) {
       this.config.agentCapabilities = DEFAULT_AGENT_CAPABILITIES;
     }
   }
@@ -122,11 +128,9 @@ export class BossAgent implements IBossAgent {
     });
 
     // Combine issue description and comment for analysis
-    const fullText = [
-      issue.title,
-      issue.description || "",
-      comment?.body || "",
-    ].join(" ").toLowerCase();
+    const fullText = [issue.title, issue.description || "", comment?.body || ""]
+      .join(" ")
+      .toLowerCase();
 
     // Calculate complexity based on keywords and issue metadata
     const complexity = this.estimateComplexity(fullText, issue);
@@ -139,7 +143,7 @@ export class BossAgent implements IBossAgent {
       issue,
       comment,
       fullText,
-      recommendedAgents
+      recommendedAgents,
     );
 
     const analysis: BossAnalysis = {
@@ -243,9 +247,15 @@ export class BossAgent implements IBossAgent {
   async monitorProgress(context: any): Promise<void> {
     const { tasks, activeAgents } = context;
 
-    const completed = tasks.filter((t: DelegatedTask) => t.status === "completed").length;
-    const failed = tasks.filter((t: DelegatedTask) => t.status === "failed").length;
-    const running = tasks.filter((t: DelegatedTask) => t.status === "running").length;
+    const completed = tasks.filter(
+      (t: DelegatedTask) => t.status === "completed",
+    ).length;
+    const failed = tasks.filter(
+      (t: DelegatedTask) => t.status === "failed",
+    ).length;
+    const running = tasks.filter(
+      (t: DelegatedTask) => t.status === "running",
+    ).length;
 
     this.logger.info("Boss Agent monitoring progress", {
       totalTasks: tasks.length,
@@ -261,7 +271,9 @@ export class BossAgent implements IBossAgent {
    *
    * Boss Agent collects and summarizes WITHOUT details
    */
-  async aggregateResults(tasks: DelegatedTask[]): Promise<ClaudeExecutionResult> {
+  async aggregateResults(
+    tasks: DelegatedTask[],
+  ): Promise<ClaudeExecutionResult> {
     this.logger.info("Boss Agent aggregating results", {
       totalTasks: tasks.length,
     });
@@ -342,7 +354,7 @@ export class BossAgent implements IBossAgent {
 
     for (const capability of this.config.agentCapabilities) {
       const matches = capability.keywords.some((keyword) =>
-        text.includes(keyword)
+        text.includes(keyword),
       );
       if (matches) {
         agents.add(capability.type);
@@ -364,14 +376,14 @@ export class BossAgent implements IBossAgent {
     issue: Issue,
     comment: Comment | undefined,
     text: string,
-    agents: AgentType[]
+    agents: AgentType[],
   ): TaskBreakdown[] {
     const breakdown: TaskBreakdown[] = [];
 
     // Create one task per identified agent type
     for (const agentType of agents) {
       const capability = this.config.agentCapabilities.find(
-        (c) => c.type === agentType
+        (c) => c.type === agentType,
       );
 
       breakdown.push({
@@ -447,7 +459,12 @@ export class BossAgent implements IBossAgent {
     ];
 
     for (const task of tasks) {
-      const status = task.status === "completed" ? "✅" : task.status === "failed" ? "❌" : "⏳";
+      const status =
+        task.status === "completed"
+          ? "✅"
+          : task.status === "failed"
+            ? "❌"
+            : "⏳";
       lines.push(`${status} **${task.title}** (${task.agentType})`);
       if (task.result?.output) {
         lines.push(`   ${task.result.output.substring(0, 100)}...`);

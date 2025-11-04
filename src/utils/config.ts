@@ -69,9 +69,9 @@ export function loadConfig(configPath?: string): IntegrationConfig {
 
   const config: Partial<IntegrationConfig> = { ...DEFAULT_CONFIG };
 
-  // Load from environment variables
+  // Load from environment variables with validation
   for (const [configKey, envKey] of Object.entries(ENV_MAPPING)) {
-    const envValue = process.env[envKey];
+    const envValue = getEnvVariable(envKey);
     if (envValue !== undefined) {
       (config as any)[configKey] = parseEnvValue(envValue, configKey);
     }
@@ -81,6 +81,20 @@ export function loadConfig(configPath?: string): IntegrationConfig {
   validateConfig(config);
 
   return config as IntegrationConfig;
+}
+
+/**
+ * Safely get environment variable
+ */
+function getEnvVariable(name: string): string | undefined {
+  // Prevent access to potentially sensitive or system-critical env vars
+  const blockedVars = ["PATH", "LD_LIBRARY_PATH", "LD_PRELOAD"];
+
+  if (blockedVars.includes(name)) {
+    return undefined;
+  }
+
+  return process.env[name];
 }
 
 /**
@@ -103,9 +117,11 @@ function loadDotEnv(configPath?: string): void {
 
       const [key, ...valueParts] = trimmed.split("=");
       if (key && valueParts.length > 0) {
-        const value = valueParts.join("=").replace(/^["']|["']$/g, "");
-        if (!process.env[key]) {
-          process.env[key] = value;
+        // Sanitize key to prevent injection
+        const sanitizedKey = key.trim().replace(/[^A-Z0-9_]/gi, "");
+        if (sanitizedKey && !process.env[sanitizedKey]) {
+          const value = valueParts.join("=").replace(/^["']|["']$/g, "");
+          process.env[sanitizedKey] = value;
         }
       }
     }
@@ -183,9 +199,13 @@ function validateConfig(config: Partial<IntegrationConfig>): void {
   }
 
   // Validate paths - skip placeholder values
-  const isPlaceholder = config.projectRootDir?.includes('/path/to/');
+  const isPlaceholder = config.projectRootDir?.includes("/path/to/");
 
-  if (config.projectRootDir && !isPlaceholder && !existsSync(config.projectRootDir)) {
+  if (
+    config.projectRootDir &&
+    !isPlaceholder &&
+    !existsSync(config.projectRootDir)
+  ) {
     errors.push(
       `Project root directory does not exist: ${config.projectRootDir}`,
     );
@@ -211,7 +231,9 @@ function validateConfig(config: Partial<IntegrationConfig>): void {
 
   // Validate OAuth redirect URI if OAuth is enabled
   if (isOAuthEnabled && !config.oauthRedirectUri) {
-    errors.push(`${ENV_MAPPING.oauthRedirectUri} is required when OAuth is enabled`);
+    errors.push(
+      `${ENV_MAPPING.oauthRedirectUri} is required when OAuth is enabled`,
+    );
   }
 
   if (errors.length > 0) {
@@ -290,11 +312,17 @@ export function printConfigSummary(config: IntegrationConfig): void {
   if (config.enableOAuth) {
     console.log(`  Auth Method: OAuth`);
     console.log(`  Has Client ID: ${config.linearClientId ? "✓" : "✗"}`);
-    console.log(`  Has Client Secret: ${config.linearClientSecret ? "✓" : "✗"}`);
-    console.log(`  OAuth Redirect URI: ${config.oauthRedirectUri || "Not configured"}`);
+    console.log(
+      `  Has Client Secret: ${config.linearClientSecret ? "✓" : "✗"}`,
+    );
+    console.log(
+      `  OAuth Redirect URI: ${config.oauthRedirectUri || "Not configured"}`,
+    );
   } else {
     console.log(`  Auth Method: API Token`);
-    console.log(`  Linear Organization: ${config.linearOrganizationId || "Not configured"}`);
+    console.log(
+      `  Linear Organization: ${config.linearOrganizationId || "Not configured"}`,
+    );
     console.log(`  Has API Token: ${config.linearApiToken ? "✓" : "✗"}`);
   }
 
@@ -304,7 +332,9 @@ export function printConfigSummary(config: IntegrationConfig): void {
   // GitHub configuration
   console.log(`  GitHub Integration:`);
   console.log(`    Has Token: ${config.githubToken ? "✓" : "✗"}`);
-  console.log(`    Has Webhook Secret: ${config.githubWebhookSecret ? "✓" : "✗"}`);
+  console.log(
+    `    Has Webhook Secret: ${config.githubWebhookSecret ? "✓" : "✗"}`,
+  );
   console.log(`    Owner: ${config.githubOwner || "Not configured"}`);
   console.log(`    Repository: ${config.githubRepo || "Not configured"}`);
 
@@ -321,7 +351,9 @@ export function printConfigSummary(config: IntegrationConfig): void {
   if (config.mem0Enabled) {
     console.log(`  Mem0 Integration: Enabled`);
     console.log(`  Has Mem0 API Key: ${config.mem0ApiKey ? "✓" : "✗"}`);
-    console.log(`  Mem0 Verbose Logging: ${config.mem0VerboseLogging ? "✓" : "✗"}`);
+    console.log(
+      `  Mem0 Verbose Logging: ${config.mem0VerboseLogging ? "✓" : "✗"}`,
+    );
   } else {
     console.log(`  Mem0 Integration: Disabled`);
   }

@@ -184,7 +184,7 @@ describe("SecurityUtils", () => {
         "%2e%2e%2fetc%2fpasswd",
       ];
 
-      paths.forEach(path => {
+      paths.forEach((path) => {
         const result = SecurityUtils.isPathTraversal(path);
         expect(result).toBe(true);
       });
@@ -197,7 +197,7 @@ describe("SecurityUtils", () => {
         "C:\\Users\\user\\Documents\\file.txt",
       ];
 
-      paths.forEach(path => {
+      paths.forEach((path) => {
         const result = SecurityUtils.isPathTraversal(path);
         expect(result).toBe(false);
       });
@@ -214,7 +214,7 @@ describe("SecurityUtils", () => {
         "echo $(rm -rf /)",
       ];
 
-      commands.forEach(command => {
+      commands.forEach((command) => {
         const result = SecurityUtils.isCommandInjection(command);
         expect(result).toBe(true);
       });
@@ -228,11 +228,10 @@ describe("SecurityUtils", () => {
         "ls -la",
       ];
 
-      commands.forEach(command => {
+      commands.forEach((command) => {
         const result = SecurityUtils.isCommandInjection(command);
         expect(result).toBe(false);
       });
     });
   });
 });
-

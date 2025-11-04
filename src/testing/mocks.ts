@@ -254,11 +254,11 @@ export const mockSessionCreated: ClaudeSession = {
       canWrite: true,
       canExecute: true,
       canNetwork: false,
-      canModifyFileSystem: true
+      canModifyFileSystem: true,
     },
     triggerCommentId: mockComment.id,
     issueTitle: mockIssue.title,
-    triggerEventType: "comment"
+    triggerEventType: "comment",
   },
   securityContext: {
     allowedPaths: ["/tmp/claude-sessions/session-test-123", "/test/project"],
@@ -266,7 +266,7 @@ export const mockSessionCreated: ClaudeSession = {
     maxExecutionTimeMs: 600000,
     isolatedEnvironment: true,
     allowedEndpoints: ["api.linear.app", "claude.ai"],
-    allowedEnvVars: ["PATH", "NODE_ENV", "LINEAR_API_TOKEN"]
+    allowedEnvVars: ["PATH", "NODE_ENV", "LINEAR_API_TOKEN"],
   },
 };
 

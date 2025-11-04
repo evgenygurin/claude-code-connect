@@ -25,20 +25,24 @@ export class GitWorktreeManager {
    * Create a new worktree for an issue
    */
   async createWorktree(
-    issueId: string, 
-    baseBranch: string, 
-    branchName?: string
+    issueId: string,
+    baseBranch: string,
+    branchName?: string,
   ): Promise<string> {
     // Use provided branch name or create a unique one based on issue ID
-    let finalBranchName = branchName || `claude-${issueId}-${Date.now().toString(36)}`;
-    
+    let finalBranchName =
+      branchName || `claude-${issueId}-${Date.now().toString(36)}`;
+
     // Ensure branch name uniqueness by adding timestamp if not already present
     if (!finalBranchName.includes(Date.now().toString(36))) {
       finalBranchName = `${finalBranchName}-${Date.now().toString(36)}`;
     }
 
     // Create a unique worktree path
-    const worktreePath = join(this.worktreeBaseDir, finalBranchName.replace(/\//g, '-'));
+    const worktreePath = join(
+      this.worktreeBaseDir,
+      finalBranchName.replace(/\//g, "-"),
+    );
 
     // Validate paths to prevent directory traversal
     this.validatePath(worktreePath);
@@ -83,7 +87,7 @@ export class GitWorktreeManager {
   async removeWorktree(worktreePath: string): Promise<void> {
     // Validate path to prevent directory traversal
     this.validatePath(worktreePath);
-    
+
     this.logger.debug("Removing git worktree", { worktreePath });
 
     try {
@@ -112,7 +116,7 @@ export class GitWorktreeManager {
   ): Promise<string> {
     // Validate path to prevent directory traversal
     this.validatePath(worktreePath);
-    
+
     this.logger.debug("Committing changes in worktree", {
       worktreePath,
       message,
@@ -164,7 +168,7 @@ export class GitWorktreeManager {
   async pushChanges(worktreePath: string, branchName: string): Promise<void> {
     // Validate path to prevent directory traversal
     this.validatePath(worktreePath);
-    
+
     this.logger.debug("Pushing changes to remote", {
       worktreePath,
       branchName,
@@ -195,7 +199,7 @@ export class GitWorktreeManager {
   async getBranchName(worktreePath: string): Promise<string> {
     // Validate path to prevent directory traversal
     this.validatePath(worktreePath);
-    
+
     try {
       const branchName = await this.executeGitCommand(
         ["rev-parse", "--abbrev-ref", "HEAD"],
@@ -217,7 +221,7 @@ export class GitWorktreeManager {
   async getModifiedFiles(worktreePath: string): Promise<string[]> {
     // Validate path to prevent directory traversal
     this.validatePath(worktreePath);
-    
+
     try {
       const result = await this.executeGitCommand(
         ["diff", "--name-only", "HEAD~1"],
@@ -228,7 +232,10 @@ export class GitWorktreeManager {
         .trim()
         .split("\n")
         .filter((file) => file.trim());
-    } catch {
+    } catch (error) {
+      this.logger.error("Failed to get modified files", error as Error, {
+        worktreePath,
+      });
       return [];
     }
   }
@@ -236,10 +243,13 @@ export class GitWorktreeManager {
   /**
    * Get commits in worktree with optimized batch operations
    */
-  async getCommits(worktreePath: string, count: number = 10): Promise<GitCommit[]> {
+  async getCommits(
+    worktreePath: string,
+    count: number = 10,
+  ): Promise<GitCommit[]> {
     // Validate path to prevent directory traversal
     this.validatePath(worktreePath);
-    
+
     try {
       // Use a single git command to get commits with files
       const result = await this.executeGitCommand(
@@ -307,8 +317,8 @@ export class GitWorktreeManager {
    * Create a descriptive branch name from issue details
    */
   createDescriptiveBranchName(
-    issueIdentifier: string, 
-    issueTitle: string
+    issueIdentifier: string,
+    issueTitle: string,
   ): string {
     // Sanitize issue title for branch name
     const sanitizedTitle = issueTitle
@@ -316,10 +326,10 @@ export class GitWorktreeManager {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "")
       .substring(0, 50);
-    
+
     // Add timestamp to ensure uniqueness
     const timestamp = Date.now().toString(36);
-    
+
     // Create branch name
     return `claude/${issueIdentifier.toLowerCase()}-${sanitizedTitle}-${timestamp}`;
   }
@@ -343,7 +353,7 @@ export class GitWorktreeManager {
       !normalizedPath.startsWith(normalizedProjectRoot)
     ) {
       throw new Error(
-        `Path traversal detected. Path must be within worktree base or project root: ${path}`
+        `Path traversal detected. Path must be within worktree base or project root: ${path}`,
       );
     }
   }
@@ -354,7 +364,7 @@ export class GitWorktreeManager {
   private executeGitCommand(args: string[], cwd: string): Promise<string> {
     // Validate working directory
     this.validatePath(cwd);
-    
+
     return new Promise((resolve, reject) => {
       const process = spawn("git", args, {
         cwd,
@@ -384,4 +394,3 @@ export class GitWorktreeManager {
     });
   }
 }
-

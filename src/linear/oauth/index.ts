@@ -21,7 +21,7 @@ import { join } from "path";
 export function initializeLinearOAuth(
   app: FastifyInstance,
   config: IntegrationConfig,
-  logger: Logger
+  logger: Logger,
 ): {
   service: LinearOAuthService;
   controller: LinearOAuthController;
@@ -29,7 +29,7 @@ export function initializeLinearOAuth(
   // Create OAuth storage
   const storageDir = join(config.projectRootDir, ".linear-oauth");
   const encryptionKey = config.webhookSecret || "default-encryption-key";
-  
+
   const storage = createOAuthStorage("file", logger, {
     storageDir,
     encryptionKey,
@@ -49,11 +49,13 @@ export function initializeLinearOAuth(
     {
       clientId: config.linearClientId || "",
       clientSecret: config.linearClientSecret || "",
-      redirectUri: config.oauthRedirectUri || `http://localhost:${config.webhookPort}/oauth/callback`,
+      redirectUri:
+        config.oauthRedirectUri ||
+        `http://localhost:${config.webhookPort}/oauth/callback`,
       encryptionKey,
     },
     storage,
-    logger
+    logger,
   );
 
   // Create OAuth controller
@@ -64,4 +66,3 @@ export function initializeLinearOAuth(
 
   return { service, controller };
 }
-

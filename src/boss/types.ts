@@ -3,7 +3,11 @@
  */
 
 import type { Issue, Comment } from "@linear/sdk";
-import type { ClaudeSession, ClaudeExecutionResult, IntegrationConfig } from "../core/types.js";
+import type {
+  ClaudeSession,
+  ClaudeExecutionResult,
+  IntegrationConfig,
+} from "../core/types.js";
 
 /**
  * Agent types for specialized tasks
@@ -103,7 +107,8 @@ export const TaskStatusValues = {
   BLOCKED: "blocked",
 } as const;
 
-export type TaskStatus = (typeof TaskStatusValues)[keyof typeof TaskStatusValues];
+export type TaskStatus =
+  (typeof TaskStatusValues)[keyof typeof TaskStatusValues];
 
 /**
  * Task execution result
