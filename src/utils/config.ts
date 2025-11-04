@@ -27,6 +27,7 @@ const ENV_MAPPING = {
   createBranches: "CREATE_BRANCHES",
   webhookPort: "WEBHOOK_PORT",
   webhookHost: "WEBHOOK_HOST",
+  skipLinearCheck: "SKIP_LINEAR_CHECK",
   claudeExecutablePath: "CLAUDE_EXECUTABLE_PATH",
   timeoutMinutes: "SESSION_TIMEOUT_MINUTES",
   debug: "DEBUG",
@@ -43,6 +44,7 @@ const DEFAULT_CONFIG: Partial<IntegrationConfig> = {
   createBranches: true,
   // Use port 3000 for Codegen Web Preview, 3005 for local development
   webhookPort: process.env.CG_PREVIEW_URL ? 3000 : 3005,
+  skipLinearCheck: false,
   claudeExecutablePath: "claude",
   timeoutMinutes: 30,
   debug: false,
@@ -116,6 +118,7 @@ function parseEnvValue(value: string, configKey: string): any {
     case "debug":
     case "enableOAuth":
     case "enableBossAgent":
+    case "skipLinearCheck":
       return value.toLowerCase() === "true" || value === "1";
 
     case "webhookPort":

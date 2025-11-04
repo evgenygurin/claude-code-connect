@@ -139,6 +139,13 @@ function parseArgValue(args: string[], key: string): string | undefined {
 }
 
 /**
+ * Check if a boolean flag is present
+ */
+function hasBooleanFlag(args: string[], key: string): boolean {
+  return args.includes(`--${key}`);
+}
+
+/**
  * Start the integration server
  */
 async function startCommand(args: string[]): Promise<void> {
@@ -151,6 +158,7 @@ async function startCommand(args: string[]): Promise<void> {
     const configPath = parseArgValue(args, "config");
     const hostArg = parseArgValue(args, "host");
     const portArg = parseArgValue(args, "port");
+    const skipLinearCheck = hasBooleanFlag(args, "skip-linear-check");
 
     // Load configuration
     const config = loadConfig(configPath);
@@ -161,6 +169,9 @@ async function startCommand(args: string[]): Promise<void> {
     }
     if (portArg) {
       config.webhookPort = parseInt(portArg, 10);
+    }
+    if (skipLinearCheck) {
+      (config as any).skipLinearCheck = true;
     }
 
     if (config.debug) {
@@ -315,10 +326,11 @@ async function helpCommand(): Promise<void> {
   }
   console.log("");
   console.log("Options:");
-  console.log("  --config=path    Use custom configuration file");
-  console.log("  --host=address   Server bind address (default: 0.0.0.0)");
-  console.log("  --port=number    Server port (default: 3000 for Web Preview, 3005 for local)");
-  console.log("  --force          Force overwrite (for init command)");
+  console.log("  --config=path        Use custom configuration file");
+  console.log("  --host=address       Server bind address (default: 0.0.0.0)");
+  console.log("  --port=number        Server port (default: 3000 for Web Preview, 3005 for local)");
+  console.log("  --skip-linear-check  Skip Linear API connection test (for development/testing)");
+  console.log("  --force              Force overwrite (for init command)");
   console.log("");
   console.log("Examples:");
   console.log("  npm run init                 # Initialize .env configuration");
@@ -326,6 +338,7 @@ async function helpCommand(): Promise<void> {
   console.log("  npm run test                 # Test Linear API connection");
   console.log("  npm start start --config=.env.prod  # Use custom config");
   console.log("  npm start start --host=127.0.0.1 --port=3000  # Custom host/port");
+  console.log("  npm start start --skip-linear-check  # Skip Linear connection test");
   console.log("");
   console.log("Environment Variables:");
   console.log("  LINEAR_API_TOKEN             Linear API token (required)");
@@ -336,6 +349,8 @@ async function helpCommand(): Promise<void> {
     "  PROJECT_ROOT_DIR             Project directory path (required)",
   );
   console.log("  WEBHOOK_PORT                 Server port (default: 3000)");
+  console.log("  WEBHOOK_HOST                 Server bind address (default: 0.0.0.0)");
+  console.log("  SKIP_LINEAR_CHECK            Skip Linear API test (default: false)");
   console.log(
     "  DEBUG                        Enable debug logging (default: false)",
   );

@@ -583,8 +583,12 @@ export class IntegrationServer {
       // Validate configuration
       await this.validateConfig();
 
-      // Test Linear connection
-      await this.testLinearConnection();
+      // Test Linear connection (optional in development/testing mode)
+      if (!this.config.skipLinearCheck) {
+        await this.testLinearConnection();
+      } else {
+        this.logger.warn("⚠️  Skipping Linear API connection test (development mode)");
+      }
 
       // Start HTTP server
       await this.app.listen({
