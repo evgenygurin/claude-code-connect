@@ -133,7 +133,7 @@ docker-build:
 
 ## Docker Run - Run container
 docker-run:
-	@docker run -p 3000:3000 --env-file .env claude-code-connect
+	@docker run -p 3005:3005 --env-file .env claude-code-connect
 
 # Shortcuts
 .PHONY: dev-setup quick

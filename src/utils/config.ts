@@ -40,7 +40,7 @@ const ENV_MAPPING = {
 const DEFAULT_CONFIG: Partial<IntegrationConfig> = {
   defaultBranch: "main",
   createBranches: true,
-  webhookPort: 3000,
+  webhookPort: 3005,
   claudeExecutablePath: "claude",
   timeoutMinutes: 30,
   debug: false,
@@ -226,7 +226,7 @@ LINEAR_ORGANIZATION_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ENABLE_OAUTH=true
 LINEAR_CLIENT_ID=your-linear-client-id
 LINEAR_CLIENT_SECRET=your-linear-client-secret
-OAUTH_REDIRECT_URI=http://localhost:3000/oauth/callback
+OAUTH_REDIRECT_URI=http://localhost:3005/oauth/callback
 
 # Required: Path to your project directory
 PROJECT_ROOT_DIR=/path/to/your/project
@@ -242,7 +242,7 @@ DEFAULT_BRANCH=main
 CREATE_BRANCHES=true
 
 # Optional: Server configuration
-WEBHOOK_PORT=3000
+WEBHOOK_PORT=3005
 SESSION_TIMEOUT_MINUTES=30
 
 # Optional: Claude executable path (if not in PATH)
