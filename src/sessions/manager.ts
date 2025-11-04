@@ -4,20 +4,16 @@
 
 import { EventEmitter } from "events";
 import { promises as fs } from "fs";
-import { join } from "path";
 import type {
   ClaudeSession,
   ClaudeExecutionContext,
   ClaudeExecutionResult,
   IntegrationConfig,
   Logger,
-  SessionStatus,
   SessionStorage,
   SessionMetadata,
   SessionPermissions,
-  SessionSecurityContext,
 } from "../core/types.js";
-import { SessionStatusValues } from "../core/types.js";
 import { ClaudeExecutor } from "../claude/executor.js";
 import { createSession } from "./storage.js";
 import { GitWorktreeManager } from "../utils/git.js";
@@ -38,12 +34,12 @@ export interface SessionManagerEvents {
  * Session manager for Claude Code + Linear integration
  */
 export class SessionManager extends EventEmitter {
-  private config: IntegrationConfig;
-  private logger: Logger;
-  private storage: SessionStorage;
+  protected config: IntegrationConfig;
+  protected logger: Logger;
+  protected storage: SessionStorage;
   private executor: ClaudeExecutor;
   private gitManager: GitWorktreeManager;
-  private activeExecutions = new Map<string, NodeJS.Timeout>();
+  private activeExecutions = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
     config: IntegrationConfig,
@@ -94,9 +90,19 @@ export class SessionManager extends EventEmitter {
         }
       }
 
+      // Get creator ID
+      const creator = await issue.creator;
+      let creatorId = "unknown";
+      if (triggerComment) {
+        const commentUser = await triggerComment.user;
+        creatorId = commentUser?.id || "unknown";
+      } else {
+        creatorId = creator?.id || "unknown";
+      }
+
       // Create session metadata
       const metadata: SessionMetadata = {
-        createdBy: triggerComment ? triggerComment.user.id : issue.creator.id,
+        createdBy: creatorId,
         organizationId: this.config.linearOrganizationId,
         projectScope: [this.config.projectRootDir],
         permissions: this.getDefaultPermissions(),
@@ -223,7 +229,7 @@ export class SessionManager extends EventEmitter {
   private async executeClaudeCode(
     context: ClaudeExecutionContext
   ): Promise<void> {
-    const { session, issue } = context;
+    const { session } = context;
 
     try {
       // Execute Claude Code

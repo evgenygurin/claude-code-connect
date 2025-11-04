@@ -204,7 +204,6 @@ export class IntegrationServer {
         }
 
         // Security validation is now handled by the SecurityAgent
-
         // Then apply security validation (from feature branch)
         const securityResult = await this.securityAgent.validateWebhook(
           payloadString,

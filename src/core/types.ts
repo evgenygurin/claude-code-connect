@@ -40,6 +40,12 @@ export interface IntegrationConfig {
   debug?: boolean;
   /** Enable OAuth flow */
   enableOAuth?: boolean;
+  /** Enable Boss Agent mode for delegation */
+  enableBossAgent?: boolean;
+  /** Boss Agent complexity threshold for delegation (1-10) */
+  bossAgentThreshold?: number;
+  /** Maximum concurrent sub-agents */
+  maxConcurrentAgents?: number;
 }
 
 /**

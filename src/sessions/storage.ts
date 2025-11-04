@@ -107,7 +107,7 @@ export class FileSessionStorage implements SessionStorage {
       
       return session;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      if ((error as { code?: string }).code === "ENOENT") {
         this.logger.debug("Session not found", { sessionId, filePath });
         return null;
       }
@@ -217,7 +217,7 @@ export class FileSessionStorage implements SessionStorage {
         filePath,
       });
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      if ((error as { code?: string }).code === "ENOENT") {
         this.logger.debug("Session not found for deletion", {
           sessionId,
           filePath,
