@@ -852,46 +852,236 @@ export class IntegrationServer {
    * Report Codegen progress to Linear
    */
   private async reportCodegenProgress(event: ProcessedCodegenEvent): Promise<void> {
-    // TODO: Map task ID to Linear issue
-    // For now, just log
-    this.logger.info("Codegen progress update", {
-      taskId: event.taskId,
-      percentage: event.progress?.percentage,
-      step: event.progress?.currentStep,
-    });
+    if (!this.bossAgent) {
+      return;
+    }
+
+    try {
+      // Get task session to find associated Linear issue
+      const taskSessionManager = this.bossAgent.getTaskSessionManager();
+      const taskSession = await taskSessionManager.getSessionByTaskId(event.taskId);
+
+      if (!taskSession) {
+        this.logger.warn('Task session not found for progress update', {
+          taskId: event.taskId,
+        });
+        return;
+      }
+
+      // Update task session progress
+      if (event.progress) {
+        await taskSessionManager.updateProgress(
+          event.taskId,
+          event.progress.percentage,
+          event.progress.currentStep
+        );
+      }
+
+      // Get Linear issue
+      const issue = await this.linearClient.getIssue(taskSession.issueId);
+      if (!issue) {
+        this.logger.warn('Linear issue not found for progress update', {
+          taskId: event.taskId,
+          issueId: taskSession.issueId,
+        });
+        return;
+      }
+
+      // Report progress to Linear
+      const message = `⏳ **Task Progress: ${event.progress?.percentage || 0}%**\n\n` +
+        `Current step: ${event.progress?.currentStep || 'Processing...'}\n` +
+        `${event.progress?.details ? `\n${event.progress.details}` : ''}`;
+
+      await this.linearClient.createComment(issue.id, message);
+
+      this.logger.info("Codegen progress reported to Linear", {
+        taskId: event.taskId,
+        issueId: issue.id,
+        percentage: event.progress?.percentage,
+      });
+    } catch (error) {
+      this.logger.error('Failed to report Codegen progress', error as Error, {
+        taskId: event.taskId,
+      });
+    }
   }
 
   /**
    * Report Codegen completion to Linear
    */
   private async reportCodegenCompletion(event: ProcessedCodegenEvent): Promise<void> {
-    // TODO: Map task ID to Linear issue and report success
-    this.logger.info("Codegen task completed", {
-      taskId: event.taskId,
-      prUrl: event.result?.prUrl,
-      filesChanged: event.result?.filesChanged?.length || 0,
-    });
+    if (!this.bossAgent) {
+      return;
+    }
+
+    try {
+      // Get task session to find associated Linear issue
+      const taskSessionManager = this.bossAgent.getTaskSessionManager();
+      const taskSession = await taskSessionManager.getSessionByTaskId(event.taskId);
+
+      if (!taskSession) {
+        this.logger.warn('Task session not found for completion', {
+          taskId: event.taskId,
+        });
+        return;
+      }
+
+      // Update task session
+      if (event.result) {
+        await taskSessionManager.markCompleted(event.taskId, {
+          prUrl: event.result.prUrl,
+          prNumber: event.result.prNumber,
+          filesChanged: event.result.filesChanged,
+          duration: event.result.duration,
+        });
+      }
+
+      // Get Linear issue
+      const issue = await this.linearClient.getIssue(taskSession.issueId);
+      if (!issue) {
+        this.logger.warn('Linear issue not found for completion', {
+          taskId: event.taskId,
+          issueId: taskSession.issueId,
+        });
+        return;
+      }
+
+      // Report success to Linear using existing reporter
+      await this.linearReporter.reportDelegationSuccess(issue, {
+        delegateTo: 'codegen',
+        prUrl: event.result?.prUrl,
+        prNumber: event.result?.prNumber,
+        filesChanged: event.result?.filesChanged,
+        message: `✅ **Task completed successfully!**\n\n` +
+          `${event.result?.prUrl ? `🔗 Pull Request: ${event.result.prUrl}\n` : ''}` +
+          `📝 Files changed: ${event.result?.filesChanged?.length || 0}\n` +
+          `⏱️ Duration: ${event.result?.duration ? `${Math.round(event.result.duration / 1000)}s` : 'N/A'}\n\n` +
+          `Please review and merge the PR.`,
+      });
+
+      this.logger.info("Codegen completion reported to Linear", {
+        taskId: event.taskId,
+        issueId: issue.id,
+        prUrl: event.result?.prUrl,
+      });
+    } catch (error) {
+      this.logger.error('Failed to report Codegen completion', error as Error, {
+        taskId: event.taskId,
+      });
+    }
   }
 
   /**
    * Report Codegen failure to Linear
    */
   private async reportCodegenFailure(event: ProcessedCodegenEvent): Promise<void> {
-    // TODO: Map task ID to Linear issue and report failure
-    this.logger.error("Codegen task failed", undefined, {
-      taskId: event.taskId,
-      error: event.error?.message,
-    });
+    if (!this.bossAgent) {
+      return;
+    }
+
+    try {
+      // Get task session to find associated Linear issue
+      const taskSessionManager = this.bossAgent.getTaskSessionManager();
+      const taskSession = await taskSessionManager.getSessionByTaskId(event.taskId);
+
+      if (!taskSession) {
+        this.logger.warn('Task session not found for failure', {
+          taskId: event.taskId,
+        });
+        return;
+      }
+
+      // Update task session
+      if (event.error) {
+        await taskSessionManager.markFailed(event.taskId, {
+          message: event.error.message,
+          code: event.error.code,
+          details: event.error.details,
+        });
+      }
+
+      // Get Linear issue
+      const issue = await this.linearClient.getIssue(taskSession.issueId);
+      if (!issue) {
+        this.logger.warn('Linear issue not found for failure', {
+          taskId: event.taskId,
+          issueId: taskSession.issueId,
+        });
+        return;
+      }
+
+      // Report failure to Linear using existing reporter
+      await this.linearReporter.reportDelegationFailure(issue, {
+        delegateTo: 'codegen',
+        error: event.error?.message || 'Unknown error',
+        message: `❌ **Task failed**\n\n` +
+          `Error: ${event.error?.message || 'Unknown error'}\n` +
+          `${event.error?.code ? `Code: ${event.error.code}\n` : ''}` +
+          `\nThe Codegen agent encountered an issue while processing this task.\n` +
+          `Please check the error details and try again.`,
+      });
+
+      this.logger.error("Codegen failure reported to Linear", undefined, {
+        taskId: event.taskId,
+        issueId: issue.id,
+        error: event.error?.message,
+      });
+    } catch (error) {
+      this.logger.error('Failed to report Codegen failure', error as Error, {
+        taskId: event.taskId,
+      });
+    }
   }
 
   /**
    * Report Codegen cancellation to Linear
    */
   private async reportCodegenCancellation(event: ProcessedCodegenEvent): Promise<void> {
-    // TODO: Map task ID to Linear issue and report cancellation
-    this.logger.warn("Codegen task cancelled", {
-      taskId: event.taskId,
-    });
+    if (!this.bossAgent) {
+      return;
+    }
+
+    try {
+      // Get task session to find associated Linear issue
+      const taskSessionManager = this.bossAgent.getTaskSessionManager();
+      const taskSession = await taskSessionManager.getSessionByTaskId(event.taskId);
+
+      if (!taskSession) {
+        this.logger.warn('Task session not found for cancellation', {
+          taskId: event.taskId,
+        });
+        return;
+      }
+
+      // Update task session
+      await taskSessionManager.markCancelled(event.taskId);
+
+      // Get Linear issue
+      const issue = await this.linearClient.getIssue(taskSession.issueId);
+      if (!issue) {
+        this.logger.warn('Linear issue not found for cancellation', {
+          taskId: event.taskId,
+          issueId: taskSession.issueId,
+        });
+        return;
+      }
+
+      // Report cancellation to Linear
+      const message = `⚠️ **Task cancelled**\n\n` +
+        `The task was cancelled before completion.\n` +
+        `You can restart the task by commenting with @claude.`;
+
+      await this.linearClient.createComment(issue.id, message);
+
+      this.logger.warn("Codegen cancellation reported to Linear", {
+        taskId: event.taskId,
+        issueId: issue.id,
+      });
+    } catch (error) {
+      this.logger.error('Failed to report Codegen cancellation', error as Error, {
+        taskId: event.taskId,
+      });
+    }
   }
 
   /**
