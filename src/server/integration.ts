@@ -206,6 +206,48 @@ export class IntegrationServer {
       initializeLinearOAuth(this.app, this.config, this.logger);
     }
 
+    // Root endpoint - API information
+    this.app.get(
+      "/",
+      async (_request: FastifyRequest, _reply: FastifyReply) => {
+        return {
+          name: "Claude Code Connect API",
+          version: "1.0.0",
+          status: "operational",
+          endpoints: {
+            health: "GET /health - Server health check",
+            config: "GET /config - Configuration summary",
+            sessions: {
+              list: "GET /sessions - List all sessions",
+              active: "GET /sessions/active - List active sessions",
+              detail: "GET /sessions/:id - Get session details",
+              cancel: "DELETE /sessions/:id - Cancel a session",
+            },
+            monitoring: {
+              stats: "GET /stats - Server statistics",
+              security: {
+                metrics: "GET /security/metrics - Security metrics",
+                alerts: "GET /security/alerts - Security alerts",
+                events: "GET /security/events - Security event log",
+              },
+            },
+            webhooks: {
+              linear: "POST /webhooks/linear - Linear webhook receiver",
+              github: "POST /webhooks/github - GitHub webhook receiver",
+            },
+          },
+          webUI: {
+            url: "http://localhost:3000",
+            description: "Visit the Web UI for a visual dashboard",
+          },
+          documentation: {
+            readme: "See README.md for complete documentation",
+            quickstart: "See docs/QUICK-START-GUIDE.md for setup",
+          },
+        };
+      },
+    );
+
     // Health check endpoint
     this.app.get(
       "/health",
