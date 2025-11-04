@@ -129,8 +129,77 @@ The system automatically determines:
 - **Organization ID**: From your Linear API token
 - **Project Directory**: Current working directory
 - **Agent User**: Current authenticated Linear user
-- **Port**: Default 3005 (configurable via WEBHOOK_PORT)
+- **Port**: Default 3005 for local, **auto-switches to 3000 for Codegen Web Preview**
 - **All other settings**: Use sensible defaults
+
+## 🌐 Web Preview (Codegen Sandbox)
+
+This project **automatically supports Codegen's Web Preview** feature for testing and development in secure sandbox environments.
+
+### Automatic Port Configuration
+
+The application automatically detects when running in Codegen's Web Preview environment and switches to port 3000:
+
+```typescript
+// Automatic detection via CG_PREVIEW_URL environment variable
+webhookPort: process.env.CG_PREVIEW_URL ? 3000 : 3005
+```
+
+- **Local Development**: Port 3005 (default)
+- **Codegen Web Preview**: Port 3000 (auto-detected)
+
+### Setup Web Preview in Codegen
+
+1. **Configure Setup Commands** at `codegen.com/repos/{org}/{repo}/settings/setup-commands`:
+
+   ```bash
+   npm install
+   ```
+
+2. **Configure Web Preview Command** at `codegen.com/repos/{org}/{repo}/settings/web-preview`:
+
+   ```bash
+   npm run start:dev
+   ```
+
+3. **Set Environment Variables** at `codegen.com/repos/{org}/{repo}/settings/secrets`:
+
+   ```bash
+   LINEAR_API_TOKEN=your_token
+   LINEAR_ORGANIZATION_ID=your_org_id
+   PROJECT_ROOT_DIR=/tmp/{org}/{repo}
+   # Do NOT set WEBHOOK_PORT - auto-configured
+   ```
+
+### Web Preview Features
+
+When running in Web Preview mode, you'll see:
+
+```text
+🌐 Web Preview: https://ta-xxxxx-3000.wo-xxxxx.w.modal.host
+📡 Webhook endpoint: https://.../webhooks/linear
+📊 Management API: https://.../
+```
+
+**Available Endpoints:**
+
+- `{CG_PREVIEW_URL}/health` - Health check
+- `{CG_PREVIEW_URL}/config` - Configuration summary
+- `{CG_PREVIEW_URL}/sessions` - Session management
+- `{CG_PREVIEW_URL}/stats` - Server statistics
+- `{CG_PREVIEW_URL}/webhooks/linear` - Linear webhooks
+- `{CG_PREVIEW_URL}/webhooks/github` - GitHub webhooks
+
+### Testing Webhooks with Web Preview
+
+The public Web Preview URL can be used to test webhook integrations without ngrok:
+
+```bash
+# Use the Web Preview URL in Linear/GitHub webhook settings
+# Example: https://ta-xxxxx-3000.wo-xxxxx.w.modal.host/webhooks/linear
+```
+
+**Documentation**: See [Web Preview Setup Guide](docs/WEB-PREVIEW-SETUP.md) for detailed instructions.
 
 ## 🤖 Codegen Integration
 
