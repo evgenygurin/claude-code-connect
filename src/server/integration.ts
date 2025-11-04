@@ -32,6 +32,8 @@ import { GitHubPRAgent } from "../github/pr-agent.js";
 import { Mem0MemoryManager } from "../memory/manager.js";
 import { BossAgent } from "../boss-agent/agent.js";
 import { CodegenClient } from "../codegen/client.js";
+import { CodegenWebhookHandler, CodegenWebhookEventType } from "../codegen/webhook-handler.js";
+import type { ProcessedCodegenEvent } from "../codegen/webhook-handler.js";
 
 /**
  * Webhook request body type
@@ -68,6 +70,7 @@ export class IntegrationServer {
   private orgRateLimiter: RateLimiterMemory;
   private bossAgent?: BossAgent;
   private codegenClient?: CodegenClient;
+  private codegenWebhookHandler?: CodegenWebhookHandler;
 
   constructor(config: IntegrationConfig) {
     this.config = config;
@@ -186,6 +189,21 @@ export class IntegrationServer {
             threshold: config.bossAgentThreshold || 6,
             maxConcurrent: config.maxConcurrentAgents || 3,
           });
+
+          // Initialize Codegen webhook handler if webhook callbacks enabled
+          if (config.codegenWebhookEnabled) {
+            this.codegenWebhookHandler = new CodegenWebhookHandler(this.logger, {
+              secret: config.codegenWebhookSecret,
+              debug: config.debug,
+            });
+
+            // Setup webhook event listeners
+            this.setupCodegenWebhookListeners();
+
+            this.logger.info("Codegen webhook handler initialized", {
+              hasSecret: !!config.codegenWebhookSecret,
+            });
+          }
         } else {
           this.logger.warn("Boss Agent enabled but Codegen credentials missing", {
             hasApiToken: !!config.codegenApiToken,
@@ -217,6 +235,63 @@ export class IntegrationServer {
 
     this.setupRoutes();
     this.setupShutdown();
+  }
+
+  /**
+   * Setup Codegen webhook event listeners
+   */
+  private setupCodegenWebhookListeners(): void {
+    if (!this.codegenWebhookHandler) {
+      return;
+    }
+
+    // Listen for task progress updates
+    this.codegenWebhookHandler.on(CodegenWebhookEventType.TASK_PROGRESS, async (event) => {
+      this.logger.info('Codegen task progress', {
+        taskId: event.taskId,
+        percentage: event.progress?.percentage,
+        step: event.progress?.currentStep,
+      });
+
+      // Report progress to Linear
+      if (event.progress && event.shouldNotify) {
+        await this.reportCodegenProgress(event);
+      }
+    });
+
+    // Listen for task completion
+    this.codegenWebhookHandler.on(CodegenWebhookEventType.TASK_COMPLETED, async (event) => {
+      this.logger.info('Codegen task completed', {
+        taskId: event.taskId,
+        prUrl: event.result?.prUrl,
+      });
+
+      // Report success to Linear
+      await this.reportCodegenCompletion(event);
+    });
+
+    // Listen for task failure
+    this.codegenWebhookHandler.on(CodegenWebhookEventType.TASK_FAILED, async (event) => {
+      this.logger.error('Codegen task failed', undefined, {
+        taskId: event.taskId,
+        error: event.error?.message,
+      });
+
+      // Report failure to Linear
+      await this.reportCodegenFailure(event);
+    });
+
+    // Listen for task cancellation
+    this.codegenWebhookHandler.on(CodegenWebhookEventType.TASK_CANCELLED, async (event) => {
+      this.logger.warn('Codegen task cancelled', {
+        taskId: event.taskId,
+      });
+
+      // Report cancellation to Linear
+      await this.reportCodegenCancellation(event);
+    });
+
+    this.logger.debug('Codegen webhook listeners setup complete');
   }
 
   /**
@@ -401,6 +476,60 @@ export class IntegrationServer {
 
         // Process event asynchronously
         this.processGitHubWebhookAsync(event, eventType);
+
+        return { received: true, processed: true };
+      },
+    );
+
+    // Codegen webhook endpoint
+    this.app.post<WebhookRequest>(
+      "/webhooks/codegen",
+      async (request, reply) => {
+        // Check if Codegen integration is enabled
+        if (!this.codegenWebhookHandler) {
+          this.logger.warn("Codegen webhook received but integration not configured");
+          return reply.code(503).send({
+            error: "Service unavailable",
+            message: "Codegen webhook integration not configured",
+          });
+        }
+
+        const signature = request.headers["x-codegen-signature"] || request.headers["x-webhook-signature"];
+        const clientIp = request.ip;
+        const payloadString = JSON.stringify(request.body);
+
+        this.logger.debug("Received Codegen webhook", {
+          signature: signature ? "present" : "missing",
+          clientIp,
+          bodySize: payloadString.length,
+        });
+
+        // Apply global rate limiting
+        try {
+          await this.webhookRateLimiter.consume(clientIp);
+        } catch (rateLimitError) {
+          this.logger.warn("Global rate limit exceeded", { clientIp });
+          return reply.code(429).send({
+            error: "Too many requests",
+            message: "Rate limit exceeded. Please try again later.",
+          });
+        }
+
+        // Verify signature if provided
+        if (signature && !this.codegenWebhookHandler.verifySignature(payloadString, signature as string)) {
+          this.logger.warn("Codegen webhook signature verification failed", { clientIp });
+          return reply.code(401).send({ error: "Invalid signature" });
+        }
+
+        // Validate webhook payload
+        const event = this.codegenWebhookHandler.validateWebhook(request.body);
+        if (!event) {
+          this.logger.warn("Invalid Codegen webhook payload", { clientIp });
+          return reply.code(400).send({ error: "Invalid payload" });
+        }
+
+        // Process event asynchronously
+        this.processCodegenWebhookAsync(event);
 
         return { received: true, processed: true };
       },
@@ -693,6 +822,76 @@ export class IntegrationServer {
     } catch (error) {
       this.logger.error("Failed to process GitHub webhook", error as Error);
     }
+  }
+
+  /**
+   * Process Codegen webhook asynchronously
+   */
+  private async processCodegenWebhookAsync(event: any): Promise<void> {
+    if (!this.codegenWebhookHandler) {
+      this.logger.error("Codegen webhook handler not initialized");
+      return;
+    }
+
+    try {
+      const processedEvent = await this.codegenWebhookHandler.processWebhook(event);
+
+      if (processedEvent) {
+        this.logger.info("Codegen webhook processed", {
+          type: processedEvent.type,
+          taskId: processedEvent.taskId,
+          shouldNotify: processedEvent.shouldNotify,
+        });
+      }
+    } catch (error) {
+      this.logger.error("Failed to process Codegen webhook", error as Error);
+    }
+  }
+
+  /**
+   * Report Codegen progress to Linear
+   */
+  private async reportCodegenProgress(event: ProcessedCodegenEvent): Promise<void> {
+    // TODO: Map task ID to Linear issue
+    // For now, just log
+    this.logger.info("Codegen progress update", {
+      taskId: event.taskId,
+      percentage: event.progress?.percentage,
+      step: event.progress?.currentStep,
+    });
+  }
+
+  /**
+   * Report Codegen completion to Linear
+   */
+  private async reportCodegenCompletion(event: ProcessedCodegenEvent): Promise<void> {
+    // TODO: Map task ID to Linear issue and report success
+    this.logger.info("Codegen task completed", {
+      taskId: event.taskId,
+      prUrl: event.result?.prUrl,
+      filesChanged: event.result?.filesChanged?.length || 0,
+    });
+  }
+
+  /**
+   * Report Codegen failure to Linear
+   */
+  private async reportCodegenFailure(event: ProcessedCodegenEvent): Promise<void> {
+    // TODO: Map task ID to Linear issue and report failure
+    this.logger.error("Codegen task failed", undefined, {
+      taskId: event.taskId,
+      error: event.error?.message,
+    });
+  }
+
+  /**
+   * Report Codegen cancellation to Linear
+   */
+  private async reportCodegenCancellation(event: ProcessedCodegenEvent): Promise<void> {
+    // TODO: Map task ID to Linear issue and report cancellation
+    this.logger.warn("Codegen task cancelled", {
+      taskId: event.taskId,
+    });
   }
 
   /**
