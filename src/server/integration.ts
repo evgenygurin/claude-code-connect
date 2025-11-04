@@ -30,6 +30,8 @@ import { GitHubClient } from "../github/client.js";
 import { GitHubWebhookHandler } from "../github/webhook-handler.js";
 import { GitHubPRAgent } from "../github/pr-agent.js";
 import { Mem0MemoryManager } from "../memory/manager.js";
+import { BossAgent } from "../boss-agent/agent.js";
+import { CodegenClient } from "../codegen/client.js";
 
 /**
  * Webhook request body type
@@ -64,6 +66,8 @@ export class IntegrationServer {
   private isStarted = false;
   private webhookRateLimiter: RateLimiterMemory;
   private orgRateLimiter: RateLimiterMemory;
+  private bossAgent?: BossAgent;
+  private codegenClient?: CodegenClient;
 
   constructor(config: IntegrationConfig) {
     this.config = config;
@@ -156,6 +160,41 @@ export class IntegrationServer {
     this.memoryManager = new Mem0MemoryManager(config, this.logger);
     if (this.memoryManager.isEnabled()) {
       this.logger.info("Mem0 integration enabled");
+    }
+
+    // Initialize Boss Agent if enabled
+    if (config.enableBossAgent) {
+      try {
+        // Initialize Codegen client
+        if (config.codegenApiToken && config.codegenOrgId) {
+          this.codegenClient = new CodegenClient(
+            config.codegenApiToken,
+            config.codegenOrgId,
+            {
+              baseUrl: config.codegenBaseUrl,
+              defaultTimeout: config.codegenDefaultTimeout,
+            },
+            this.logger
+          );
+
+          // Initialize Boss Agent with Codegen client
+          this.bossAgent = new BossAgent(config, this.logger, this.codegenClient);
+
+          this.logger.info("Boss Agent initialized", {
+            mode: "coordinator",
+            codegenEnabled: true,
+            threshold: config.bossAgentThreshold || 6,
+            maxConcurrent: config.maxConcurrentAgents || 3,
+          });
+        } else {
+          this.logger.warn("Boss Agent enabled but Codegen credentials missing", {
+            hasApiToken: !!config.codegenApiToken,
+            hasOrgId: !!config.codegenOrgId,
+          });
+        }
+      } catch (error) {
+        this.logger.error("Failed to initialize Boss Agent", error as Error);
+      }
     }
 
     // Create enhanced webhook handler with security features
@@ -506,12 +545,25 @@ export class IntegrationServer {
           },
           blocked: false
         });
-        
-        await this.eventRouter.routeEvent(processedEvent);
+
+        // Use Boss Agent if enabled and event should trigger
+        if (this.bossAgent && processedEvent.shouldTrigger) {
+          this.logger.info("Boss Agent handling event", {
+            eventType: processedEvent.type,
+            action: processedEvent.action,
+            issueId: processedEvent.issue.id,
+          });
+
+          // Execute Boss Agent workflow
+          await this.processBossAgentWorkflow(processedEvent);
+        } else {
+          // Use default event router
+          await this.eventRouter.routeEvent(processedEvent);
+        }
       }
     } catch (error) {
       this.logger.error("Failed to process webhook", error as Error);
-      
+
       // Log security event for webhook processing failure
       await this.securityAgent.logSecurityEvent({
         id: `webhook-error-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -523,6 +575,89 @@ export class IntegrationServer {
         details: { error: (error as Error).message },
         blocked: false
       });
+    }
+  }
+
+  /**
+   * Process Boss Agent workflow
+   */
+  private async processBossAgentWorkflow(processedEvent: any): Promise<void> {
+    if (!this.bossAgent) {
+      this.logger.error("Boss Agent not initialized");
+      return;
+    }
+
+    try {
+      this.logger.info("Starting Boss Agent workflow", {
+        issueId: processedEvent.issue.id,
+        issueIdentifier: processedEvent.issue.identifier,
+      });
+
+      // Report initial status to Linear
+      await this.linearReporter.reportDelegationStarted(
+        processedEvent.issue,
+        {
+          delegateTo: 'codegen',
+          message: '🤖 **Boss Agent activated!**\n\nAnalyzing task and preparing delegation to Codegen...',
+        }
+      );
+
+      // Execute Boss Agent workflow
+      const result = await this.bossAgent.executeWorkflow(
+        processedEvent.issue,
+        processedEvent.comment
+      );
+
+      this.logger.info("Boss Agent workflow completed", {
+        issueId: result.issueId,
+        status: result.status,
+        delegatedTo: result.delegatedTo,
+      });
+
+      // Report result to Linear
+      if (result.status === 'success' && result.prUrl) {
+        await this.linearReporter.reportDelegationSuccess(
+          processedEvent.issue,
+          {
+            delegateTo: result.delegatedTo || 'codegen',
+            prUrl: result.prUrl,
+            prNumber: result.prNumber,
+            filesChanged: result.filesChanged || [],
+            message: `✅ **Task completed successfully!**\n\n` +
+              `🔗 Pull Request: ${result.prUrl}\n` +
+              `📝 Files changed: ${result.filesChanged?.length || 0}\n` +
+              `⏱️ Duration: ${result.duration || 'N/A'}\n\n` +
+              `Please review and merge the PR.`,
+          }
+        );
+      } else if (result.status === 'failed') {
+        await this.linearReporter.reportDelegationFailure(
+          processedEvent.issue,
+          {
+            delegateTo: result.delegatedTo || 'codegen',
+            error: result.error || 'Unknown error',
+            message: `❌ **Task failed**\n\n` +
+              `Error: ${result.error || 'Unknown error'}\n\n` +
+              `The Boss Agent encountered an issue while processing this task.`,
+          }
+        );
+      }
+    } catch (error) {
+      this.logger.error("Boss Agent workflow failed", error as Error, {
+        issueId: processedEvent.issue.id,
+      });
+
+      // Report error to Linear
+      await this.linearReporter.reportDelegationFailure(
+        processedEvent.issue,
+        {
+          delegateTo: 'codegen',
+          error: (error as Error).message,
+          message: `❌ **Boss Agent workflow failed**\n\n` +
+            `Error: ${(error as Error).message}\n\n` +
+            `Please check the logs for more details.`,
+        }
+      );
     }
   }
 

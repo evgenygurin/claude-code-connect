@@ -430,5 +430,89 @@ The session was cancelled, possibly due to timeout or manual intervention.
     // If we get here, all retries failed
     throw lastError || new Error("API call failed after retries");
   }
+
+  /**
+   * Report delegation started to Linear
+   */
+  async reportDelegationStarted(
+    issue: any,
+    options: {
+      delegateTo: string;
+      message: string;
+    }
+  ): Promise<void> {
+    try {
+      await this.withRetry(async () => {
+        await this.linearClient.createComment(issue.id, options.message);
+      });
+
+      this.logger.info("Reported delegation started to Linear", {
+        issueId: issue.id,
+        delegateTo: options.delegateTo,
+      });
+    } catch (error) {
+      this.logger.error("Failed to report delegation started", error as Error, {
+        issueId: issue.id,
+      });
+    }
+  }
+
+  /**
+   * Report delegation success to Linear
+   */
+  async reportDelegationSuccess(
+    issue: any,
+    options: {
+      delegateTo: string;
+      prUrl?: string;
+      prNumber?: number;
+      filesChanged?: string[];
+      message: string;
+    }
+  ): Promise<void> {
+    try {
+      await this.withRetry(async () => {
+        await this.linearClient.createComment(issue.id, options.message);
+      });
+
+      this.logger.info("Reported delegation success to Linear", {
+        issueId: issue.id,
+        delegateTo: options.delegateTo,
+        prUrl: options.prUrl,
+      });
+    } catch (error) {
+      this.logger.error("Failed to report delegation success", error as Error, {
+        issueId: issue.id,
+      });
+    }
+  }
+
+  /**
+   * Report delegation failure to Linear
+   */
+  async reportDelegationFailure(
+    issue: any,
+    options: {
+      delegateTo: string;
+      error: string;
+      message: string;
+    }
+  ): Promise<void> {
+    try {
+      await this.withRetry(async () => {
+        await this.linearClient.createComment(issue.id, options.message);
+      });
+
+      this.logger.error("Reported delegation failure to Linear", undefined, {
+        issueId: issue.id,
+        delegateTo: options.delegateTo,
+        error: options.error,
+      });
+    } catch (error) {
+      this.logger.error("Failed to report delegation failure", error as Error, {
+        issueId: issue.id,
+      });
+    }
+  }
 }
 
