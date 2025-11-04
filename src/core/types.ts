@@ -18,6 +18,14 @@ export interface IntegrationConfig {
   linearClientSecret?: string;
   /** OAuth redirect URI */
   oauthRedirectUri?: string;
+  /** GitHub personal access token */
+  githubToken?: string;
+  /** GitHub webhook secret for signature validation */
+  githubWebhookSecret?: string;
+  /** GitHub repository owner/org */
+  githubOwner?: string;
+  /** GitHub repository name */
+  githubRepo?: string;
   /** Claude Code CLI path (optional, defaults to 'claude-code') */
   claudeCodePath?: string;
   /** Claude executable path (optional, defaults to 'claude') */
@@ -326,4 +334,78 @@ export interface SessionStorage {
   updateStatus(sessionId: string, status: SessionStatus): Promise<void>;
   /** Clean up old sessions */
   cleanupOldSessions(maxAgeDays: number): Promise<number>;
+}
+
+/**
+ * GitHub webhook event types
+ */
+export interface GitHubUser {
+  id: number;
+  login: string;
+  name?: string;
+  email?: string;
+}
+
+export interface GitHubRepository {
+  id: number;
+  name: string;
+  full_name: string;
+  owner: GitHubUser;
+}
+
+export interface GitHubPullRequest {
+  id: number;
+  number: number;
+  title: string;
+  body?: string;
+  state: "open" | "closed";
+  user: GitHubUser;
+  html_url: string;
+  head: {
+    ref: string;
+    sha: string;
+  };
+  base: {
+    ref: string;
+    sha: string;
+  };
+}
+
+export interface GitHubComment {
+  id: number;
+  body: string;
+  user: GitHubUser;
+  created_at: string;
+  updated_at: string;
+  html_url: string;
+}
+
+export interface GitHubWebhookEvent {
+  action: string;
+  comment?: GitHubComment;
+  pull_request?: GitHubPullRequest;
+  issue?: {
+    id: number;
+    number: number;
+    title: string;
+    body?: string;
+    user: GitHubUser;
+  };
+  repository: GitHubRepository;
+  sender: GitHubUser;
+}
+
+/**
+ * Processed GitHub event
+ */
+export interface ProcessedGitHubEvent {
+  type: "pr_comment" | "issue_comment";
+  action: string;
+  comment: GitHubComment;
+  pullRequest?: GitHubPullRequest;
+  repository: GitHubRepository;
+  sender: GitHubUser;
+  shouldTrigger: boolean;
+  triggerReason?: string;
+  timestamp: Date;
 }
