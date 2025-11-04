@@ -7,6 +7,7 @@ import Fastify, {
   FastifyRequest,
   FastifyReply,
 } from "fastify";
+import fastifyStatic from "@fastify/static";
 import { join } from "path";
 import { RateLimiterMemory } from "rate-limiter-flexible";
 import type {
@@ -335,6 +336,13 @@ export class IntegrationServer {
    * Setup HTTP routes
    */
   private setupRoutes(): void {
+    // Serve static files from public directory
+    const publicDir = join(this.config.projectRootDir, 'public');
+    this.app.register(fastifyStatic, {
+      root: publicDir,
+      prefix: '/',
+    });
+
     // Initialize OAuth if enabled
     if (this.config.enableOAuth) {
       this.logger.info("Initializing OAuth integration");

@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^1.0.128",
+    "@fastify/static": "^7.0.4",
     "@linear/sdk": "^26.0.0",
     "@octokit/rest": "^20.1.2",
     "@radix-ui/react-dialog": "^1.1.15",
