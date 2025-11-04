@@ -14,7 +14,6 @@ import type {
   Logger,
   SessionStorage,
   ClaudeSession,
-  ClaudeExecutionResult,
 } from "../core/types.js";
 import { SessionManager } from "../sessions/manager.js";
 import { BossAgent } from "./boss-agent.js";

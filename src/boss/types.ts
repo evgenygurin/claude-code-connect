@@ -3,7 +3,7 @@
  */
 
 import type { Issue, Comment } from "@linear/sdk";
-import type { ClaudeSession, ClaudeExecutionResult, IntegrationConfig, Logger } from "../core/types.js";
+import type { ClaudeSession, ClaudeExecutionResult, IntegrationConfig } from "../core/types.js";
 
 /**
  * Agent types for specialized tasks

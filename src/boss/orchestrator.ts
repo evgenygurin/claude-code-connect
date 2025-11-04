@@ -87,7 +87,7 @@ export class AgentOrchestrator extends EventEmitter implements IAgentOrchestrato
     this.isRunning = false;
 
     // Stop all active agents
-    for (const [agentId, agent] of this.activeAgents.entries()) {
+    for (const [, agent] of this.activeAgents.entries()) {
       await this.terminateAgent(agent);
     }
 
@@ -299,7 +299,6 @@ export class AgentOrchestrator extends EventEmitter implements IAgentOrchestrato
    */
   private async terminateAgent(agent: AgentInstance): Promise<void> {
     this.logger.info("Terminating agent", {
-      agentId: agent.id,
       taskId: agent.taskId,
     });
 

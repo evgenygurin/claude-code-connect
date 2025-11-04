@@ -19,12 +19,9 @@ import type {
   AgentCapability,
   TaskBreakdown,
   BossAgentConfig,
-  TaskStatusValues,
-  AgentTypeValues,
 } from "./types.js";
 import type {
   ClaudeExecutionResult,
-  IntegrationConfig,
   Logger,
 } from "../core/types.js";
 import { nanoid } from "nanoid";
