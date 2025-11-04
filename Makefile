@@ -67,6 +67,11 @@ help:
 	@echo "  ci-check             Все CI проверки"
 	@echo "  pre-commit           Pre-commit проверки"
 	@echo "  release-prep         Подготовка к release"
+	@echo ""
+	@echo "⭕ CIRCLECI:"
+	@echo "  circleci-test        Тест CircleCI API подключения"
+	@echo "  circleci-setup       Автоматическая настройка CircleCI"
+	@echo "  circleci-codegen     Настройка CircleCI + Codegen интеграции"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "💡 Для первого запуска: make quick-start"
 	@echo "📖 Больше команд: grep '^[a-z-]*:' Makefile"
@@ -408,3 +413,42 @@ update: git-pull install
 ## Reinstall - Clean and reinstall dependencies
 reinstall: clean install
 	@echo "✅ Dependencies reinstalled"
+
+## CircleCI Commands
+
+## CircleCI Test - Test CircleCI API connection
+circleci-test:
+	@echo "🔍 Testing CircleCI API connection..."
+	@chmod +x scripts/test-circleci-connection.sh
+	@./scripts/test-circleci-connection.sh
+
+## CircleCI Setup - Automated CircleCI project setup
+circleci-setup:
+	@echo "⭕ Setting up CircleCI project..."
+	@chmod +x scripts/setup-circleci.sh
+	@./scripts/setup-circleci.sh
+
+## CircleCI Codegen - Setup CircleCI + Codegen integration
+circleci-codegen:
+	@echo "🤖 Setting up CircleCI + Codegen integration..."
+	@chmod +x scripts/setup-codegen-circleci.sh
+	@./scripts/setup-codegen-circleci.sh
+
+## CircleCI Help - Show CircleCI setup help
+circleci-help:
+	@echo "⭕ CircleCI Setup Help"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo ""
+	@echo "Quick Start:"
+	@echo "  1. Get CircleCI token: https://app.circleci.com/settings/user/tokens"
+	@echo "  2. Set environment: export CIRCLECI_TOKEN='your_token'"
+	@echo "  3. Run setup: make circleci-setup"
+	@echo ""
+	@echo "Available commands:"
+	@echo "  make circleci-test      - Test API connection"
+	@echo "  make circleci-setup     - Setup CircleCI project"
+	@echo "  make circleci-codegen   - Setup Codegen integration"
+	@echo ""
+	@echo "Documentation:"
+	@echo "  - Manual: docs/CIRCLECI-SETUP.md"
+	@echo "  - API: docs/CIRCLECI-API-SETUP.md"
