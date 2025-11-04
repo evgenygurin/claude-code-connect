@@ -48,6 +48,7 @@ const DEFAULT_CONFIG: Partial<IntegrationConfig> = {
   enableBossAgent: false,
   bossAgentThreshold: 6,
   maxConcurrentAgents: 3,
+  projectRootDir: process.cwd(), // Default to current working directory
 };
 
 /**
@@ -169,11 +170,18 @@ function validateConfig(config: Partial<IntegrationConfig>): void {
     }
   }
 
-  // Validate paths
-  if (config.projectRootDir && !existsSync(config.projectRootDir)) {
+  // Validate paths - skip placeholder values
+  const isPlaceholder = config.projectRootDir?.includes('/path/to/');
+
+  if (config.projectRootDir && !isPlaceholder && !existsSync(config.projectRootDir)) {
     errors.push(
       `Project root directory does not exist: ${config.projectRootDir}`,
     );
+  }
+
+  // If placeholder detected, use current working directory
+  if (isPlaceholder) {
+    config.projectRootDir = process.cwd();
   }
 
   // Validate port
