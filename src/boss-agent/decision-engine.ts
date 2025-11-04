@@ -94,7 +94,7 @@ export class DecisionEngine {
 
     // Add reason if not delegating
     if (!shouldDelegate) {
-      decision.reason = this.getNoDelega​tionReason(analysis);
+      decision.reason = this.getNoDelegationReason(analysis);
     }
 
     this.logger.info('Decision made', {
@@ -304,7 +304,7 @@ export class DecisionEngine {
   /**
    * Get reason for not delegating
    */
-  private getNoDelega​tionReason(analysis: TaskAnalysis): string {
+  private getNoDelegationReason(analysis: TaskAnalysis): string {
     if (this.rules.neverDelegateTypes.includes(analysis.taskType)) {
       return `Task type '${analysis.taskType}' is configured for manual handling`;
     }
