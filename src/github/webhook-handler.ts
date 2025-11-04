@@ -174,7 +174,11 @@ export class GitHubWebhookHandler {
 
     try {
       // Handle PR comment events
-      if (eventType === "issue_comment" && event.pull_request && event.comment) {
+      if (
+        eventType === "issue_comment" &&
+        event.pull_request &&
+        event.comment
+      ) {
         return await this.processPRCommentEvent(event);
       }
 
@@ -186,10 +190,14 @@ export class GitHubWebhookHandler {
       this.logger.debug("Unhandled GitHub event type", { type: eventType });
       return null;
     } catch (error) {
-      this.logger.error("Failed to process GitHub webhook event", error as Error, {
-        type: eventType,
-        action: event.action,
-      });
+      this.logger.error(
+        "Failed to process GitHub webhook event",
+        error as Error,
+        {
+          type: eventType,
+          action: event.action,
+        },
+      );
       return null;
     }
   }

@@ -39,9 +39,13 @@ async function testMem0Integration() {
     console.log("✅ Mem0 integration is ready to use!");
     console.log();
     console.log("Next steps:");
-    console.log("  - Issue context will be stored automatically when issues are assigned");
+    console.log(
+      "  - Issue context will be stored automatically when issues are assigned",
+    );
     console.log("  - Comment context will be stored when @mentions occur");
-    console.log("  - Session results will be stored after Claude completes work");
+    console.log(
+      "  - Session results will be stored after Claude completes work",
+    );
   } catch (error) {
     console.error("❌ Error testing Mem0 integration:", error);
     process.exit(1);

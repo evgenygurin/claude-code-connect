@@ -46,7 +46,10 @@ export class FileOAuthStorage implements OAuthTokenStorage {
         storageDir: this.storageDir,
       });
     } catch (error) {
-      this.logger.error("Failed to initialize OAuth token storage", error as Error);
+      this.logger.error(
+        "Failed to initialize OAuth token storage",
+        error as Error,
+      );
       throw error;
     }
   }
@@ -64,7 +67,7 @@ export class FileOAuthStorage implements OAuthTokenStorage {
       await fs.writeFile(
         tokenPath,
         JSON.stringify(encryptedToken, null, 2),
-        "utf-8"
+        "utf-8",
       );
 
       this.logger.debug("OAuth token saved", { workspaceId });
@@ -155,22 +158,23 @@ export class FileOAuthStorage implements OAuthTokenStorage {
    * Encrypt OAuth token
    */
   private encryptToken(token: LinearOAuthToken): EncryptedOAuthToken {
-    // Generate random IV
+    // Validate encryption key length (must be 32 bytes for AES-256)
+    if (this.encryptionKey.length !== 32) {
+      throw new Error("Encryption key must be exactly 32 bytes for AES-256");
+    }
+
+    // Generate random IV for each encryption operation
     const iv = crypto.randomBytes(16);
 
     // Create cipher
     const cipher = crypto.createCipheriv(
       "aes-256-cbc",
       Buffer.from(this.encryptionKey),
-      iv
+      iv,
     );
 
     // Encrypt access token
-    let encryptedAccessToken = cipher.update(
-      token.accessToken,
-      "utf8",
-      "hex"
-    );
+    let encryptedAccessToken = cipher.update(token.accessToken, "utf8", "hex");
     encryptedAccessToken += cipher.final("hex");
 
     // Encrypt refresh token if available
@@ -179,12 +183,12 @@ export class FileOAuthStorage implements OAuthTokenStorage {
       const refreshCipher = crypto.createCipheriv(
         "aes-256-cbc",
         Buffer.from(this.encryptionKey),
-        iv
+        iv,
       );
       encryptedRefreshToken = refreshCipher.update(
         token.refreshToken,
         "utf8",
-        "hex"
+        "hex",
       );
       encryptedRefreshToken += refreshCipher.final("hex");
     }
@@ -215,14 +219,14 @@ export class FileOAuthStorage implements OAuthTokenStorage {
     const decipher = crypto.createDecipheriv(
       "aes-256-cbc",
       Buffer.from(this.encryptionKey),
-      iv
+      iv,
     );
 
     // Decrypt access token
     let decryptedAccessToken = decipher.update(
       token.accessToken,
       "hex",
-      "utf8"
+      "utf8",
     );
     decryptedAccessToken += decipher.final("utf8");
 
@@ -232,12 +236,12 @@ export class FileOAuthStorage implements OAuthTokenStorage {
       const refreshDecipher = crypto.createDecipheriv(
         "aes-256-cbc",
         Buffer.from(this.encryptionKey),
-        iv
+        iv,
       );
       decryptedRefreshToken = refreshDecipher.update(
         token.refreshToken,
         "hex",
-        "utf8"
+        "utf8",
       );
       decryptedRefreshToken += refreshDecipher.final("utf8");
     }
@@ -309,7 +313,7 @@ export function createOAuthStorage(
   options?: {
     storageDir?: string;
     encryptionKey?: string;
-  }
+  },
 ): OAuthTokenStorage {
   if (type === "file") {
     if (!options?.storageDir) {
@@ -321,10 +325,9 @@ export function createOAuthStorage(
     return new FileOAuthStorage(
       options.storageDir,
       options.encryptionKey,
-      logger
+      logger,
     );
   } else {
     return new MemoryOAuthStorage(logger);
   }
 }
-

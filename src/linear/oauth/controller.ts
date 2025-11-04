@@ -42,7 +42,7 @@ export class LinearOAuthController {
     request: FastifyRequest<{
       Querystring: { callback?: string };
     }>,
-    reply: FastifyReply
+    reply: FastifyReply,
   ): Promise<void> {
     try {
       const callbackUrl = request.query.callback;
@@ -69,7 +69,7 @@ export class LinearOAuthController {
     request: FastifyRequest<{
       Querystring: { code?: string; state?: string; error?: string };
     }>,
-    reply: FastifyReply
+    reply: FastifyReply,
   ): Promise<void> {
     try {
       const { code, state, error } = request.query;
@@ -123,7 +123,7 @@ export class LinearOAuthController {
     request: FastifyRequest<{
       Body: { workspaceId: string };
     }>,
-    reply: FastifyReply
+    reply: FastifyReply,
   ): Promise<void> {
     try {
       const { workspaceId } = request.body;
@@ -164,7 +164,7 @@ export class LinearOAuthController {
     request: FastifyRequest<{
       Params: { workspaceId: string };
     }>,
-    reply: FastifyReply
+    reply: FastifyReply,
   ): Promise<void> {
     try {
       const { workspaceId } = request.params;
@@ -266,4 +266,3 @@ export class LinearOAuthController {
     `;
   }
 }
-

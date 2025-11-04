@@ -9,21 +9,24 @@ import Fastify, {
 } from "fastify";
 import { join } from "path";
 import { RateLimiterMemory } from "rate-limiter-flexible";
-import type { 
-  IntegrationConfig, 
-  Logger, 
-  LinearWebhookEvent 
+import type {
+  IntegrationConfig,
+  Logger,
+  LinearWebhookEvent,
 } from "../core/types.js";
 import { LinearClient } from "../linear/client.js";
 import { SessionManager } from "../sessions/manager.js";
-import { LinearWebhookHandler } from "../webhooks/handler.js";
 import { EnhancedLinearWebhookHandler } from "../security/enhanced-webhook-handler.js";
 import { EventRouter, DefaultEventHandlers } from "../webhooks/router.js";
 import { createSessionStorage } from "../sessions/storage.js";
 import { createLogger } from "../utils/logger.js";
 import { LinearReporter } from "../linear/reporter.js";
-import { SecurityValidator, SecurityUtils, defaultSecurityValidator } from "../security/validators.js";
-import { SecurityAgent, SecuritySeverity, SecurityEventType } from "../security/security-agent.js";
+import { SecurityValidator, SecurityUtils } from "../security/validators.js";
+import {
+  SecurityAgent,
+  SecuritySeverity,
+  SecurityEventType,
+} from "../security/security-agent.js";
 import { SecurityMonitor } from "../security/monitoring.js";
 import { initializeLinearOAuth } from "../linear/oauth/index.js";
 import { GitHubClient } from "../github/client.js";
@@ -75,13 +78,13 @@ export class IntegrationServer {
 
     // Initialize rate limiters
     this.webhookRateLimiter = new RateLimiterMemory({
-      keyPrefix: 'webhook_global',
+      keyPrefix: "webhook_global",
       points: 60, // 60 requests
       duration: 60, // per minute
     });
 
     this.orgRateLimiter = new RateLimiterMemory({
-      keyPrefix: 'webhook_org',
+      keyPrefix: "webhook_org",
       points: 30, // 30 requests per organization
       duration: 60, // per minute
     });
@@ -93,8 +96,15 @@ export class IntegrationServer {
     if (config.githubToken) {
       try {
         this.githubClient = new GitHubClient(config, this.logger);
-        this.githubWebhookHandler = new GitHubWebhookHandler(config, this.logger);
-        this.githubPRAgent = new GitHubPRAgent(config, this.logger, this.githubClient);
+        this.githubWebhookHandler = new GitHubWebhookHandler(
+          config,
+          this.logger,
+        );
+        this.githubPRAgent = new GitHubPRAgent(
+          config,
+          this.logger,
+          this.githubClient,
+        );
         this.logger.info("GitHub integration initialized");
       } catch (error) {
         this.logger.warn("Failed to initialize GitHub integration", {
@@ -107,14 +117,36 @@ export class IntegrationServer {
     this.securityValidator = new SecurityValidator({
       maxPathDepth: 10,
       blockedCommands: [
-        "rm", "rmdir", "del", "deltree", "format", "fdisk", "mkfs", "dd",
-        "curl", "wget", "nc", "netcat", "ssh", "scp", "rsync", "sudo", "su"
+        "rm",
+        "rmdir",
+        "del",
+        "deltree",
+        "format",
+        "fdisk",
+        "mkfs",
+        "dd",
+        "curl",
+        "wget",
+        "nc",
+        "netcat",
+        "ssh",
+        "scp",
+        "rsync",
+        "sudo",
+        "su",
       ],
       blockedPaths: [
-        "/etc", "/var", "/usr", "/sys", "/proc", "/dev", "/root", "/boot"
-      ]
+        "/etc",
+        "/var",
+        "/usr",
+        "/sys",
+        "/proc",
+        "/dev",
+        "/root",
+        "/boot",
+      ],
     });
-    
+
     // Initialize security agent
     this.securityAgent = new SecurityAgent(config, this.logger, {
       enableWebhookSignatureValidation: true,
@@ -122,23 +154,28 @@ export class IntegrationServer {
       enableInputSanitization: true,
       enableAuditLogging: true,
       maxSessionDuration: 60 * 60 * 1000, // 1 hour
-      maxConcurrentSessions: 10
+      maxConcurrentSessions: 10,
     });
-    
+
     // Initialize security monitor
-    this.securityMonitor = new SecurityMonitor(config, this.logger, this.securityAgent, {
-      enableRealTimeAlerts: true,
-      enableMetricsCollection: true,
-      metricsRetentionDays: 30,
-      thresholds: {
-        maxFailedAuthPerMinute: 5,
-        maxCriticalEventsPerHour: 3,
-        maxSessionDurationMinutes: 60,
-        maxConcurrentSessions: 10,
-        maxMemoryUsageMB: 1024,
-        maxCpuUsagePercent: 80
-      }
-    });
+    this.securityMonitor = new SecurityMonitor(
+      config,
+      this.logger,
+      this.securityAgent,
+      {
+        enableRealTimeAlerts: true,
+        enableMetricsCollection: true,
+        metricsRetentionDays: 30,
+        thresholds: {
+          maxFailedAuthPerMinute: 5,
+          maxCriticalEventsPerHour: 3,
+          maxSessionDurationMinutes: 60,
+          maxConcurrentSessions: 10,
+          maxMemoryUsageMB: 1024,
+          maxCpuUsagePercent: 80,
+        },
+      },
+    );
 
     // Create session storage
     const storage = createSessionStorage("file", this.logger, {
@@ -163,7 +200,7 @@ export class IntegrationServer {
       config,
       this.logger,
       this.securityAgent,
-      this.securityMonitor
+      this.securityMonitor,
     );
 
     // Create event handlers and router
@@ -189,7 +226,7 @@ export class IntegrationServer {
       this.logger.info("Initializing OAuth integration");
       initializeLinearOAuth(this.app, this.config, this.logger);
     }
-    
+
     // Health check endpoint
     this.app.get(
       "/health",
@@ -224,11 +261,11 @@ export class IntegrationServer {
         // Apply global rate limiting first
         try {
           await this.webhookRateLimiter.consume(clientIp);
-        } catch (rateLimitError) {
+        } catch (_rateLimitError) {
           this.logger.warn("Global rate limit exceeded", { clientIp });
-          return reply.code(429).send({ 
-            error: "Too many requests", 
-            message: "Rate limit exceeded. Please try again later." 
+          return reply.code(429).send({
+            error: "Too many requests",
+            message: "Rate limit exceeded. Please try again later.",
           });
         }
 
@@ -238,17 +275,17 @@ export class IntegrationServer {
           payloadString,
           signature || "",
           sourceIp,
-          userAgent || "unknown"
+          userAgent || "unknown",
         );
-        
+
         if (!securityResult.valid) {
           this.logger.warn("Webhook security validation failed", {
             reason: securityResult.reason,
             severity: securityResult.severity,
             sourceIp,
-            userAgent
+            userAgent,
           });
-          
+
           // Return appropriate status code based on the validation failure
           if (securityResult.reason === "Rate limit exceeded") {
             return reply.code(429).send({ error: "Too many requests" });
@@ -260,9 +297,10 @@ export class IntegrationServer {
             return reply.code(400).send({ error: "Invalid request" });
           }
         }
-        
+
         // Additional payload size validation as a fallback
-        const payloadSizeResult = this.securityValidator.validateWebhookPayloadSize(payloadString);
+        const payloadSizeResult =
+          this.securityValidator.validateWebhookPayloadSize(payloadString);
         if (!payloadSizeResult.valid) {
           this.logger.warn("Webhook payload too large", {
             size: payloadString.length,
@@ -277,9 +315,9 @@ export class IntegrationServer {
           request.body,
           signature,
           sourceIp,
-          userAgent || "unknown"
+          userAgent || "unknown",
         );
-        
+
         if (!event) {
           this.logger.warn("Invalid webhook payload", { sourceIp, userAgent });
           return reply.code(400).send({ error: "Invalid payload" });
@@ -288,13 +326,14 @@ export class IntegrationServer {
         // Apply organization-specific rate limiting
         try {
           await this.orgRateLimiter.consume(event.organizationId);
-        } catch (rateLimitError) {
-          this.logger.warn("Organization rate limit exceeded", { 
-            organizationId: event.organizationId 
+        } catch (_rateLimitError) {
+          this.logger.warn("Organization rate limit exceeded", {
+            organizationId: event.organizationId,
           });
-          return reply.code(429).send({ 
-            error: "Too many requests", 
-            message: "Organization rate limit exceeded. Please try again later." 
+          return reply.code(429).send({
+            error: "Too many requests",
+            message:
+              "Organization rate limit exceeded. Please try again later.",
           });
         }
 
@@ -310,8 +349,14 @@ export class IntegrationServer {
       "/webhooks/github",
       async (request, reply) => {
         // Check if GitHub integration is enabled
-        if (!this.githubClient || !this.githubWebhookHandler || !this.githubPRAgent) {
-          this.logger.warn("GitHub webhook received but integration not configured");
+        if (
+          !this.githubClient ||
+          !this.githubWebhookHandler ||
+          !this.githubPRAgent
+        ) {
+          this.logger.warn(
+            "GitHub webhook received but integration not configured",
+          );
           return reply.code(503).send({
             error: "Service unavailable",
             message: "GitHub integration not configured",
@@ -333,7 +378,7 @@ export class IntegrationServer {
         // Apply global rate limiting
         try {
           await this.webhookRateLimiter.consume(clientIp);
-        } catch (rateLimitError) {
+        } catch (_rateLimitError) {
           this.logger.warn("Global rate limit exceeded", { clientIp });
           return reply.code(429).send({
             error: "Too many requests",
@@ -342,20 +387,34 @@ export class IntegrationServer {
         }
 
         // Verify signature
-        if (signature && !this.githubWebhookHandler.verifySignature(payloadString, signature as string)) {
-          this.logger.warn("GitHub webhook signature verification failed", { clientIp });
+        if (
+          signature &&
+          !this.githubWebhookHandler.verifySignature(
+            payloadString,
+            signature as string,
+          )
+        ) {
+          this.logger.warn("GitHub webhook signature verification failed", {
+            clientIp,
+          });
           return reply.code(401).send({ error: "Invalid signature" });
         }
 
         // Validate webhook payload
         const event = this.githubWebhookHandler.validateWebhook(request.body);
         if (!event) {
-          this.logger.warn("Invalid GitHub webhook payload", { clientIp, eventType });
+          this.logger.warn("Invalid GitHub webhook payload", {
+            clientIp,
+            eventType,
+          });
           return reply.code(400).send({ error: "Invalid payload" });
         }
 
         // Only process PR comment events
-        if (eventType !== "issue_comment" && eventType !== "pull_request_review_comment") {
+        if (
+          eventType !== "issue_comment" &&
+          eventType !== "pull_request_review_comment"
+        ) {
           this.logger.debug("Ignoring non-comment GitHub event", { eventType });
           return { received: true, processed: false };
         }
@@ -380,23 +439,26 @@ export class IntegrationServer {
 
     this.app.get(
       "/sessions/:id",
-      async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      async (
+        request: FastifyRequest<{ Params: { id: string } }>,
+        reply: FastifyReply,
+      ) => {
         const sessionId = request.params.id;
-        
+
         // Validate session ID format
         if (!SecurityUtils.isValidSessionId(sessionId)) {
           this.logger.warn("Invalid session ID format", { sessionId });
-          return reply.code(400).send({ 
-            error: "Invalid request", 
-            message: "Invalid session ID format" 
+          return reply.code(400).send({
+            error: "Invalid request",
+            message: "Invalid session ID format",
           });
         }
-        
+
         const session = await this.sessionManager.getSession(sessionId);
         if (!session) {
-          return reply.code(404).send({ 
-            error: "Not found", 
-            message: "Session not found" 
+          return reply.code(404).send({
+            error: "Not found",
+            message: "Session not found",
           });
         }
         return { session };
@@ -405,18 +467,21 @@ export class IntegrationServer {
 
     this.app.delete(
       "/sessions/:id",
-      async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      async (
+        request: FastifyRequest<{ Params: { id: string } }>,
+        reply: FastifyReply,
+      ) => {
         const sessionId = request.params.id;
-        
+
         // Validate session ID format
         if (!SecurityUtils.isValidSessionId(sessionId)) {
           this.logger.warn("Invalid session ID format", { sessionId });
-          return reply.code(400).send({ 
-            error: "Invalid request", 
-            message: "Invalid session ID format" 
+          return reply.code(400).send({
+            error: "Invalid request",
+            message: "Invalid session ID format",
           });
         }
-        
+
         await this.sessionManager.cancelSession(sessionId);
         return { cancelled: true };
       },
@@ -453,18 +518,18 @@ export class IntegrationServer {
         hasAgentUser: !!this.config.agentUserId,
       };
     });
-    
+
     // Security monitoring endpoints
     this.app.get("/security/metrics", async () => {
       const metrics = await this.securityMonitor.getMetrics();
       return { metrics };
     });
-    
+
     this.app.get("/security/alerts", async () => {
       const alerts = await this.securityMonitor.getAlerts();
       return { alerts };
     });
-    
+
     this.app.get("/security/events", async () => {
       const events = await this.securityAgent.getSecurityEvents();
       return { events };
@@ -502,16 +567,16 @@ export class IntegrationServer {
           details: {
             eventType: processedEvent.type,
             action: processedEvent.action,
-            shouldTrigger: processedEvent.shouldTrigger
+            shouldTrigger: processedEvent.shouldTrigger,
           },
-          blocked: false
+          blocked: false,
         });
-        
+
         await this.eventRouter.routeEvent(processedEvent);
       }
     } catch (error) {
       this.logger.error("Failed to process webhook", error as Error);
-      
+
       // Log security event for webhook processing failure
       await this.securityAgent.logSecurityEvent({
         id: `webhook-error-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -521,7 +586,7 @@ export class IntegrationServer {
         source: "webhook_processor",
         message: "Failed to process webhook",
         details: { error: (error as Error).message },
-        blocked: false
+        blocked: false,
       });
     }
   }
@@ -596,7 +661,9 @@ export class IntegrationServer {
       if (!this.config.skipLinearCheck) {
         await this.testLinearConnection();
       } else {
-        this.logger.warn("⚠️  Skipping Linear API connection test (development mode)");
+        this.logger.warn(
+          "⚠️  Skipping Linear API connection test (development mode)",
+        );
       }
 
       // Start HTTP server
@@ -604,7 +671,7 @@ export class IntegrationServer {
         port: this.config.webhookPort,
         host: this.config.webhookHost || "0.0.0.0",
       });
-      
+
       // Start security monitoring
       await this.securityMonitor.startMonitoring();
 
@@ -646,7 +713,7 @@ export class IntegrationServer {
 
       // Stop security monitoring
       await this.securityMonitor.stopMonitoring();
-      
+
       // Stop HTTP server
       await this.app.close();
 
@@ -745,13 +812,14 @@ export class IntegrationServer {
       60 * 60 * 1000,
     ); // 1 hour
 
-
     // Also run cleanup immediately
     setTimeout(async () => {
       try {
         const cleaned = await this.sessionManager.cleanupOldSessions(7);
         if (cleaned > 0) {
-          this.logger.info("Initial cleanup of old sessions", { count: cleaned });
+          this.logger.info("Initial cleanup of old sessions", {
+            count: cleaned,
+          });
         }
       } catch (error) {
         this.logger.error("Error during initial cleanup", error as Error);

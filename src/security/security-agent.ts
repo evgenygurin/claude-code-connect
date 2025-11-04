@@ -3,7 +3,7 @@
  * Provides comprehensive security monitoring, validation, and threat detection
  */
 
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { join, resolve, relative } from "path";
 import { promises as fs } from "fs";
 import type {
@@ -37,7 +37,7 @@ export enum SecurityEventType {
   RESOURCE_EXHAUSTION = "resource_exhaustion",
   SUSPICIOUS_ACTIVITY = "suspicious_activity",
   WEBHOOK_PROCESSED = "webhook_processed",
-  WEBHOOK_PROCESSING_ERROR = "webhook_processing_error"
+  WEBHOOK_PROCESSING_ERROR = "webhook_processing_error",
 }
 
 /**
@@ -542,11 +542,17 @@ export class SecurityAgent {
     }
 
     try {
-      const expectedSignature = createHash("sha256")
-        .update(this.config.webhookSecret + payload)
+      // Use proper HMAC instead of hash concatenation for security
+      const expectedSignature = createHmac("sha256", this.config.webhookSecret)
+        .update(payload)
         .digest("hex");
 
       const actualSignature = signature.replace("sha256=", "");
+
+      // Use timing-safe comparison to prevent timing attacks
+      if (expectedSignature.length !== actualSignature.length) {
+        return false;
+      }
 
       return timingSafeEqual(
         Buffer.from(expectedSignature, "hex"),
@@ -638,7 +644,7 @@ export class SecurityAgent {
       }
 
       return { valid: true };
-    } catch (error) {
+    } catch (_error) {
       return {
         valid: false,
         severity: SecuritySeverity.HIGH,
@@ -666,7 +672,10 @@ export class SecurityAgent {
         severity: event.severity,
         source: event.source,
         message: event.message,
-        timestamp: event.timestamp instanceof Date ? event.timestamp.toISOString() : new Date().toISOString(),
+        timestamp:
+          event.timestamp instanceof Date
+            ? event.timestamp.toISOString()
+            : new Date().toISOString(),
         blocked: event.blocked,
       });
 
@@ -714,7 +723,10 @@ export class SecurityAgent {
       severity: event.severity,
       source: event.source,
       message: event.message,
-      timestamp: event.timestamp instanceof Date ? event.timestamp.toISOString() : new Date().toISOString(),
+      timestamp:
+        event.timestamp instanceof Date
+          ? event.timestamp.toISOString()
+          : new Date().toISOString(),
       blocked: event.blocked,
       details: event.details,
     });
