@@ -34,6 +34,15 @@ const ENV_MAPPING = {
   enableBossAgent: "ENABLE_BOSS_AGENT",
   bossAgentThreshold: "BOSS_AGENT_THRESHOLD",
   maxConcurrentAgents: "MAX_CONCURRENT_AGENTS",
+  codegenApiToken: "CODEGEN_API_TOKEN",
+  codegenOrgId: "CODEGEN_ORG_ID",
+  codegenBaseUrl: "CODEGEN_BASE_URL",
+  codegenDefaultTimeout: "CODEGEN_DEFAULT_TIMEOUT",
+  codegenWebhookEnabled: "CODEGEN_WEBHOOK_ENABLED",
+  codegenWebhookSecret: "CODEGEN_WEBHOOK_SECRET",
+  codegenAutoMerge: "CODEGEN_AUTO_MERGE",
+  codegenRequireReview: "CODEGEN_REQUIRE_REVIEW",
+  codegenDefaultReviewers: "CODEGEN_DEFAULT_REVIEWERS",
   mem0ApiKey: "MEM0_API_KEY",
   mem0Enabled: "MEM0_ENABLED",
   mem0VerboseLogging: "MEM0_VERBOSE_LOGGING",
@@ -55,6 +64,11 @@ const DEFAULT_CONFIG: Partial<IntegrationConfig> = {
   enableBossAgent: false,
   bossAgentThreshold: 6,
   maxConcurrentAgents: 3,
+  codegenBaseUrl: 'https://api.codegen.com',
+  codegenDefaultTimeout: 3600000, // 1 hour
+  codegenWebhookEnabled: false,
+  codegenAutoMerge: false,
+  codegenRequireReview: true,
   projectRootDir: process.cwd(), // Default to current working directory
   mem0Enabled: false,
   mem0VerboseLogging: false,
@@ -140,6 +154,9 @@ function parseEnvValue(value: string, configKey: string): any {
     case "enableOAuth":
     case "enableBossAgent":
     case "skipLinearCheck":
+    case "codegenWebhookEnabled":
+    case "codegenAutoMerge":
+    case "codegenRequireReview":
     case "mem0Enabled":
     case "mem0VerboseLogging":
       return value.toLowerCase() === "true" || value === "1";
@@ -147,7 +164,8 @@ function parseEnvValue(value: string, configKey: string): any {
     case "webhookPort":
     case "timeoutMinutes":
     case "bossAgentThreshold":
-    case "maxConcurrentAgents": {
+    case "maxConcurrentAgents":
+    case "codegenDefaultTimeout": {
       const numValue = parseInt(value, 10);
       if (isNaN(numValue)) {
         throw new Error(`Invalid number value for ${configKey}: ${value}`);
@@ -236,6 +254,33 @@ function validateConfig(config: Partial<IntegrationConfig>): void {
     );
   }
 
+  // Validate Codegen configuration if Boss Agent is enabled
+  if (config.enableBossAgent) {
+    const codegenRequired = [
+      'codegenApiToken',
+      'codegenOrgId',
+    ] as const;
+
+    for (const field of codegenRequired) {
+      if (!config[field]) {
+        errors.push(`${ENV_MAPPING[field]} is required when Boss Agent is enabled`);
+      }
+    }
+
+    // Validate Codegen timeout
+    if (config.codegenDefaultTimeout && config.codegenDefaultTimeout < 60000) {
+      errors.push(`Codegen default timeout must be at least 60000ms (1 minute)`);
+    }
+
+    // Validate default reviewers format (comma-separated)
+    if (config.codegenDefaultReviewers) {
+      const reviewers = config.codegenDefaultReviewers.split(',').map(r => r.trim());
+      if (reviewers.some(r => !r || r.includes(' '))) {
+        errors.push(`Codegen default reviewers must be comma-separated GitHub usernames (no spaces)`);
+      }
+    }
+  }
+
   if (errors.length > 0) {
     throw new Error(
       `Configuration validation failed:\n${errors.map((e) => `  - ${e}`).join("\n")}`,
@@ -292,6 +337,31 @@ ENABLE_BOSS_AGENT=false
 BOSS_AGENT_THRESHOLD=6
 # Maximum number of concurrent sub-agents
 MAX_CONCURRENT_AGENTS=3
+
+# Optional: Codegen Integration (Required when ENABLE_BOSS_AGENT=true)
+# Codegen API token for task delegation
+# CODEGEN_API_TOKEN=your-codegen-api-token
+# Codegen organization ID
+# CODEGEN_ORG_ID=your-codegen-org-id
+# Codegen API base URL (defaults to https://api.codegen.com)
+# CODEGEN_BASE_URL=https://api.codegen.com
+# Default timeout for Codegen tasks in milliseconds (defaults to 3600000 = 1 hour)
+# CODEGEN_DEFAULT_TIMEOUT=3600000
+# Enable Codegen webhook callbacks
+# CODEGEN_WEBHOOK_ENABLED=false
+# Codegen webhook secret for validation
+# CODEGEN_WEBHOOK_SECRET=your-codegen-webhook-secret
+# Auto-merge PRs from Codegen (requires review approval)
+# CODEGEN_AUTO_MERGE=false
+# Require code review for Codegen PRs
+# CODEGEN_REQUIRE_REVIEW=true
+# Default reviewers for Codegen PRs (comma-separated GitHub usernames)
+# CODEGEN_DEFAULT_REVIEWERS=reviewer1,reviewer2
+
+# Optional: Mem0 Integration for Persistent Memory
+# MEM0_API_KEY=your-mem0-api-key
+# MEM0_ENABLED=false
+# MEM0_VERBOSE_LOGGING=false
 `;
 }
 
@@ -341,19 +411,34 @@ export function printConfigSummary(config: IntegrationConfig): void {
   // Boss Agent configuration
   if (config.enableBossAgent) {
     console.log(`  Boss Agent: Enabled`);
-    console.log(`  Complexity Threshold: ${config.bossAgentThreshold || 6}`);
-    console.log(`  Max Concurrent Agents: ${config.maxConcurrentAgents || 3}`);
+    console.log(`    Complexity Threshold: ${config.bossAgentThreshold || 6}`);
+    console.log(`    Max Concurrent Agents: ${config.maxConcurrentAgents || 3}`);
   } else {
     console.log(`  Boss Agent: Disabled`);
+  }
+
+  // Codegen integration configuration
+  if (config.enableBossAgent && config.codegenApiToken) {
+    console.log(`  Codegen Integration: Enabled`);
+    console.log(`    Has API Token: ${config.codegenApiToken ? "✓" : "✗"}`);
+    console.log(`    Organization ID: ${config.codegenOrgId || "Not configured"}`);
+    console.log(`    Base URL: ${config.codegenBaseUrl || "https://api.codegen.com"}`);
+    console.log(`    Default Timeout: ${config.codegenDefaultTimeout || 3600000}ms`);
+    console.log(`    Webhook Enabled: ${config.codegenWebhookEnabled ? "✓" : "✗"}`);
+    console.log(`    Auto-merge PRs: ${config.codegenAutoMerge ? "✓" : "✗"}`);
+    console.log(`    Require Review: ${config.codegenRequireReview ? "✓" : "✗"}`);
+    if (config.codegenDefaultReviewers) {
+      console.log(`    Default Reviewers: ${config.codegenDefaultReviewers}`);
+    }
+  } else if (config.enableBossAgent) {
+    console.log(`  Codegen Integration: Not configured (API token missing)`);
   }
 
   // Mem0 configuration
   if (config.mem0Enabled) {
     console.log(`  Mem0 Integration: Enabled`);
-    console.log(`  Has Mem0 API Key: ${config.mem0ApiKey ? "✓" : "✗"}`);
-    console.log(
-      `  Mem0 Verbose Logging: ${config.mem0VerboseLogging ? "✓" : "✗"}`,
-    );
+    console.log(`    Has Mem0 API Key: ${config.mem0ApiKey ? "✓" : "✗"}`);
+    console.log(`    Verbose Logging: ${config.mem0VerboseLogging ? "✓" : "✗"}`);
   } else {
     console.log(`  Mem0 Integration: Disabled`);
   }
