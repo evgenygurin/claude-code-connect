@@ -58,6 +58,24 @@ export interface IntegrationConfig {
   bossAgentThreshold?: number;
   /** Maximum concurrent sub-agents */
   maxConcurrentAgents?: number;
+  /** Codegen API token for task delegation */
+  codegenApiToken?: string;
+  /** Codegen organization ID */
+  codegenOrgId?: string;
+  /** Codegen API base URL (defaults to https://api.codegen.com) */
+  codegenBaseUrl?: string;
+  /** Default timeout for Codegen tasks in milliseconds */
+  codegenDefaultTimeout?: number;
+  /** Enable Codegen webhook callbacks */
+  codegenWebhookEnabled?: boolean;
+  /** Codegen webhook secret for validation */
+  codegenWebhookSecret?: string;
+  /** Auto-merge PRs from Codegen (requires review approval) */
+  codegenAutoMerge?: boolean;
+  /** Require code review for Codegen PRs */
+  codegenRequireReview?: boolean;
+  /** Default reviewers for Codegen PRs (comma-separated GitHub usernames) */
+  codegenDefaultReviewers?: string;
   /** Mem0 API key for persistent memory */
   mem0ApiKey?: string;
   /** Enable Mem0 integration */
