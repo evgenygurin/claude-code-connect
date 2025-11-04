@@ -54,6 +54,7 @@ export interface ProcessedCodegenEvent {
   taskId: string;
   organizationId: string;
   timestamp: Date;
+  status?: 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
   task?: CodegenTask;
   result?: CodegenTaskResult;
   progress?: {
@@ -181,11 +182,32 @@ export class CodegenWebhookHandler {
         organizationId: event.organizationId,
       });
 
+      // Map event type to status
+      let status: ProcessedCodegenEvent['status'];
+      switch (event.type) {
+        case CodegenWebhookEventType.TASK_STARTED:
+          status = 'in_progress';
+          break;
+        case CodegenWebhookEventType.TASK_PROGRESS:
+          status = 'in_progress';
+          break;
+        case CodegenWebhookEventType.TASK_COMPLETED:
+          status = 'completed';
+          break;
+        case CodegenWebhookEventType.TASK_FAILED:
+          status = 'failed';
+          break;
+        case CodegenWebhookEventType.TASK_CANCELLED:
+          status = 'cancelled';
+          break;
+      }
+
       const processedEvent: ProcessedCodegenEvent = {
         type: event.type,
         taskId: event.taskId,
         organizationId: event.organizationId,
         timestamp: new Date(event.timestamp),
+        status,
         task: event.data.task,
         result: event.data.result,
         progress: event.data.progress,
