@@ -16,17 +16,12 @@ import type {
 } from "../core/types.js";
 import { LinearClient } from "../linear/client.js";
 import { SessionManager } from "../sessions/manager.js";
-import { LinearWebhookHandler } from "../webhooks/handler.js";
 import { EnhancedLinearWebhookHandler } from "../security/enhanced-webhook-handler.js";
 import { EventRouter, DefaultEventHandlers } from "../webhooks/router.js";
 import { createSessionStorage } from "../sessions/storage.js";
 import { createLogger } from "../utils/logger.js";
 import { LinearReporter } from "../linear/reporter.js";
-import {
-  SecurityValidator,
-  SecurityUtils,
-  defaultSecurityValidator,
-} from "../security/validators.js";
+import { SecurityValidator, SecurityUtils } from "../security/validators.js";
 import {
   SecurityAgent,
   SecuritySeverity,
@@ -266,7 +261,7 @@ export class IntegrationServer {
         // Apply global rate limiting first
         try {
           await this.webhookRateLimiter.consume(clientIp);
-        } catch (rateLimitError) {
+        } catch (_rateLimitError) {
           this.logger.warn("Global rate limit exceeded", { clientIp });
           return reply.code(429).send({
             error: "Too many requests",
@@ -331,7 +326,7 @@ export class IntegrationServer {
         // Apply organization-specific rate limiting
         try {
           await this.orgRateLimiter.consume(event.organizationId);
-        } catch (rateLimitError) {
+        } catch (_rateLimitError) {
           this.logger.warn("Organization rate limit exceeded", {
             organizationId: event.organizationId,
           });
@@ -383,7 +378,7 @@ export class IntegrationServer {
         // Apply global rate limiting
         try {
           await this.webhookRateLimiter.consume(clientIp);
-        } catch (rateLimitError) {
+        } catch (_rateLimitError) {
           this.logger.warn("Global rate limit exceeded", { clientIp });
           return reply.code(429).send({
             error: "Too many requests",

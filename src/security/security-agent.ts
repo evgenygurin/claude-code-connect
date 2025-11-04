@@ -644,7 +644,7 @@ export class SecurityAgent {
       }
 
       return { valid: true };
-    } catch (error) {
+    } catch (_error) {
       return {
         valid: false,
         severity: SecuritySeverity.HIGH,
