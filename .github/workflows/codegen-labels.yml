@@ -44,6 +44,21 @@ jobs:
       - name: Install Codegen SDK
         run: pip install codegen
 
+      - name: Check Codegen credentials
+        id: check-credentials
+        run: |
+          if [ -z "${{ secrets.CODEGEN_API_TOKEN }}" ]; then
+            echo "❌ ERROR: CODEGEN_API_TOKEN not set"
+            echo "Run: ./scripts/setup-codegen.sh"
+            exit 1
+          fi
+          if [ -z "${{ secrets.CODEGEN_ORG_ID }}" ]; then
+            echo "❌ ERROR: CODEGEN_ORG_ID not set"
+            echo "Run: ./scripts/setup-codegen.sh"
+            exit 1
+          fi
+          echo "✅ Credentials configured"
+
       - name: Determine task from label
         id: determine-task
         run: |
@@ -92,11 +107,20 @@ jobs:
         run: |
           cat > codegen_label.py << 'EOF'
           import os
+          import sys
+
+          api_token = os.environ.get('CODEGEN_API_TOKEN', '').strip()
+          org_id = os.environ.get('CODEGEN_ORG_ID', '').strip()
+
+          if not api_token or not org_id:
+              print("❌ ERROR: Missing Codegen credentials")
+              sys.exit(1)
+
           from codegen.agents.agent import Agent
 
           agent = Agent(
-              org_id=os.environ['CODEGEN_ORG_ID'],
-              token=os.environ['CODEGEN_API_TOKEN']
+              org_id=org_id,
+              token=api_token
           )
 
           repo_name = "${{ github.repository }}"
