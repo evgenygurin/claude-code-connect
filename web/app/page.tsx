@@ -1,34 +1,14 @@
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Activity, GitBranch, Clock, TrendingUp } from "lucide-react";
+import { Activity, GitBranch, Clock, TrendingUp, ArrowRight } from "lucide-react";
+import { Navigation } from "@/components/navigation";
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
-      {/* Header */}
-      <header className="border-b bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <Activity className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">Boss Agent</h1>
-                <p className="text-sm text-muted-foreground">AI Development Coordinator</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="gap-1">
-                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                Online
-              </Badge>
-              <Button variant="outline" size="sm">Settings</Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Navigation />
 
       <main className="container mx-auto px-4 py-8">
         {/* Stats Overview */}
@@ -102,7 +82,12 @@ export default function Home() {
                 <p className="text-sm text-muted-foreground mb-4">
                   No active sessions. Boss Agent is ready to coordinate tasks.
                 </p>
-                <Button>View All Sessions</Button>
+                <Link href="/sessions">
+                  <Button>
+                    View All Sessions
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
               </div>
             </CardContent>
           </Card>
@@ -116,22 +101,30 @@ export default function Home() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button className="w-full justify-start" variant="outline">
-                <Activity className="mr-2 h-4 w-4" />
-                View Configuration
-              </Button>
-              <Button className="w-full justify-start" variant="outline">
-                <GitBranch className="mr-2 h-4 w-4" />
-                Session History
-              </Button>
-              <Button className="w-full justify-start" variant="outline">
-                <Clock className="mr-2 h-4 w-4" />
-                Server Stats
-              </Button>
-              <Button className="w-full justify-start" variant="outline">
-                <TrendingUp className="mr-2 h-4 w-4" />
-                Analytics
-              </Button>
+              <Link href="/settings">
+                <Button className="w-full justify-start" variant="outline">
+                  <Activity className="mr-2 h-4 w-4" />
+                  View Configuration
+                </Button>
+              </Link>
+              <Link href="/sessions">
+                <Button className="w-full justify-start" variant="outline">
+                  <GitBranch className="mr-2 h-4 w-4" />
+                  Session History
+                </Button>
+              </Link>
+              <Link href="/analytics">
+                <Button className="w-full justify-start" variant="outline">
+                  <Clock className="mr-2 h-4 w-4" />
+                  Server Stats
+                </Button>
+              </Link>
+              <Link href="/analytics">
+                <Button className="w-full justify-start" variant="outline">
+                  <TrendingUp className="mr-2 h-4 w-4" />
+                  Analytics
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>
