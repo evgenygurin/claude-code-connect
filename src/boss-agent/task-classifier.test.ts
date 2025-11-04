@@ -20,7 +20,7 @@ function createMockIssue(
   title: string,
   description: string,
   priority?: number,
-  labels?: string[],
+  labelNames?: string[],
 ): Issue {
   return {
     id: 'test-issue-id',
@@ -28,7 +28,10 @@ function createMockIssue(
     title,
     description,
     priority: priority || 0,
-    labels: labels?.map((name) => ({ id: name, name })) || [],
+    labels: () =>
+      Promise.resolve({
+        nodes: labelNames?.map((name) => ({ id: name, name })) || [],
+      }),
   } as unknown as Issue;
 }
 
