@@ -24,6 +24,21 @@ Success Rate: 100%
 
 ## 🔥 Как запустить у себя
 
+### 0. Установи Claude Code CLI (если еще не установлен)
+
+```bash
+# macOS/Linux/WSL
+curl -fsSL https://claude.ai/install.sh | bash
+
+# Или через npm (если нативная установка не работает)
+npm install -g @anthropic-ai/claude-code
+
+# Проверь установку
+claude --version
+```
+
+> **⚠️ Проблемы с установкой?** См. [Claude Code Installation Troubleshooting Guide](./CLAUDE-CODE-INSTALLATION-TROUBLESHOOTING.md) для решения ошибок установки.
+
 ### 1. Клонируй и настрой проект
 
 ```bash

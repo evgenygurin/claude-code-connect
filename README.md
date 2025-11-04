@@ -52,10 +52,13 @@ Monitoring: Real-time session and stats tracking
 
 ### Prerequisites
 
+- **Claude Code CLI** ([Installation guide](docs/CLAUDE-CODE-INSTALLATION-TROUBLESHOOTING.md))
 - Node.js 18+ & npm
 - Linear API token ([Get it here](https://linear.app/settings/account/security))
 - Git repository for code operations
 - ngrok for local development (optional)
+
+> **Note**: If you encounter issues installing Claude Code CLI (e.g., "macOS version too old" or install script errors), see the [Claude Code Installation Troubleshooting Guide](docs/CLAUDE-CODE-INSTALLATION-TROUBLESHOOTING.md) for detailed solutions and alternative installation methods.
 
 ### Installation
 
@@ -182,6 +185,7 @@ npm run test:integration
 ## 📝 Documentation
 
 - [Quick Start Guide](docs/QUICK-START-GUIDE.md) - Get started in 5 minutes
+- [Claude Code Installation Troubleshooting](docs/CLAUDE-CODE-INSTALLATION-TROUBLESHOOTING.md) - Fix installation errors
 - [Linear Webhook Setup](docs/LINEAR-WEBHOOK-SETUP.md) - Detailed webhook configuration
 - [Roadmap & Improvements](docs/ROADMAP-IMPROVEMENTS.md) - Future development plans
 - [API Documentation](docs/api/) - Complete API reference
