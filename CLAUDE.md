@@ -102,6 +102,94 @@ The system automatically determines:
 - **Port**: Default 3005 (configurable via WEBHOOK_PORT)
 - **All other settings**: Use sensible defaults
 
+## 🤖 Codegen Integration
+
+This project includes **Codegen AI agent integration** through the Codegen GitHub App with support for CircleCI, Sentry, and Linear integrations.
+
+### Quick Codegen Setup
+
+**IMPORTANT**: Codegen works through the GitHub App, not direct SDK calls.
+
+```bash
+# 1. Install Codegen GitHub App (REQUIRED)
+# Visit: https://github.com/apps/codegen-sh
+# Click "Install" and select this repository
+
+# 2. Configure integrations (Optional)
+# Visit: https://codegen.com/settings/integrations
+# Connect: CircleCI, Sentry, Linear, Slack
+
+# 3. That's it! No credentials needed in GitHub Secrets
+```
+
+### Codegen Features
+
+**Core Features (via GitHub App):**
+- ✅ **PR Reviews** - Reviews PRs on creation, updates, or @mentions
+- ✅ **Check Suite Auto-fixer** - Fixes failing CI/CD checks (up to 3 attempts)
+- ✅ **@codegen Mentions** - Responds to mentions in comments
+- ✅ **Label Triggers** - Activates on `codegen:*` labels
+
+**Integration Features:**
+- ✅ **CircleCI** - Auto-fix failing builds and tests
+- ✅ **Sentry** - Create tickets and fix production errors
+- ✅ **Linear** - Sync issues and auto-create PRs
+- ✅ **Slack** - Notifications and @codegen commands
+
+### Usage
+
+**Comment-Based Triggering:**
+
+```text
+@codegen please review this code
+@codegen fix the failing tests
+@codegen implement user authentication
+@codegen add tests for the API endpoints
+```
+
+**Label-Based Triggering:**
+
+```bash
+# Add labels to PRs/issues
+gh pr edit 123 --add-label "codegen:bug-fix"
+gh pr edit 123 --add-label "codegen:feature"
+gh pr edit 123 --add-label "codegen:review"
+```
+
+**Automatic Triggers (via GitHub App):**
+- New PRs → Optional automatic code review
+- Check suite failures → Auto-fixer activates
+- CircleCI failures → Auto-fix and retry
+- Sentry errors → Create issues and fixes
+- Linear issues with `codegen` label → Auto-create PRs
+
+### Architecture
+
+Codegen uses **webhook-based integration** instead of direct SDK calls:
+
+```text
+GitHub Event → Codegen GitHub App → AI Agent → GitHub API
+                                   ↓
+                  CircleCI ← ← ← ← ←
+                  Sentry ← ← ← ← ← ←
+                  Linear ← ← ← ← ← ←
+```
+
+**Benefits:**
+- ✅ No API tokens in GitHub Secrets
+- ✅ Real-time event processing
+- ✅ Native integrations with CI/CD and monitoring tools
+- ✅ Centralized configuration
+- ✅ Better security model
+
+### Codegen Documentation
+
+- **Integrations Guide**: [docs/CODEGEN-INTEGRATIONS.md](docs/CODEGEN-INTEGRATIONS.md) ← **Start here**
+- **GitHub App Setup**: [docs/CODEGEN-GITHUB-APP-SETUP.md](docs/CODEGEN-GITHUB-APP-SETUP.md)
+- **Official Docs**: [docs.codegen.com](https://docs.codegen.com)
+- **Agent Runs**: [codegen.com/runs](https://codegen.com/runs)
+- **Configuration**: `.codegen/config.yml`
+
 ### Configuration Loading Process
 
 1. **Environment Variables**: System reads environment variables first

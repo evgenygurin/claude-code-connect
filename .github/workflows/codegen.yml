@@ -1,0 +1,100 @@
+name: Codegen Integration
+
+# Triggers for Codegen agent runs
+# Note: Codegen GitHub App handles most events automatically
+# This workflow is for manual triggers and label-based actions
+on:
+  # Issue comments - @codegen mentions
+  issue_comment:
+    types: [created]
+
+  # Manual workflow dispatch
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: 'Task prompt for Codegen agent'
+        required: true
+        type: string
+      pr_number:
+        description: 'PR number (optional)'
+        required: false
+        type: string
+
+# Permissions required for Codegen integration
+permissions:
+  contents: write           # Read/write repository contents
+  pull-requests: write      # Create and manage PRs
+  issues: write            # Comment on issues
+  checks: write            # Update check runs
+  statuses: write          # Update commit statuses
+
+jobs:
+  # Job 1: @codegen Mention Handler
+  codegen-mention:
+    name: Handle @codegen mentions
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'issue_comment' &&
+      contains(github.event.comment.body, '@codegen')
+
+    steps:
+      - name: Acknowledge mention
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.payload.issue?.number || context.payload.pull_request?.number;
+            const commentBody = context.payload.comment.body;
+
+            // Extract task from comment
+            const task = commentBody.replace(/@codegen/gi, '').trim();
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `👋 **Codegen Agent Activated**\n\n✅ Task received: ${task}\n\n🤖 The Codegen GitHub App will process this request.\n\n📊 Track agent runs at: https://codegen.com/runs\n\n> **Note**: Make sure the Codegen GitHub App is installed for this repository.\n> Install at: https://github.com/apps/codegen-sh`
+            });
+
+  # Job 2: Manual workflow dispatch
+  codegen-manual:
+    name: Manual Codegen Task
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Notify manual task
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prompt = "${{ github.event.inputs.prompt }}";
+            const prNumber = "${{ github.event.inputs.pr_number }}";
+
+            let message = `🤖 **Manual Codegen Task Initiated**\n\n**Task**: ${prompt}\n\n`;
+
+            if (prNumber) {
+              message += `**Target PR**: #${prNumber}\n\n`;
+            }
+
+            message += `📊 Track at: https://codegen.com/runs\n\n`;
+            message += `> **Note**: Use the Codegen dashboard or GitHub App for full functionality.`;
+
+            if (prNumber) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: parseInt(prNumber),
+                body: message
+              });
+            }
+
+            core.info(message);
+
+# Note: The following features are handled automatically by Codegen GitHub App:
+# - PR Reviews: Triggered by PR creation, updates, or review requests
+# - Check Suite Auto-fixer: Automatically fixes failing CI/CD checks
+# - CircleCI Integration: Monitors CircleCI builds and auto-fixes failures
+# - Sentry Integration: Creates tickets and fixes for production errors
+# - Linear Integration: Syncs issues and creates PRs from Linear tickets
+#
+# No additional workflow configuration needed - configure these at:
+# https://codegen.com/settings/integrations

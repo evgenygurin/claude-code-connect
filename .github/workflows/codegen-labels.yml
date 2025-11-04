@@ -1,0 +1,221 @@
+name: Codegen Label Triggers
+
+# Trigger Codegen agents based on PR/Issue labels
+on:
+  pull_request:
+    types: [labeled]
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: write
+
+jobs:
+  codegen-label-handler:
+    name: Handle Codegen Labels
+    runs-on: ubuntu-latest
+    if: |
+      contains(github.event.label.name, 'codegen') ||
+      github.event.label.name == 'bug-fix' ||
+      github.event.label.name == 'feature-request' ||
+      github.event.label.name == 'refactor' ||
+      github.event.label.name == 'auto-fix'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Python for Codegen SDK
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Codegen SDK
+        run: pip install codegen
+
+      - name: Check Codegen credentials
+        id: check-credentials
+        run: |
+          if [ -z "${{ secrets.CODEGEN_API_TOKEN }}" ]; then
+            echo "❌ ERROR: CODEGEN_API_TOKEN not set"
+            echo "Run: ./scripts/setup-codegen.sh"
+            exit 1
+          fi
+          if [ -z "${{ secrets.CODEGEN_ORG_ID }}" ]; then
+            echo "❌ ERROR: CODEGEN_ORG_ID not set"
+            echo "Run: ./scripts/setup-codegen.sh"
+            exit 1
+          fi
+          echo "✅ Credentials configured"
+
+      - name: Determine task from label
+        id: determine-task
+        run: |
+          LABEL="${{ github.event.label.name }}"
+          TITLE="${{ github.event.pull_request.title || github.event.issue.title }}"
+          BODY="${{ github.event.pull_request.body || github.event.issue.body }}"
+
+          case "$LABEL" in
+            "codegen:bug-fix"|"bug-fix")
+              TASK="Analyze and fix the bug described in this issue/PR. Review the code, identify the root cause, implement a fix, and add tests."
+              ;;
+            "codegen:feature"|"feature-request")
+              TASK="Implement the feature request described in this issue/PR. Design the solution, write clean code, add comprehensive tests, and update documentation."
+              ;;
+            "codegen:refactor"|"refactor")
+              TASK="Refactor the code as described. Improve code quality, maintainability, and performance while preserving functionality. Add tests if missing."
+              ;;
+            "codegen:auto-fix"|"auto-fix")
+              TASK="Automatically fix any issues found in this PR. This includes fixing failing tests, linting errors, type errors, and other CI failures."
+              ;;
+            "codegen:review")
+              TASK="Perform a comprehensive code review. Check for bugs, security issues, performance problems, test coverage, and best practices."
+              ;;
+            "codegen:tests")
+              TASK="Add comprehensive test coverage for the code in this PR. Include unit tests, integration tests, and edge cases."
+              ;;
+            "codegen:docs")
+              TASK="Update documentation for the changes in this PR. Include inline code comments, README updates, and API documentation."
+              ;;
+            "codegen")
+              TASK="Analyze this issue/PR and complete the requested task based on the title and description."
+              ;;
+            *)
+              TASK="Handle the request described in: $TITLE"
+              ;;
+          esac
+
+          echo "task=$TASK" >> $GITHUB_OUTPUT
+          echo "📋 Task determined: $TASK"
+
+      - name: Trigger Codegen agent
+        env:
+          CODEGEN_API_TOKEN: ${{ secrets.CODEGEN_API_TOKEN }}
+          CODEGEN_ORG_ID: ${{ secrets.CODEGEN_ORG_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat > codegen_label.py << 'EOF'
+          import os
+          import sys
+
+          api_token = os.environ.get('CODEGEN_API_TOKEN', '').strip()
+          org_id = os.environ.get('CODEGEN_ORG_ID', '').strip()
+
+          if not api_token or not org_id:
+              print("❌ ERROR: Missing Codegen credentials")
+              sys.exit(1)
+
+          from codegen.agents.agent import Agent
+
+          agent = Agent(
+              org_id=org_id,
+              token=api_token
+          )
+
+          repo_name = "${{ github.repository }}"
+          number = "${{ github.event.pull_request.number || github.event.issue.number }}"
+          label = "${{ github.event.label.name }}"
+          title = """${{ github.event.pull_request.title || github.event.issue.title }}"""
+          body = """${{ github.event.pull_request.body || github.event.issue.body }}"""
+          task_description = """${{ steps.determine-task.outputs.task }}"""
+
+          prompt = f"""Repository: {repo_name}
+          Issue/PR: #{number}
+          Label: {label}
+          Title: {title}
+
+          Description:
+          {body}
+
+          Task:
+          {task_description}
+
+          Context:
+          - Review the existing codebase structure
+          - Follow the project's coding conventions
+          - Ensure all tests pass
+          - Update documentation as needed
+          - Create clear, descriptive commits
+          """
+
+          print(f"🏷️  Starting Codegen agent for label '{label}' on #{number}...")
+          task = agent.run(prompt=prompt)
+
+          with open('agent_run_id.txt', 'w') as f:
+              f.write(task.id)
+
+          print(f"✅ Agent run started: {task.id}")
+          EOF
+
+          python codegen_label.py
+
+      - name: Comment with agent run info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const agentRunId = fs.readFileSync('agent_run_id.txt', 'utf8').trim();
+            const label = context.payload.label.name;
+            const number = context.payload.pull_request?.number || context.payload.issue?.number;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+              body: `🏷️ **Codegen Label Handler**\n\n**Label:** \`${label}\`\n**Action:** Processing your request...\n\n**Agent Run:** \`${agentRunId}\`\n\n🔗 Track progress: https://codegen.com/runs/${agentRunId}\n\nI'll update this issue/PR when the task is complete.`
+            });
+
+  # Add codegen label automatically based on keywords in title/body
+  auto-label-codegen:
+    name: Auto-label for Codegen
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'pull_request' || github.event_name == 'issues') &&
+      github.event.action == 'opened' &&
+      !contains(github.event.pull_request.labels.*.name, 'codegen') &&
+      !contains(github.event.issue.labels.*.name, 'codegen')
+
+    steps:
+      - name: Check for Codegen keywords
+        id: check-keywords
+        run: |
+          TITLE="${{ github.event.pull_request.title || github.event.issue.title }}"
+          BODY="${{ github.event.pull_request.body || github.event.issue.body }}"
+
+          # Keywords that should trigger Codegen
+          if echo "$TITLE $BODY" | grep -iE '(@codegen|auto-fix|codegen:|bot:|agent:)'; then
+            echo "should_label=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_label=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Add codegen label
+        if: steps.check-keywords.outputs.should_label == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const number = context.payload.pull_request?.number || context.payload.issue?.number;
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+              labels: ['codegen']
+            });
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+              body: '🏷️ Automatically labeled with `codegen` - the Codegen agent will process this shortly!'
+            });

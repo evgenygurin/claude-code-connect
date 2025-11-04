@@ -1,0 +1,251 @@
+# Codegen Configuration
+# Documentation: https://docs.codegen.com/settings/settings
+
+# Organization settings
+organization:
+  # Your Codegen organization ID
+  # Get it from: https://codegen.com/settings
+  id: ${CODEGEN_ORG_ID}
+
+# Agent behavior configuration
+agent:
+  # Default model to use (sonnet-4.5, opus-4, etc.)
+  model: "sonnet-4.5"
+
+  # Agent permissions
+  permissions:
+    # Can the agent create pull requests?
+    create_prs: true
+
+    # Can the agent push commits directly?
+    push_commits: true
+
+    # Can the agent merge PRs?
+    merge_prs: false
+
+    # Can the agent delete branches?
+    delete_branches: false
+
+    # Can the agent modify workflows?
+    modify_workflows: false
+
+  # Retry configuration
+  retries:
+    # Number of times to retry fixing failed checks
+    check_suite_failures: 3
+
+    # Retry delay in seconds
+    delay_seconds: 30
+
+  # Timeout configuration
+  timeouts:
+    # Maximum time for agent run (in minutes)
+    max_run_time: 60
+
+    # Timeout for individual operations
+    operation_timeout: 10
+
+# Repository rules
+rules:
+  # Global rules that apply to all agent tasks
+  global:
+    - "Always write TypeScript with strict type safety"
+    - "Follow the existing code style and conventions"
+    - "Write comprehensive tests for new functionality"
+    - "Update documentation when changing APIs"
+    - "Use meaningful commit messages following conventional commits"
+    - "Never commit secrets or sensitive data"
+    - "Prefer small, focused commits over large monolithic changes"
+
+  # Code quality rules
+  code_quality:
+    - "Run linter and fix all linting errors before committing"
+    - "Ensure type checking passes with no errors"
+    - "Remove unused imports and variables"
+    - "Add JSDoc comments for public APIs"
+    - "Follow DRY principle - avoid code duplication"
+
+  # Testing rules
+  testing:
+    - "Achieve at least 80% code coverage for new code"
+    - "Write unit tests for all new functions and classes"
+    - "Include integration tests for API endpoints"
+    - "Test edge cases and error conditions"
+    - "Ensure all tests pass before creating PR"
+
+  # Security rules
+  security:
+    - "Validate and sanitize all user inputs"
+    - "Use parameterized queries for database operations"
+    - "Never log sensitive information"
+    - "Keep dependencies up to date"
+    - "Run security audit before merging"
+
+  # PR rules
+  pull_requests:
+    - "Keep PRs focused on a single concern"
+    - "Write clear PR descriptions explaining what and why"
+    - "Request reviews from appropriate team members"
+    - "Respond to review comments promptly"
+    - "Squash commits before merging if needed"
+
+# Check suite auto-fixer configuration
+check_suite:
+  # Enable auto-fixer for failed checks
+  auto_fix: true
+
+  # Which types of failures to auto-fix
+  fix_types:
+    - "test_failures"
+    - "lint_errors"
+    - "type_errors"
+    - "build_failures"
+    - "security_warnings"
+
+  # Exclude certain checks from auto-fixing
+  exclude_checks:
+    - "manual-approval"
+    - "security-scan"
+
+  # Create separate commits for each fix?
+  separate_commits: true
+
+  # Create PR comments explaining fixes?
+  comment_on_fixes: true
+
+# PR review configuration
+pr_review:
+  # Enable automatic PR reviews
+  enabled: true
+
+  # Review on every push?
+  review_on_push: true
+
+  # Minimum PR size to trigger review (lines changed)
+  min_size: 10
+
+  # Maximum PR size for review (lines changed)
+  max_size: 1000
+
+  # Focus areas for reviews
+  focus_areas:
+    - "security"
+    - "performance"
+    - "maintainability"
+    - "test_coverage"
+    - "documentation"
+
+  # Post review as PR comment or review?
+  review_format: "comment"  # or "review"
+
+  # Auto-approve PRs that meet quality standards?
+  auto_approve: false
+
+# Trigger configuration
+triggers:
+  # Keywords that activate Codegen in comments
+  mention_keywords:
+    - "@codegen"
+    - "@agent"
+    - "codegen:"
+    - "bot:"
+
+  # Labels that trigger Codegen
+  labels:
+    - "codegen"
+    - "codegen:bug-fix"
+    - "codegen:feature"
+    - "codegen:refactor"
+    - "codegen:auto-fix"
+    - "codegen:review"
+    - "codegen:tests"
+    - "codegen:docs"
+    - "bug-fix"
+    - "feature-request"
+    - "auto-fix"
+
+  # Events that trigger auto-fixer
+  events:
+    - "check_suite.completed"
+    - "check_run.completed"
+
+# Integration settings
+# Configure at: https://codegen.com/settings/integrations
+integrations:
+  # GitHub (via Codegen GitHub App)
+  github:
+    enabled: true
+    create_checks: true
+    update_status: true
+    use_draft_prs: false
+    auto_pr_review: true
+    auto_fix_checks: true
+
+  # CircleCI Integration
+  circleci:
+    enabled: false
+    auto_fix: true
+    max_retries: 3
+
+  # Sentry Integration
+  sentry:
+    enabled: false
+    auto_create_issues: true
+    priority_threshold: "high"
+
+  # Linear Integration
+  linear:
+    enabled: false
+    auto_create_prs: true
+    sync_pr_status: true
+
+  # Slack Integration
+  slack:
+    enabled: false
+    default_channel: "#dev-bots"
+    notify_on_completion: true
+
+# Sandbox configuration
+sandbox:
+  # Environment variables for agent sandbox
+  env_vars:
+    NODE_ENV: "test"
+    CI: "true"
+
+  # Setup commands to run before agent tasks
+  setup_commands:
+    - "npm ci"
+    - "npm run build"
+
+  # Timeout for setup (in minutes)
+  setup_timeout: 10
+
+# Monitoring and analytics
+monitoring:
+  # Enable detailed logging?
+  verbose_logging: true
+
+  # Track agent performance metrics?
+  track_metrics: true
+
+  # Send analytics to Codegen?
+  send_analytics: true
+
+# Rate limiting
+rate_limits:
+  # Maximum agent runs per hour
+  max_runs_per_hour: 50
+
+  # Maximum concurrent agent runs
+  max_concurrent_runs: 3
+
+# Cost controls (if applicable)
+cost_controls:
+  # Maximum cost per agent run (in credits)
+  max_cost_per_run: 100
+
+  # Maximum total cost per day
+  max_daily_cost: 1000
+
+  # Alert when approaching limits?
+  cost_alerts: true
