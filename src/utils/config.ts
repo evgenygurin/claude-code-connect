@@ -40,7 +40,8 @@ const ENV_MAPPING = {
 const DEFAULT_CONFIG: Partial<IntegrationConfig> = {
   defaultBranch: "main",
   createBranches: true,
-  webhookPort: 3005,
+  // Use port 3000 for Codegen Web Preview, 3005 for local development
+  webhookPort: process.env.CG_PREVIEW_URL ? 3000 : 3005,
   claudeExecutablePath: "claude",
   timeoutMinutes: 30,
   debug: false,

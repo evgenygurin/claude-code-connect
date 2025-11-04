@@ -108,10 +108,20 @@ async function startCommand(args: string[]): Promise<void> {
     await server.start();
 
     logger.info("✅ Integration server is running");
-    logger.info(
-      `📡 Webhook endpoint: http://localhost:${config.webhookPort}/webhooks/linear`,
-    );
-    logger.info(`📊 Management API: http://localhost:${config.webhookPort}/`);
+
+    // Show Web Preview URL if available (Codegen sandbox)
+    const webPreviewUrl = process.env.CG_PREVIEW_URL;
+    if (webPreviewUrl) {
+      logger.info(`🌐 Web Preview: ${webPreviewUrl}`);
+      logger.info(`📡 Webhook endpoint: ${webPreviewUrl}/webhooks/linear`);
+      logger.info(`📊 Management API: ${webPreviewUrl}/`);
+    } else {
+      logger.info(
+        `📡 Webhook endpoint: http://localhost:${config.webhookPort}/webhooks/linear`,
+      );
+      logger.info(`📊 Management API: http://localhost:${config.webhookPort}/`);
+    }
+
     logger.info("Press Ctrl+C to stop");
 
     // Keep the process alive

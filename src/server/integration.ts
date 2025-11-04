@@ -597,10 +597,13 @@ export class IntegrationServer {
 
       this.isStarted = true;
 
+      const isWebPreview = !!process.env.CG_PREVIEW_URL;
       this.logger.info("Integration server started", {
         port: this.config.webhookPort,
         organization: this.config.linearOrganizationId,
         projectRoot: this.config.projectRootDir,
+        webPreviewMode: isWebPreview,
+        webPreviewUrl: process.env.CG_PREVIEW_URL || undefined,
       });
 
       // Setup periodic cleanup
