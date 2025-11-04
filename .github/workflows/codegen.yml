@@ -1,26 +1,12 @@
 name: Codegen Integration
 
 # Triggers for Codegen agent runs
+# Note: Codegen GitHub App handles most events automatically
+# This workflow is for manual triggers and label-based actions
 on:
-  # PR events - trigger code review and assistance
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-
   # Issue comments - @codegen mentions
   issue_comment:
     types: [created]
-
-  # PR review comments - @codegen mentions
-  pull_request_review_comment:
-    types: [created]
-
-  # PR reviews - @codegen mentions
-  pull_request_review:
-    types: [submitted]
-
-  # Check suite failures - auto-fixer
-  check_suite:
-    types: [completed]
 
   # Manual workflow dispatch
   workflow_dispatch:
@@ -41,545 +27,74 @@ permissions:
   issues: write            # Comment on issues
   checks: write            # Update check runs
   statuses: write          # Update commit statuses
-  actions: read            # Read workflow runs
-  id-token: write          # OIDC token for secure auth
 
 jobs:
-  # Job 1: Codegen PR Review Agent
-  codegen-review:
-    name: Codegen PR Review
-    runs-on: ubuntu-latest
-    # Only run on PRs that are ready for review
-    if: |
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.draft == false &&
-      !contains(github.event.pull_request.labels.*.name, 'skip-codegen')
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for better context
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Setup Python for Codegen SDK
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install Codegen SDK
-        run: |
-          pip install codegen
-          # Verify installation
-          python -c "import codegen; print(f'Codegen SDK installed: {codegen.__version__}')"
-
-      - name: Check Codegen credentials
-        id: check-credentials
-        run: |
-          if [ -z "${{ secrets.CODEGEN_API_TOKEN }}" ]; then
-            echo "❌ ERROR: CODEGEN_API_TOKEN secret is not set"
-            echo "Please set it in: Repository Settings → Secrets → CODEGEN_API_TOKEN"
-            echo "Get your token from: https://codegen.com/token"
-            exit 1
-          fi
-
-          if [ -z "${{ secrets.CODEGEN_ORG_ID }}" ]; then
-            echo "❌ ERROR: CODEGEN_ORG_ID secret is not set"
-            echo "Please set it in: Repository Settings → Secrets → CODEGEN_ORG_ID"
-            echo "Get your org ID from: https://codegen.com/settings"
-            exit 1
-          fi
-
-          echo "✅ Codegen credentials are configured"
-
-      - name: Trigger Codegen PR Review
-        id: codegen-review
-        env:
-          CODEGEN_API_TOKEN: ${{ secrets.CODEGEN_API_TOKEN }}
-          CODEGEN_ORG_ID: ${{ secrets.CODEGEN_ORG_ID }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cat > codegen_review.py << 'EOF'
-          import os
-          import sys
-          import json
-
-          # Validate environment variables
-          api_token = os.environ.get('CODEGEN_API_TOKEN', '').strip()
-          org_id = os.environ.get('CODEGEN_ORG_ID', '').strip()
-
-          if not api_token:
-              print("❌ ERROR: CODEGEN_API_TOKEN is not set or empty")
-              print("Please configure it in GitHub Secrets")
-              sys.exit(1)
-
-          if not org_id:
-              print("❌ ERROR: CODEGEN_ORG_ID is not set or empty")
-              print("Please configure it in GitHub Secrets")
-              sys.exit(1)
-
-          try:
-              from codegen.agents.agent import Agent
-          except ImportError:
-              print("❌ ERROR: Codegen SDK not installed")
-              print("This should not happen in the workflow. Please report this issue.")
-              sys.exit(1)
-
-          # Initialize Codegen agent
-          try:
-              agent = Agent(
-                  org_id=org_id,
-                  token=api_token
-              )
-          except Exception as e:
-              print(f"❌ ERROR: Failed to initialize Codegen agent: {e}")
-              print(f"Org ID: {org_id[:8]}... (first 8 chars)")
-              print(f"Token: {'*' * 20} (hidden)")
-              sys.exit(1)
-
-          # Build review prompt
-          pr_number = "${{ github.event.pull_request.number }}"
-          repo_name = "${{ github.repository }}"
-          pr_title = """${{ github.event.pull_request.title }}"""
-          pr_body = """${{ github.event.pull_request.body }}"""
-
-          prompt = f"""Please review PR #{pr_number} in {repo_name}:
-
-          Title: {pr_title}
-          Description: {pr_body}
-
-          Focus on:
-          1. Code quality and best practices
-          2. Security vulnerabilities and potential issues
-          3. Performance considerations
-          4. Test coverage and edge cases
-          5. Documentation and code clarity
-          6. TypeScript type safety
-          7. Potential bugs or logic errors
-
-          Provide constructive feedback with specific suggestions for improvement.
-          """
-
-          # Run the agent
-          print(f"🤖 Starting Codegen PR review for PR #{pr_number}...")
-          task = agent.run(prompt=prompt)
-
-          # Save agent run ID for tracking
-          with open('agent_run_id.txt', 'w') as f:
-              f.write(task.id)
-
-          print(f"✅ Codegen agent run started: {task.id}")
-          print(f"📊 Status: {task.status}")
-          EOF
-
-          python codegen_review.py
-
-      - name: Save agent run metadata
-        if: always()
-        run: |
-          if [ -f agent_run_id.txt ]; then
-            AGENT_RUN_ID=$(cat agent_run_id.txt)
-            echo "agent_run_id=$AGENT_RUN_ID" >> $GITHUB_OUTPUT
-            echo "🔗 Track agent progress at: https://codegen.com/runs/$AGENT_RUN_ID"
-          fi
-
-      - name: Comment PR with agent run link
-        if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            if (fs.existsSync('agent_run_id.txt')) {
-              const agentRunId = fs.readFileSync('agent_run_id.txt', 'utf8').trim();
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.payload.pull_request.number,
-                body: `🤖 **Codegen Review Started**\n\nAgent Run ID: \`${agentRunId}\`\n\nTrack progress: https://codegen.com/runs/${agentRunId}\n\nThe agent will post detailed review comments shortly.`
-              });
-            }
-
-  # Job 2: Codegen Mention Handler
+  # Job 1: @codegen Mention Handler
   codegen-mention:
     name: Handle @codegen mentions
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'issue_comment' ||
-       github.event_name == 'pull_request_review_comment' ||
-       github.event_name == 'pull_request_review') &&
-      contains(github.event.comment.body || github.event.review.body, '@codegen')
+      github.event_name == 'issue_comment' &&
+      contains(github.event.comment.body, '@codegen')
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Setup Python for Codegen SDK
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install Codegen SDK
-        run: pip install codegen
-
-      - name: Check Codegen credentials
-        id: check-credentials
-        run: |
-          if [ -z "${{ secrets.CODEGEN_API_TOKEN }}" ] || [ -z "${{ secrets.CODEGEN_ORG_ID }}" ]; then
-            echo "❌ ERROR: Codegen credentials not configured"
-            echo "Please run: ./scripts/setup-codegen.sh"
-            exit 1
-          fi
-          echo "✅ Credentials configured"
-
-      - name: Extract task from comment
-        id: extract-task
-        run: |
-          COMMENT_BODY="${{ github.event.comment.body || github.event.review.body }}"
-          # Remove @codegen mention and extract the actual task
-          TASK=$(echo "$COMMENT_BODY" | sed 's/@codegen//g' | xargs)
-          echo "task=$TASK" >> $GITHUB_OUTPUT
-          echo "📝 Extracted task: $TASK"
-
-      - name: Trigger Codegen agent
-        env:
-          CODEGEN_API_TOKEN: ${{ secrets.CODEGEN_API_TOKEN }}
-          CODEGEN_ORG_ID: ${{ secrets.CODEGEN_ORG_ID }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cat > codegen_mention.py << 'EOF'
-          import os
-          import sys
-          import json
-
-          api_token = os.environ.get('CODEGEN_API_TOKEN', '').strip()
-          org_id = os.environ.get('CODEGEN_ORG_ID', '').strip()
-
-          if not api_token or not org_id:
-              print("❌ ERROR: Missing Codegen credentials")
-              sys.exit(1)
-
-          from codegen.agents.agent import Agent
-
-          agent = Agent(
-              org_id=org_id,
-              token=api_token
-          )
-
-          task_text = """${{ steps.extract-task.outputs.task }}"""
-          repo_name = "${{ github.repository }}"
-          issue_number = "${{ github.event.issue.number || github.event.pull_request.number }}"
-
-          prompt = f"""Repository: {repo_name}
-          Issue/PR: #{issue_number}
-
-          Task: {task_text}
-
-          Please analyze the repository context and complete this task.
-          """
-
-          print(f"🤖 Starting Codegen agent for task...")
-          task = agent.run(prompt=prompt)
-
-          with open('agent_run_id.txt', 'w') as f:
-              f.write(task.id)
-
-          print(f"✅ Agent run started: {task.id}")
-          EOF
-
-          python codegen_mention.py
-
-      - name: Reply to comment
+      - name: Acknowledge mention
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            const agentRunId = fs.readFileSync('agent_run_id.txt', 'utf8').trim();
-
             const issueNumber = context.payload.issue?.number || context.payload.pull_request?.number;
+            const commentBody = context.payload.comment.body;
+
+            // Extract task from comment
+            const task = commentBody.replace(/@codegen/gi, '').trim();
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              body: `👋 **Codegen Agent Activated**\n\n✅ I'm on it! Agent Run: \`${agentRunId}\`\n\nTrack progress: https://codegen.com/runs/${agentRunId}`
+              body: `👋 **Codegen Agent Activated**\n\n✅ Task received: ${task}\n\n🤖 The Codegen GitHub App will process this request.\n\n📊 Track agent runs at: https://codegen.com/runs\n\n> **Note**: Make sure the Codegen GitHub App is installed for this repository.\n> Install at: https://github.com/apps/codegen-sh`
             });
 
-  # Job 3: Check Suite Auto-Fixer
-  codegen-autofixer:
-    name: Codegen Check Suite Auto-fixer
-    runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'check_suite' &&
-      github.event.check_suite.conclusion == 'failure' &&
-      github.event.check_suite.head_branch != github.event.repository.default_branch
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.check_suite.head_branch }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Setup Python for Codegen SDK
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install Codegen SDK
-        run: pip install codegen
-
-      - name: Check Codegen credentials
-        id: check-credentials
-        run: |
-          if [ -z "${{ secrets.CODEGEN_API_TOKEN }}" ] || [ -z "${{ secrets.CODEGEN_ORG_ID }}" ]; then
-            echo "❌ ERROR: Codegen credentials not configured"
-            exit 1
-          fi
-          echo "✅ Credentials configured"
-
-      - name: Fetch check suite logs
-        id: fetch-logs
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const checkSuite = context.payload.check_suite;
-            const checkRuns = await github.rest.checks.listForSuite({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              check_suite_id: checkSuite.id
-            });
-
-            let failedChecks = [];
-            for (const run of checkRuns.data.check_runs) {
-              if (run.conclusion === 'failure') {
-                failedChecks.push({
-                  name: run.name,
-                  conclusion: run.conclusion,
-                  output: run.output
-                });
-              }
-            }
-
-            const fs = require('fs');
-            fs.writeFileSync('failed_checks.json', JSON.stringify(failedChecks, null, 2));
-
-            return failedChecks.length;
-
-      - name: Trigger Codegen auto-fixer
-        env:
-          CODEGEN_API_TOKEN: ${{ secrets.CODEGEN_API_TOKEN }}
-          CODEGEN_ORG_ID: ${{ secrets.CODEGEN_ORG_ID }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cat > codegen_autofixer.py << 'EOF'
-          import os
-          import sys
-          import json
-
-          api_token = os.environ.get('CODEGEN_API_TOKEN', '').strip()
-          org_id = os.environ.get('CODEGEN_ORG_ID', '').strip()
-
-          if not api_token or not org_id:
-              print("❌ ERROR: Missing Codegen credentials")
-              sys.exit(1)
-
-          from codegen.agents.agent import Agent
-
-          agent = Agent(
-              org_id=org_id,
-              token=api_token
-          )
-
-          # Load failed check information
-          with open('failed_checks.json', 'r') as f:
-              failed_checks = json.load(f)
-
-          repo_name = "${{ github.repository }}"
-          branch = "${{ github.event.check_suite.head_branch }}"
-          sha = "${{ github.event.check_suite.head_sha }}"
-
-          # Build fix prompt
-          checks_summary = "\n".join([
-              f"- {check['name']}: {check['conclusion']}\n  Error: {check['output'].get('summary', 'No details')}"
-              for check in failed_checks
-          ])
-
-          prompt = f"""Repository: {repo_name}
-          Branch: {branch}
-          Commit: {sha}
-
-          ❌ Check Suite Failed - Auto-fix Required
-
-          Failed Checks:
-          {checks_summary}
-
-          Please analyze the failures, identify the root cause, and fix the issues.
-
-          Tasks:
-          1. Review the error logs and identify what's broken
-          2. Fix the code to resolve the failures
-          3. Ensure tests pass
-          4. Create a commit with the fixes
-
-          Focus on:
-          - Syntax errors
-          - Type errors
-          - Test failures
-          - Linting issues
-          - Build failures
-          """
-
-          print(f"🔧 Starting Codegen auto-fixer for {len(failed_checks)} failed checks...")
-          task = agent.run(prompt=prompt)
-
-          with open('agent_run_id.txt', 'w') as f:
-              f.write(task.id)
-
-          print(f"✅ Auto-fixer agent started: {task.id}")
-          EOF
-
-          python codegen_autofixer.py
-
-      - name: Find associated PR and comment
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const agentRunId = fs.readFileSync('agent_run_id.txt', 'utf8').trim();
-            const branch = context.payload.check_suite.head_branch;
-
-            // Find PR for this branch
-            const prs = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: `${context.repo.owner}:${branch}`,
-              state: 'open'
-            });
-
-            if (prs.data.length > 0) {
-              const pr = prs.data[0];
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: pr.number,
-                body: `🔧 **Codegen Auto-fixer Activated**\n\n❌ Check suite failed, attempting automatic fix...\n\nAgent Run: \`${agentRunId}\`\n\nTrack progress: https://codegen.com/runs/${agentRunId}\n\nI'll analyze the failures and push fixes shortly.`
-              });
-            }
-
-  # Job 4: Manual workflow dispatch
+  # Job 2: Manual workflow dispatch
   codegen-manual:
     name: Manual Codegen Task
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch'
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Setup Python for Codegen SDK
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install Codegen SDK
-        run: pip install codegen
-
-      - name: Check Codegen credentials
-        id: check-credentials
-        run: |
-          if [ -z "${{ secrets.CODEGEN_API_TOKEN }}" ] || [ -z "${{ secrets.CODEGEN_ORG_ID }}" ]; then
-            echo "❌ ERROR: Codegen credentials not configured"
-            exit 1
-          fi
-          echo "✅ Credentials configured"
-
-      - name: Run manual Codegen task
-        env:
-          CODEGEN_API_TOKEN: ${{ secrets.CODEGEN_API_TOKEN }}
-          CODEGEN_ORG_ID: ${{ secrets.CODEGEN_ORG_ID }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cat > codegen_manual.py << 'EOF'
-          import os
-          import sys
-
-          api_token = os.environ.get('CODEGEN_API_TOKEN', '').strip()
-          org_id = os.environ.get('CODEGEN_ORG_ID', '').strip()
-
-          if not api_token or not org_id:
-              print("❌ ERROR: Missing Codegen credentials")
-              sys.exit(1)
-
-          from codegen.agents.agent import Agent
-
-          agent = Agent(
-              org_id=org_id,
-              token=api_token
-          )
-
-          prompt = """${{ github.event.inputs.prompt }}"""
-          repo_name = "${{ github.repository }}"
-
-          full_prompt = f"""Repository: {repo_name}
-
-          Task: {prompt}
-          """
-
-          print(f"🤖 Starting manual Codegen task...")
-          task = agent.run(prompt=full_prompt)
-
-          with open('agent_run_id.txt', 'w') as f:
-              f.write(task.id)
-
-          print(f"✅ Agent run started: {task.id}")
-          print(f"📊 Status: {task.status}")
-          print(f"🔗 Track at: https://codegen.com/runs/{task.id}")
-          EOF
-
-          python codegen_manual.py
-
-      - name: Comment on PR if specified
-        if: github.event.inputs.pr_number != ''
+      - name: Notify manual task
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            const agentRunId = fs.readFileSync('agent_run_id.txt', 'utf8').trim();
+            const prompt = "${{ github.event.inputs.prompt }}";
+            const prNumber = "${{ github.event.inputs.pr_number }}";
 
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: ${{ github.event.inputs.pr_number }},
-              body: `🤖 **Manual Codegen Task Started**\n\nTask: ${{ github.event.inputs.prompt }}\n\nAgent Run: \`${agentRunId}\`\n\nTrack progress: https://codegen.com/runs/${agentRunId}`
-            });
+            let message = `🤖 **Manual Codegen Task Initiated**\n\n**Task**: ${prompt}\n\n`;
+
+            if (prNumber) {
+              message += `**Target PR**: #${prNumber}\n\n`;
+            }
+
+            message += `📊 Track at: https://codegen.com/runs\n\n`;
+            message += `> **Note**: Use the Codegen dashboard or GitHub App for full functionality.`;
+
+            if (prNumber) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: parseInt(prNumber),
+                body: message
+              });
+            }
+
+            core.info(message);
+
+# Note: The following features are handled automatically by Codegen GitHub App:
+# - PR Reviews: Triggered by PR creation, updates, or review requests
+# - Check Suite Auto-fixer: Automatically fixes failing CI/CD checks
+# - CircleCI Integration: Monitors CircleCI builds and auto-fixes failures
+# - Sentry Integration: Creates tickets and fixes for production errors
+# - Linear Integration: Syncs issues and creates PRs from Linear tickets
+#
+# No additional workflow configuration needed - configure these at:
+# https://codegen.com/settings/integrations

@@ -170,32 +170,40 @@ triggers:
     - "check_run.completed"
 
 # Integration settings
+# Configure at: https://codegen.com/settings/integrations
 integrations:
-  # GitHub settings
+  # GitHub (via Codegen GitHub App)
   github:
-    # Create check runs for agent progress?
+    enabled: true
     create_checks: true
-
-    # Update commit status?
     update_status: true
-
-    # Use draft PRs?
     use_draft_prs: false
+    auto_pr_review: true
+    auto_fix_checks: true
 
-  # Slack notifications (if configured)
-  slack:
+  # CircleCI Integration
+  circleci:
     enabled: false
-    # Webhook URL (set via environment variable)
-    webhook_url: ${SLACK_WEBHOOK_URL}
-    # Channels to notify
-    channels:
-      - "#dev-notifications"
+    auto_fix: true
+    max_retries: 3
 
-  # Linear integration (if configured)
+  # Sentry Integration
+  sentry:
+    enabled: false
+    auto_create_issues: true
+    priority_threshold: "high"
+
+  # Linear Integration
   linear:
     enabled: false
-    # Auto-update Linear issues?
-    update_issues: true
+    auto_create_prs: true
+    sync_pr_status: true
+
+  # Slack Integration
+  slack:
+    enabled: false
+    default_channel: "#dev-bots"
+    notify_on_completion: true
 
 # Sandbox configuration
 sandbox:

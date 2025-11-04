@@ -104,41 +104,39 @@ The system automatically determines:
 
 ## 🤖 Codegen Integration
 
-This project now includes **Codegen AI agent integration** for automated code development, PR reviews, and CI/CD auto-fixing.
+This project includes **Codegen AI agent integration** through the Codegen GitHub App with support for CircleCI, Sentry, and Linear integrations.
 
 ### Quick Codegen Setup
 
+**IMPORTANT**: Codegen works through the GitHub App, not direct SDK calls.
+
 ```bash
-# 1. Get Codegen credentials
-# Visit: https://codegen.com/token (API token)
-#        https://codegen.com/settings (Organization ID)
-
-# 2. Run setup script
-./scripts/setup-codegen.sh
-
-# 3. Install GitHub App (recommended)
+# 1. Install Codegen GitHub App (REQUIRED)
 # Visit: https://github.com/apps/codegen-sh
+# Click "Install" and select this repository
+
+# 2. Configure integrations (Optional)
+# Visit: https://codegen.com/settings/integrations
+# Connect: CircleCI, Sentry, Linear, Slack
+
+# 3. That's it! No credentials needed in GitHub Secrets
 ```
 
 ### Codegen Features
 
-- ✅ **Automatic PR Reviews** - AI code review on every PR
-- ✅ **Check Suite Auto-fixer** - Automatically fix failing CI checks (up to 3 attempts)
-- ✅ **Code Generation** - Implement features via labels or @mentions
-- ✅ **Bug Fixing** - Automatic bug analysis and fixes
-- ✅ **Test Generation** - Add comprehensive test coverage
-- ✅ **Documentation** - Update docs and add comments
+**Core Features (via GitHub App):**
+- ✅ **PR Reviews** - Reviews PRs on creation, updates, or @mentions
+- ✅ **Check Suite Auto-fixer** - Fixes failing CI/CD checks (up to 3 attempts)
+- ✅ **@codegen Mentions** - Responds to mentions in comments
+- ✅ **Label Triggers** - Activates on `codegen:*` labels
+
+**Integration Features:**
+- ✅ **CircleCI** - Auto-fix failing builds and tests
+- ✅ **Sentry** - Create tickets and fix production errors
+- ✅ **Linear** - Sync issues and auto-create PRs
+- ✅ **Slack** - Notifications and @codegen commands
 
 ### Usage
-
-**Label-Based Triggering:**
-
-```bash
-# Add labels to PRs/issues
-gh pr edit 123 --add-label "codegen:bug-fix"
-gh pr edit 123 --add-label "codegen:feature"
-gh pr edit 123 --add-label "codegen:review"
-```
 
 **Comment-Based Triggering:**
 
@@ -149,15 +147,45 @@ gh pr edit 123 --add-label "codegen:review"
 @codegen add tests for the API endpoints
 ```
 
-**Automatic Triggers:**
+**Label-Based Triggering:**
 
-- New PRs → Automatic code review
+```bash
+# Add labels to PRs/issues
+gh pr edit 123 --add-label "codegen:bug-fix"
+gh pr edit 123 --add-label "codegen:feature"
+gh pr edit 123 --add-label "codegen:review"
+```
+
+**Automatic Triggers (via GitHub App):**
+- New PRs → Optional automatic code review
 - Check suite failures → Auto-fixer activates
-- Push to PR → Re-review if configured
+- CircleCI failures → Auto-fix and retry
+- Sentry errors → Create issues and fixes
+- Linear issues with `codegen` label → Auto-create PRs
+
+### Architecture
+
+Codegen uses **webhook-based integration** instead of direct SDK calls:
+
+```text
+GitHub Event → Codegen GitHub App → AI Agent → GitHub API
+                                   ↓
+                  CircleCI ← ← ← ← ←
+                  Sentry ← ← ← ← ← ←
+                  Linear ← ← ← ← ← ←
+```
+
+**Benefits:**
+- ✅ No API tokens in GitHub Secrets
+- ✅ Real-time event processing
+- ✅ Native integrations with CI/CD and monitoring tools
+- ✅ Centralized configuration
+- ✅ Better security model
 
 ### Codegen Documentation
 
-- **Setup Guide**: [docs/CODEGEN-SETUP.md](docs/CODEGEN-SETUP.md)
+- **Integrations Guide**: [docs/CODEGEN-INTEGRATIONS.md](docs/CODEGEN-INTEGRATIONS.md) ← **Start here**
+- **GitHub App Setup**: [docs/CODEGEN-GITHUB-APP-SETUP.md](docs/CODEGEN-GITHUB-APP-SETUP.md)
 - **Official Docs**: [docs.codegen.com](https://docs.codegen.com)
 - **Agent Runs**: [codegen.com/runs](https://codegen.com/runs)
 - **Configuration**: `.codegen/config.yml`
