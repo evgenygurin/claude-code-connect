@@ -34,6 +34,9 @@ const ENV_MAPPING = {
   enableBossAgent: "ENABLE_BOSS_AGENT",
   bossAgentThreshold: "BOSS_AGENT_THRESHOLD",
   maxConcurrentAgents: "MAX_CONCURRENT_AGENTS",
+  mem0ApiKey: "MEM0_API_KEY",
+  mem0Enabled: "MEM0_ENABLED",
+  mem0VerboseLogging: "MEM0_VERBOSE_LOGGING",
 } as const;
 
 /**
@@ -53,6 +56,8 @@ const DEFAULT_CONFIG: Partial<IntegrationConfig> = {
   bossAgentThreshold: 6,
   maxConcurrentAgents: 3,
   projectRootDir: process.cwd(), // Default to current working directory
+  mem0Enabled: false,
+  mem0VerboseLogging: false,
 };
 
 /**
@@ -119,6 +124,8 @@ function parseEnvValue(value: string, configKey: string): any {
     case "enableOAuth":
     case "enableBossAgent":
     case "skipLinearCheck":
+    case "mem0Enabled":
+    case "mem0VerboseLogging":
       return value.toLowerCase() === "true" || value === "1";
 
     case "webhookPort":
@@ -308,5 +315,14 @@ export function printConfigSummary(config: IntegrationConfig): void {
     console.log(`  Max Concurrent Agents: ${config.maxConcurrentAgents || 3}`);
   } else {
     console.log(`  Boss Agent: Disabled`);
+  }
+
+  // Mem0 configuration
+  if (config.mem0Enabled) {
+    console.log(`  Mem0 Integration: Enabled`);
+    console.log(`  Has Mem0 API Key: ${config.mem0ApiKey ? "✓" : "✗"}`);
+    console.log(`  Mem0 Verbose Logging: ${config.mem0VerboseLogging ? "✓" : "✗"}`);
+  } else {
+    console.log(`  Mem0 Integration: Disabled`);
   }
 }

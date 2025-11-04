@@ -46,6 +46,7 @@
     "dotenv": "^16.6.1",
     "fastify": "^4.29.1",
     "glob": "^10.4.5",
+    "mem0ai": "^2.1.38",
     "nanoid": "^5.1.6",
     "rate-limiter-flexible": "^7.4.0",
     "tsx": "^4.20.6",

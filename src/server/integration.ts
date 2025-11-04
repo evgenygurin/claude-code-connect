@@ -29,6 +29,7 @@ import { initializeLinearOAuth } from "../linear/oauth/index.js";
 import { GitHubClient } from "../github/client.js";
 import { GitHubWebhookHandler } from "../github/webhook-handler.js";
 import { GitHubPRAgent } from "../github/pr-agent.js";
+import { Mem0MemoryManager } from "../memory/manager.js";
 
 /**
  * Webhook request body type
@@ -56,6 +57,7 @@ export class IntegrationServer {
   private webhookHandler: EnhancedLinearWebhookHandler;
   private eventRouter: EventRouter;
   private linearReporter: LinearReporter;
+  private memoryManager: Mem0MemoryManager;
   private securityValidator: SecurityValidator;
   private securityAgent: SecurityAgent;
   private securityMonitor: SecurityMonitor;
@@ -150,9 +152,15 @@ export class IntegrationServer {
     this.linearReporter = new LinearReporter(this.linearClient, this.logger);
     this.linearReporter.setSessionManager(this.sessionManager);
 
+    // Initialize Mem0 memory manager
+    this.memoryManager = new Mem0MemoryManager(config, this.logger);
+    if (this.memoryManager.isEnabled()) {
+      this.logger.info("Mem0 integration enabled");
+    }
+
     // Create enhanced webhook handler with security features
     this.webhookHandler = new EnhancedLinearWebhookHandler(
-      config, 
+      config,
       this.logger,
       this.securityAgent,
       this.securityMonitor
@@ -162,6 +170,7 @@ export class IntegrationServer {
     const eventHandlers = new DefaultEventHandlers(
       this.linearClient,
       this.sessionManager,
+      this.memoryManager,
       config,
       this.logger,
     );
