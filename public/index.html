@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boss Agent - Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+        
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .stat:last-child {
+            border-bottom: none;
+        }
+        
+        .stat-label {
+            color: #666;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        
+        .status.healthy {
+            background: #4ade80;
+            color: white;
+        }
+        
+        .status.running {
+            background: #60a5fa;
+            color: white;
+        }
+        
+        .sessions-list {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .session-item {
+            padding: 15px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            transition: background 0.2s;
+        }
+        
+        .session-item:hover {
+            background: #f9fafb;
+        }
+        
+        .session-id {
+            font-family: monospace;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        .refresh-btn {
+            background: white;
+            color: #667eea;
+            border: 2px solid white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            display: block;
+            margin: 20px auto;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .refresh-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+        
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.2em;
+            margin: 40px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Boss Agent Dashboard</h1>
+        
+        <button class="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
+        
+        <div class="cards">
+            <div class="card">
+                <h2>Server Status</h2>
+                <div id="health-info" class="loading">Loading...</div>
+            </div>
+            
+            <div class="card">
+                <h2>Configuration</h2>
+                <div id="config-info" class="loading">Loading...</div>
+            </div>
+            
+            <div class="card">
+                <h2>Statistics</h2>
+                <div id="stats-info" class="loading">Loading...</div>
+            </div>
+        </div>
+        
+        <div class="sessions-list">
+            <h2>Active Sessions</h2>
+            <div id="sessions-list" class="loading">Loading sessions...</div>
+        </div>
+    </div>
+
+    <script>
+        async function loadData() {
+            try {
+                // Load health
+                const healthRes = await fetch('/health');
+                const health = await healthRes.json();
+                document.getElementById('health-info').innerHTML = `
+                    <div class="stat">
+                        <span class="stat-label">Status</span>
+                        <span class="status healthy">${health.status}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Version</span>
+                        <span class="stat-value">${health.version}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Uptime</span>
+                        <span class="stat-value">${(health.uptime / 60).toFixed(1)} min</span>
+                    </div>
+                `;
+                
+                // Load config
+                const configRes = await fetch('/config');
+                const config = await configRes.json();
+                document.getElementById('config-info').innerHTML = `
+                    <div class="stat">
+                        <span class="stat-label">Organization</span>
+                        <span class="stat-value">${config.linearOrganizationId}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Port</span>
+                        <span class="stat-value">${config.webhookPort}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Debug Mode</span>
+                        <span class="stat-value">${config.debug ? '✅' : '❌'}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Has Token</span>
+                        <span class="stat-value">${config.hasLinearToken ? '✅' : '❌'}</span>
+                    </div>
+                `;
+                
+                // Load stats
+                const statsRes = await fetch('/stats');
+                const stats = await statsRes.json();
+                document.getElementById('stats-info').innerHTML = `
+                    <div class="stat">
+                        <span class="stat-label">Total Sessions</span>
+                        <span class="stat-value">${stats.sessions.totalSessions}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Active</span>
+                        <span class="stat-value">${stats.sessions.activeSessions}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Completed</span>
+                        <span class="stat-value">${stats.sessions.completedSessions}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Memory</span>
+                        <span class="stat-value">${(stats.memory.heapUsed / 1024 / 1024).toFixed(1)} MB</span>
+                    </div>
+                `;
+                
+                // Load sessions
+                const sessionsRes = await fetch('/sessions');
+                const sessions = await sessionsRes.json();
+                if (sessions.sessions.length === 0) {
+                    document.getElementById('sessions-list').innerHTML = '<p style="color: #666;">No active sessions</p>';
+                } else {
+                    document.getElementById('sessions-list').innerHTML = sessions.sessions.map(s => `
+                        <div class="session-item">
+                            <div><strong class="session-id">${s.issueIdentifier}</strong> - ${s.metadata?.issueTitle || 'No title'}</div>
+                            <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                                Status: <span class="status running">${s.status}</span> | 
+                                Branch: <code>${s.branchName}</code> |
+                                Started: ${new Date(s.startedAt).toLocaleString()}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.querySelectorAll('.loading').forEach(el => {
+                    el.innerHTML = '<span style="color: red;">Error loading data</span>';
+                });
+            }
+        }
+        
+        // Load data on page load
+        loadData();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(loadData, 30000);
+    </script>
+</body>
+</html>
