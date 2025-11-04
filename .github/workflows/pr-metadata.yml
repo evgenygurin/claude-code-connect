@@ -42,7 +42,7 @@ jobs:
                 await github.rest.pulls.requestReviewers({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  pull_request_number: prNumber,
+                  pull_number: prNumber,
                   reviewers: reviewersToAssign
                 });
                 core.info(`✅ Assigned reviewers: ${reviewersToAssign.join(', ')}`);
@@ -120,7 +120,7 @@ jobs:
             const { data: files } = await github.rest.pulls.listFiles({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_request_number: prNumber
+              pull_number: prNumber
             });
 
             const changedFiles = files.length;
