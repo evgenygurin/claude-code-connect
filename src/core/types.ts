@@ -36,6 +36,8 @@ export interface IntegrationConfig {
   webhookHost?: string;
   /** Webhook secret for validation */
   webhookSecret?: string;
+  /** Skip Linear API connection test on startup (for development/testing) */
+  skipLinearCheck?: boolean;
   /** Project root directory for code operations */
   projectRootDir: string;
   /** Default branch for git operations */
