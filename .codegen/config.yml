@@ -212,10 +212,22 @@ integrations:
   # ---- CircleCI Integration (Optional) ----
   # Setup: https://codegen.com/settings/integrations/circleci
   circleci:
-    enabled: false              # Enable at Codegen dashboard
+    enabled: true               # ✅ ENABLED: CircleCI integration active
     auto_fix: true              # Auto-fix failing CircleCI builds
     max_retries: 3              # Retry up to 3 times
     notify_on_fix: true         # Post PR comments when fixed
+
+    # Which failures to auto-fix
+    fix_types:
+      - test_failures           # Fix failing tests
+      - lint_errors             # Auto-format and fix linting
+      - build_errors            # Fix compilation errors
+      - type_errors             # Add missing types
+      - security_warnings       # Address npm audit issues
+
+    # Commit strategy
+    separate_commits: true      # Create separate commits per fix type
+    commit_message_prefix: "fix(ci): "  # Conventional commits format
 
   # ---- Sentry Integration (Optional) ----
   # Setup: https://codegen.com/settings/integrations/sentry

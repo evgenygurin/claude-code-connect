@@ -1,0 +1,360 @@
+# ================================================================================
+# CircleCI Configuration for Claude Code Connect
+# ================================================================================
+# Documentation: https://circleci.com/docs/2.0/configuration-reference/
+# Codegen Integration: docs/CIRCLECI-SETUP.md
+#
+# This configuration integrates with Codegen for automatic error detection and fixing.
+# When builds fail, Codegen automatically analyzes logs and pushes fixes.
+#
+# SETUP REQUIRED:
+# 1. Enable project in CircleCI: https://app.circleci.com/projects/
+# 2. Configure Codegen webhook: docs/CIRCLECI-SETUP.md
+# 3. Add environment variables in CircleCI project settings
+# ================================================================================
+
+version: 2.1
+
+# ================================================================================
+# Orbs (Reusable Configuration Packages)
+# ================================================================================
+orbs:
+  node: circleci/node@5.1.0  # Node.js orb for common tasks
+
+# ================================================================================
+# Executors (Execution Environments)
+# ================================================================================
+executors:
+  node-executor:
+    docker:
+      - image: cimg/node:20.11  # Node.js 20 (LTS)
+    working_directory: ~/project
+    resource_class: medium
+    environment:
+      NODE_ENV: test
+      CI: true
+
+# ================================================================================
+# Commands (Reusable Command Sequences)
+# ================================================================================
+commands:
+  # Install project dependencies
+  install-dependencies:
+    description: "Install npm dependencies with caching"
+    steps:
+      - restore_cache:
+          name: Restore npm cache
+          keys:
+            - npm-deps-v1-{{ checksum "package-lock.json" }}
+            - npm-deps-v1-
+
+      - run:
+          name: Install dependencies
+          command: npm ci
+
+      - save_cache:
+          name: Save npm cache
+          key: npm-deps-v1-{{ checksum "package-lock.json" }}
+          paths:
+            - ~/.npm
+            - node_modules
+
+  # Setup environment
+  setup-environment:
+    description: "Setup test environment"
+    steps:
+      - run:
+          name: Print environment info
+          command: |
+            echo "Node version: $(node --version)"
+            echo "npm version: $(npm --version)"
+            echo "Working directory: $(pwd)"
+
+  # Notify Codegen on failure
+  notify-codegen:
+    description: "Notify Codegen on build failure"
+    steps:
+      - run:
+          name: Notify Codegen
+          when: on_fail
+          command: |
+            echo "Build failed - Codegen webhook will receive notification"
+            echo "Codegen will analyze logs and attempt to fix issues"
+
+# ================================================================================
+# Jobs (Individual Build Tasks)
+# ================================================================================
+jobs:
+  # Job 1: Checkout and Install
+  checkout-and-install:
+    executor: node-executor
+    steps:
+      - checkout
+      - setup-environment
+      - install-dependencies
+
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - .
+            - node_modules
+
+  # Job 2: Type Checking
+  typecheck:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/project
+
+      - run:
+          name: TypeScript type checking
+          command: npm run typecheck
+
+      - notify-codegen
+
+  # Job 3: Linting
+  lint:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/project
+
+      - run:
+          name: Run ESLint
+          command: npm run lint
+
+      - notify-codegen
+
+  # Job 4: Unit Tests
+  test-unit:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/project
+
+      - run:
+          name: Run unit tests
+          command: npm test -- --run
+
+      - store_test_results:
+          path: test-results
+
+      - notify-codegen
+
+  # Job 5: Integration Tests
+  test-integration:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/project
+
+      - run:
+          name: Run integration tests
+          command: npm run test:integration
+
+      - store_test_results:
+          path: test-results
+
+      - notify-codegen
+
+  # Job 6: Test Coverage
+  test-coverage:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/project
+
+      - run:
+          name: Generate test coverage
+          command: npm run test:coverage
+
+      - store_test_results:
+          path: coverage
+
+      - store_artifacts:
+          path: coverage
+          destination: coverage-report
+
+      - notify-codegen
+
+  # Job 7: Build
+  build:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/project
+
+      - run:
+          name: Build TypeScript
+          command: npm run build
+
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - dist
+
+      - store_artifacts:
+          path: dist
+          destination: build-output
+
+      - notify-codegen
+
+  # Job 8: Security Audit
+  security-audit:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/project
+
+      - run:
+          name: npm audit
+          command: |
+            npm audit --audit-level=moderate || true
+            echo "Security audit completed"
+
+      - notify-codegen
+
+  # Job 9: Deploy (Example - adjust for your deployment)
+  deploy:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: ~/project
+
+      - run:
+          name: Deploy application
+          command: |
+            echo "Deployment would happen here"
+            echo "Add your deployment commands"
+            # Example: npm run deploy
+            # Example: ./scripts/deploy.sh
+
+# ================================================================================
+# Workflows (Job Orchestration)
+# ================================================================================
+workflows:
+  version: 2
+
+  # Main workflow - runs on all branches
+  main:
+    jobs:
+      # Stage 1: Checkout and install
+      - checkout-and-install
+
+      # Stage 2: Parallel checks (fast feedback)
+      - typecheck:
+          requires:
+            - checkout-and-install
+
+      - lint:
+          requires:
+            - checkout-and-install
+
+      - security-audit:
+          requires:
+            - checkout-and-install
+
+      # Stage 3: Tests (parallel)
+      - test-unit:
+          requires:
+            - typecheck
+            - lint
+
+      - test-integration:
+          requires:
+            - typecheck
+            - lint
+
+      # Stage 4: Coverage and build
+      - test-coverage:
+          requires:
+            - test-unit
+            - test-integration
+
+      - build:
+          requires:
+            - test-coverage
+
+      # Stage 5: Deploy (only on main branch)
+      - deploy:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - main
+                - master
+
+  # Nightly workflow - comprehensive checks
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"  # Run at midnight UTC
+          filters:
+            branches:
+              only:
+                - main
+                - master
+
+    jobs:
+      - checkout-and-install
+      - typecheck:
+          requires:
+            - checkout-and-install
+      - lint:
+          requires:
+            - checkout-and-install
+      - test-unit:
+          requires:
+            - typecheck
+            - lint
+      - test-integration:
+          requires:
+            - typecheck
+            - lint
+      - test-coverage:
+          requires:
+            - test-unit
+            - test-integration
+      - security-audit:
+          requires:
+            - checkout-and-install
+      - build:
+          requires:
+            - test-coverage
+
+# ================================================================================
+# Codegen Integration Notes
+# ================================================================================
+#
+# HOW CODEGEN AUTO-FIXER WORKS:
+#
+# 1. CircleCI runs workflow and detects failures
+# 2. CircleCI sends webhook to Codegen (configured in CircleCI settings)
+# 3. Codegen receives failure notification with:
+#    - Build logs
+#    - Failed job details
+#    - Error messages
+#    - Stack traces
+# 4. Codegen AI agent analyzes the failure:
+#    - Identifies root cause
+#    - Reviews relevant code
+#    - Plans fix strategy
+# 5. Codegen creates fix commit(s) and pushes to branch
+# 6. CircleCI automatically re-runs the workflow
+# 7. If fixed, workflow passes ✅
+# 8. If not fixed, Codegen retries (up to 3 attempts)
+#
+# WHAT CODEGEN CAN FIX:
+# ✅ Test failures (unit, integration)
+# ✅ Linting errors (ESLint, Prettier)
+# ✅ Type errors (TypeScript)
+# ✅ Build failures (compilation errors)
+# ✅ Dependency issues (version conflicts)
+# ✅ Security vulnerabilities (npm audit)
+# ✅ Configuration errors (tsconfig, eslint)
+#
+# SETUP INSTRUCTIONS:
+# See docs/CIRCLECI-SETUP.md for detailed setup guide
+#
+# ================================================================================
