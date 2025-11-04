@@ -17,6 +17,7 @@ import type {
 import { ClaudeExecutor } from "../claude/executor.js";
 import { createSession } from "./storage.js";
 import { GitWorktreeManager } from "../utils/git.js";
+import { BossAgentOrchestrator } from "../boss-agent/index.js";
 import type { Issue, Comment } from "@linear/sdk";
 
 /**
@@ -39,6 +40,7 @@ export class SessionManager extends EventEmitter {
   protected storage: SessionStorage;
   private executor: ClaudeExecutor;
   private gitManager: GitWorktreeManager;
+  private bossAgent: BossAgentOrchestrator | null;
   private activeExecutions = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
@@ -52,6 +54,45 @@ export class SessionManager extends EventEmitter {
     this.storage = storage;
     this.executor = new ClaudeExecutor(logger);
     this.gitManager = new GitWorktreeManager(config.projectRootDir, logger);
+
+    // Initialize Boss Agent if enabled
+    this.bossAgent = config.enableBossAgent
+      ? new BossAgentOrchestrator(config, logger, storage)
+      : null;
+
+    // Setup Boss Agent event listeners
+    if (this.bossAgent) {
+      this.setupBossAgentEvents();
+    }
+  }
+
+  /**
+   * Setup Boss Agent event listeners
+   */
+  private setupBossAgentEvents(): void {
+    if (!this.bossAgent) return;
+
+    this.bossAgent.on("delegation:started", (session) => {
+      this.logger.info("Boss Agent delegation started", {
+        delegationId: session.id,
+        issueId: session.issueId,
+      });
+    });
+
+    this.bossAgent.on("delegation:completed", (session, result) => {
+      this.logger.info("Boss Agent delegation completed", {
+        delegationId: session.id,
+        issueId: session.issueId,
+        success: result.success,
+      });
+    });
+
+    this.bossAgent.on("delegation:failed", (session, error) => {
+      this.logger.error("Boss Agent delegation failed", error, {
+        delegationId: session.id,
+        issueId: session.issueId,
+      });
+    });
   }
 
   /**
@@ -171,6 +212,75 @@ export class SessionManager extends EventEmitter {
 
       // Update session status
       await this.storage.updateStatus(sessionId, "running");
+
+      // Try Boss Agent delegation first if enabled
+      if (this.bossAgent) {
+        this.logger.info("Attempting Boss Agent delegation", {
+          sessionId,
+          issueId: issue.id,
+        });
+
+        try {
+          const delegationResult = await this.bossAgent.handleTask(
+            issue,
+            triggerComment
+          );
+
+          // If Boss Agent handled the task, we're done
+          if (delegationResult) {
+            this.logger.info("Boss Agent completed task successfully", {
+              sessionId,
+              issueId: issue.id,
+              success: delegationResult.success,
+            });
+
+            // Update session status
+            await this.storage.updateStatus(
+              sessionId,
+              delegationResult.success ? "completed" : "failed"
+            );
+
+            // Emit event
+            const updatedSession = await this.storage.load(sessionId);
+            if (updatedSession) {
+              if (delegationResult.success) {
+                this.emit("session:completed", updatedSession, {
+                  success: true,
+                  output: delegationResult.summary,
+                  filesModified: delegationResult.filesModified,
+                  commits: delegationResult.commits,
+                  duration: delegationResult.duration,
+                  exitCode: 0,
+                });
+              } else {
+                this.emit(
+                  "session:failed",
+                  updatedSession,
+                  new Error("Boss Agent delegation failed")
+                );
+              }
+            }
+
+            return;
+          }
+
+          // If Boss Agent returned null, fall through to normal execution
+          this.logger.info("Boss Agent declined task, using direct execution", {
+            sessionId,
+            issueId: issue.id,
+          });
+        } catch (error) {
+          this.logger.warn(
+            "Boss Agent delegation failed, falling back to direct execution",
+            {
+              sessionId,
+              issueId: issue.id,
+              error: (error as Error).message,
+            }
+          );
+          // Fall through to normal execution
+        }
+      }
 
       // Prepare working directory
       await this.prepareWorkingDirectory(session);
