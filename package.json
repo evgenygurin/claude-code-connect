@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^1.0.128",
+    "@fastify/cors": "^8.5.0",
     "@linear/sdk": "^26.0.0",
     "@octokit/rest": "^20.1.2",
     "@tacticlaunch/mcp-linear": "^1.0.12",

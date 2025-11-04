@@ -7,6 +7,7 @@ import Fastify, {
   FastifyRequest,
   FastifyReply,
 } from "fastify";
+import fastifyCors from "@fastify/cors";
 import { join } from "path";
 import { RateLimiterMemory } from "rate-limiter-flexible";
 import type { 
@@ -184,12 +185,27 @@ export class IntegrationServer {
    * Setup HTTP routes
    */
   private setupRoutes(): void {
+    // Enable CORS for Web UI
+    this.app.register(fastifyCors, {
+      origin: [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        process.env.WEB_UI_URL || 'http://localhost:3000'
+      ],
+      credentials: true,
+      methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    });
+
+    this.logger.info("CORS enabled for Web UI", {
+      origins: ['http://localhost:3000', 'http://localhost:3001']
+    });
+
     // Initialize OAuth if enabled
     if (this.config.enableOAuth) {
       this.logger.info("Initializing OAuth integration");
       initializeLinearOAuth(this.app, this.config, this.logger);
     }
-    
+
     // Health check endpoint
     this.app.get(
       "/health",
