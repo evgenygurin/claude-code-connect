@@ -22,6 +22,8 @@ import { TaskClassifier } from './task-classifier.js';
 import { DecisionEngine } from './decision-engine.js';
 import { CodegenClient } from '../codegen/client.js';
 import { CodegenPromptBuilder } from '../codegen/prompt-builder.js';
+import { TaskSessionManager, InMemoryTaskSessionStorage } from './task-session-manager.js';
+import type { TaskSession } from './task-session-manager.js';
 import type { CodegenTask, CodegenTaskResult } from '../codegen/types.js';
 
 /**
@@ -42,6 +44,7 @@ export class BossAgent {
   private codegenClient: CodegenClient;
   private promptBuilder: CodegenPromptBuilder;
   private activeSessions: Map<string, BossAgentSession>;
+  private taskSessionManager: TaskSessionManager;
 
   constructor(
     config: IntegrationConfig,
@@ -56,9 +59,17 @@ export class BossAgent {
     this.promptBuilder = new CodegenPromptBuilder();
     this.activeSessions = new Map();
 
+    // Initialize task session manager
+    const taskStorage = new InMemoryTaskSessionStorage(logger);
+    this.taskSessionManager = new TaskSessionManager(taskStorage, logger);
+
+    // Start automatic cleanup (every 24 hours, delete sessions older than 7 days)
+    this.taskSessionManager.startAutoCleanup(24, 168);
+
     this.logger.info('Boss Agent initialized', {
       mode: 'coordinator',
       codegenEnabled: true,
+      taskSessionManagerEnabled: true,
     });
   }
 
@@ -140,6 +151,22 @@ export class BossAgent {
         reviewers: decision.options?.reviewers,
       });
 
+      // Create task session for tracking
+      if (analysis.context.issue) {
+        await this.taskSessionManager.createSession(
+          codegenTask.id,
+          analysis.context.issue,
+          'codegen',
+          decision.strategy,
+          {
+            taskType: decision.taskType,
+            complexity: decision.complexity,
+            priority: decision.priority,
+            branchName: decision.options?.branchName,
+          }
+        );
+      }
+
       const result: DelegationResult = {
         taskId: codegenTask.id,
         delegatedTo: 'codegen',
@@ -203,6 +230,14 @@ export class BossAgent {
         result,
       );
 
+      // Update task session
+      await this.taskSessionManager.markCompleted(delegationResult.taskId, {
+        prUrl: result.prUrl,
+        prNumber: result.prNumber,
+        filesChanged: result.filesChanged,
+        duration: result.duration,
+      });
+
       this.logger.info('Task execution completed', {
         taskId: delegationResult.taskId,
         success: executionResult.status === 'success',
@@ -213,6 +248,12 @@ export class BossAgent {
     } catch (error) {
       this.logger.error('Task execution failed', error as Error, {
         taskId: delegationResult.taskId,
+      });
+
+      // Update task session
+      await this.taskSessionManager.markFailed(delegationResult.taskId, {
+        message: (error as Error).message,
+        details: error,
       });
 
       return this.buildFailedResult(delegationResult, analysis, error as Error);
@@ -429,5 +470,12 @@ export class BossAgent {
    */
   getSessionCount(): number {
     return this.activeSessions.size;
+  }
+
+  /**
+   * Get task session manager
+   */
+  getTaskSessionManager(): TaskSessionManager {
+    return this.taskSessionManager;
   }
 }
