@@ -17,6 +17,7 @@
 - ✅ **Git Branch Planning** - Automatic branch naming (`claude/issue-123-title`)
 - ✅ **API Monitoring** - Health checks, stats, and session tracking endpoints
 - ✅ **Security** - Webhook signature verification & organization filtering
+- ✅ **PR Automation** - Auto-assign reviewers, labels, issues, projects, milestones
 
 ### 🎯 Key Capabilities
 
@@ -230,6 +231,7 @@ npm run test:integration
 - [Quick Start Guide](docs/QUICK-START-GUIDE.md) - Get started in 5 minutes
 - [Claude Code Installation Troubleshooting](docs/CLAUDE-CODE-INSTALLATION-TROUBLESHOOTING.md) - Fix installation errors
 - [Linear Webhook Setup](docs/LINEAR-WEBHOOK-SETUP.md) - Detailed webhook configuration
+- [PR Metadata Automation](docs/PR-METADATA-AUTOMATION.md) - Automatic PR reviewers, labels, and linking
 - [Roadmap & Improvements](docs/ROADMAP-IMPROVEMENTS.md) - Future development plans
 - [API Documentation](docs/api/) - Complete API reference
 
