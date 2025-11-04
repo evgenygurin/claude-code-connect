@@ -27,7 +27,37 @@ This is a **Claude Code + Linear Native Integration** - a TypeScript implementat
 
 ## 🛠️ Development Commands
 
-### Essential Commands
+### 🚀 Using Makefile (Recommended)
+
+The project includes a comprehensive Makefile with all essential commands organized by category:
+
+```bash
+# Show all available commands
+make help
+
+# Quick commands
+make quick-start         # Complete setup and start
+make dev                # Start development server
+make test               # Run all tests
+make quality            # Run all quality checks (typecheck + lint + format)
+
+# Testing
+make test-all           # Run ALL tests (unit + integration + workflow + agents)
+make test-coverage      # Tests with coverage
+make test-integration   # Integration tests
+make security-test      # Security tests
+
+# Git operations
+make commit-push MESSAGE="Your commit message"  # Commit and push
+make git-status         # Git status
+make git-pull           # Pull updates
+
+# Complete workflows
+make ci-check           # All CI checks (quality + tests)
+make release-prep       # Prepare for release
+```
+
+### Essential NPM Commands
 
 ```bash
 # Quick start (production-ready)
