@@ -61,6 +61,8 @@ export interface TaskSessionStorage {
   getByIssueId(issueId: string): Promise<TaskSession | null>;
   /** Get all active sessions */
   getActiveSessions(): Promise<TaskSession[]>;
+  /** Get all sessions */
+  getAll(): Promise<TaskSession[]>;
   /** Update session status */
   updateStatus(taskId: string, status: TaskSession['status']): Promise<void>;
   /** Update session progress */
@@ -112,6 +114,10 @@ export class InMemoryTaskSessionStorage implements TaskSessionStorage {
     return Array.from(this.sessions.values()).filter(
       (session) => session.status === 'active'
     );
+  }
+
+  async getAll(): Promise<TaskSession[]> {
+    return Array.from(this.sessions.values());
   }
 
   async updateStatus(taskId: string, status: TaskSession['status']): Promise<void> {
@@ -262,6 +268,13 @@ export class TaskSessionManager {
    */
   async getActiveSessions(): Promise<TaskSession[]> {
     return await this.storage.getActiveSessions();
+  }
+
+  /**
+   * Get all sessions (active, completed, failed, cancelled)
+   */
+  async getAllSessions(): Promise<TaskSession[]> {
+    return await this.storage.getAll();
   }
 
   /**
