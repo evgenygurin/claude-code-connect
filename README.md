@@ -62,6 +62,25 @@ Monitoring: Real-time session and stats tracking
 
 ### Installation
 
+#### Option 1: Using Makefile (Recommended)
+
+```bash
+# Clone repository
+git clone <repository-url>
+cd claude-code-connect
+
+# Quick start - complete automated setup
+make quick-start
+
+# Or step by step
+make install              # Install dependencies
+cp .env.example .env      # Setup environment
+# Edit .env with your credentials
+make dev                  # Start development server
+```
+
+#### Option 2: Using NPM
+
 ```bash
 # Clone repository
 git clone <repository-url>
@@ -87,6 +106,30 @@ WEBHOOK_PORT=3006
 ```
 
 ### Running the Server
+
+#### Using Makefile
+
+```bash
+# Show all available commands
+make help
+
+# Development mode with hot reload
+make dev
+
+# Check setup
+make check-setup
+
+# Run tests
+make test
+
+# Test Linear connection
+make test-connection
+
+# Complete CI checks
+make ci-check
+```
+
+#### Using NPM
 
 ```bash
 # Development mode with hot reload
