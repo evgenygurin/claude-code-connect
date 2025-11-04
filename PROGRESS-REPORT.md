@@ -87,7 +87,7 @@
 
 ### Test Progress
 
-```text
+```
 Before: 80/170 tests passing (47%)
 After:  86/170 tests passing (51%)
 Target: 136/170 tests passing (80%)
@@ -95,7 +95,7 @@ Target: 136/170 tests passing (80%)
 
 ### Security Score
 
-```text
+```
 Before: 0/10 security tests ❌
 After:  8/10 security tests ✅ 
 Target: 10/10 security tests ✅
@@ -103,7 +103,7 @@ Target: 10/10 security tests ✅
 
 ### Code Quality
 
-```text
+```
 Duplicate patterns found: 5 → Fixed: 3 (60% reduction)
 Large functions: 30+ → Identified for refactoring
 Test utilities: Created centralized system

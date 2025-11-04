@@ -7,6 +7,8 @@ import { TestingAgent } from "./agent.js";
 import { TestingAgentCLI } from "./cli.js";
 import type { IntegrationConfig } from "../core/types.js";
 import { mockIntegrationConfig, createMockLogger } from "./mocks.js";
+import { writeFile, mkdir, rm } from "fs/promises";
+import { join } from "path";
 
 // Mock file system operations
 vi.mock("fs/promises", () => ({
@@ -15,11 +17,11 @@ vi.mock("fs/promises", () => ({
   rm: vi.fn(),
   readFile: vi.fn(),
   readdir: vi.fn(),
-  stat: vi.fn(),
+  stat: vi.fn()
 }));
 
 vi.mock("glob", () => ({
-  glob: vi.fn(),
+  glob: vi.fn()
 }));
 
 describe("Testing Agent Integration", () => {
@@ -32,21 +34,18 @@ describe("Testing Agent Integration", () => {
   let mockWriteFile: any;
   let mockMkdir: any;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
     loggerSpy = createMockLogger();
     config = { ...mockIntegrationConfig };
     testingAgent = new TestingAgent(config, loggerSpy);
     cli = new TestingAgentCLI(config);
 
-    // Setup mocks from vi.mock()
-    const { glob } = await import("glob");
-    const fs = await import("fs/promises");
-
-    mockGlob = vi.mocked(glob);
-    mockReadFile = vi.mocked(fs.readFile);
-    mockWriteFile = vi.mocked(fs.writeFile);
-    mockMkdir = vi.mocked(fs.mkdir);
+    // Setup mocks
+    mockGlob = vi.mocked(require("glob").glob);
+    mockReadFile = vi.mocked(require("fs/promises").readFile);
+    mockWriteFile = vi.mocked(require("fs/promises").writeFile);
+    mockMkdir = vi.mocked(require("fs/promises").mkdir);
 
     // Mock successful file operations
     mockWriteFile.mockResolvedValue(undefined);
@@ -65,13 +64,15 @@ describe("Testing Agent Integration", () => {
           "/project/src/sessions/manager.ts",
           "/project/src/webhooks/handler.ts",
           "/project/src/core/types.ts",
-          "/project/src/utils/logger.ts",
+          "/project/src/utils/logger.ts"
         ])
-        .mockResolvedValueOnce(["/project/src/utils/logger.test.ts"]);
+        .mockResolvedValueOnce([
+          "/project/src/utils/logger.test.ts"
+        ]);
 
       // Mock file content for analysis
       const sessionManagerContent = `
-        import type {ClaudeSession, SessionStorage, SessionStatusValues} from "../core/types.js";
+        import type { ClaudeSession, SessionStorage } from "../core/types.js";
 
         export class SessionManager {
           private storage: SessionStorage;
@@ -94,7 +95,7 @@ describe("Testing Agent Integration", () => {
             const session = {
               id: sessionId,
               issueId: issue.id,
-              status: SessionStatusValues.CREATED,
+              status: SessionStatus.CREATED,
               // ... more session setup
             };
             
@@ -109,16 +110,16 @@ describe("Testing Agent Integration", () => {
               throw new Error("Session not found");
             }
             
-            if (session.status === SessionStatusValues.RUNNING) {
+            if (session.status === SessionStatus.RUNNING) {
               throw new Error("Session already running");
             }
             
             try {
               const result = await this.executor.execute(context);
-              await this.updateSessionStatus(sessionId, SessionStatusValues.COMPLETED);
+              await this.updateSessionStatus(sessionId, SessionStatus.COMPLETED);
               return result;
             } catch (error) {
-              await this.updateSessionStatus(sessionId, SessionStatusValues.FAILED);
+              await this.updateSessionStatus(sessionId, SessionStatus.FAILED);
               throw error;
             }
           }
@@ -127,7 +128,7 @@ describe("Testing Agent Integration", () => {
 
       const webhookHandlerContent = `
         import { z } from "zod";
-        import type {LinearWebhookEvent, ProcessedEvent, SessionStatusValues} from "../core/types.js";
+        import type { LinearWebhookEvent, ProcessedEvent } from "../core/types.js";
 
         export class LinearWebhookHandler {
           constructor(config: IntegrationConfig, logger: Logger) {
@@ -216,24 +217,20 @@ describe("Testing Agent Integration", () => {
       expect(coverage.recommendations).toHaveLength(3);
 
       // Verify SessionManager has highest priority
-      const sessionManagerRec = coverage.recommendations.find(
-        (r) => r.componentName === "SessionManager",
-      );
+      const sessionManagerRec = coverage.recommendations.find(r => r.componentName === "SessionManager");
       expect(sessionManagerRec).toBeDefined();
       expect(sessionManagerRec!.priority).toBeGreaterThanOrEqual(8);
 
       // Step 2: Generate test for SessionManager
-      const highestPriorityRec = coverage.recommendations.sort(
-        (a, b) => b.priority - a.priority,
-      )[0];
+      const highestPriorityRec = coverage.recommendations
+        .sort((a, b) => b.priority - a.priority)[0];
 
       expect(highestPriorityRec.componentName).toBe("SessionManager");
 
-      const generatedTest =
-        await testingAgent.generateSampleTest(highestPriorityRec);
+      const generatedTest = await testingAgent.generateSampleTest(highestPriorityRec);
 
       // Verify generated test content
-      expect(generatedTest).toContain('describe("SessionManager"');
+      expect(generatedTest).toContain("describe(\"SessionManager\"");
       expect(generatedTest).toContain("import { SessionManager }");
       expect(generatedTest).toContain("mockLogger: Logger");
       expect(generatedTest).toContain("mockConfig: IntegrationConfig");
@@ -245,35 +242,31 @@ describe("Testing Agent Integration", () => {
       expect(generatedTest).toContain("error handling");
 
       // Step 3: Verify file would be written correctly
-      expect(highestPriorityRec.suggestedTestFile).toBe(
-        "src/sessions/manager.test.ts",
-      );
+      expect(highestPriorityRec.suggestedTestFile).toBe("src/sessions/manager.test.ts");
 
       // Step 4: Test scenarios should be comprehensive
       expect(highestPriorityRec.scenarios).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             description: expect.stringContaining("instantiation"),
-            type: "unit",
+            type: "unit"
           }),
           expect.objectContaining({
             description: expect.stringContaining("Async operations"),
-            type: "unit",
-          }),
-        ]),
+            type: "unit"
+          })
+        ])
       );
 
       // Step 5: Verify recommendations are practical
-      const webhookRec = coverage.recommendations.find(
-        (r) => r.componentName === "LinearWebhookHandler",
-      );
+      const webhookRec = coverage.recommendations.find(r => r.componentName === "LinearWebhookHandler");
       expect(webhookRec?.scenarios).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             description: expect.stringContaining("validation"),
-            type: "unit",
-          }),
-        ]),
+            type: "unit"
+          })
+        ])
       );
     });
 
@@ -290,11 +283,11 @@ describe("Testing Agent Integration", () => {
           "/project/src/server/integration.ts",
           "/project/src/utils/config.ts",
           "/project/src/utils/logger.ts",
-          "/project/src/core/types.ts",
+          "/project/src/core/types.ts"
         ])
         .mockResolvedValueOnce([
           "/project/src/utils/config.test.ts",
-          "/project/src/utils/logger.test.ts",
+          "/project/src/utils/logger.test.ts"
         ]);
 
       // Mock complex file content
@@ -371,10 +364,10 @@ describe("Testing Agent Integration", () => {
       expect(coverage.coveragePercentage).toBe(20);
 
       // Verify complex components get high priority
-      const complexRec = coverage.recommendations.find(
-        (r) => r.componentName === "ComplexWebhookProcessor",
+      const complexRec = coverage.recommendations.find(r => 
+        r.componentName === "ComplexWebhookProcessor"
       );
-
+      
       expect(complexRec).toBeDefined();
       expect(complexRec!.priority).toBeGreaterThanOrEqual(7);
 
@@ -382,18 +375,15 @@ describe("Testing Agent Integration", () => {
       expect(complexRec!.scenarios).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ type: "unit" }),
-          expect.objectContaining({ type: "integration" }),
-        ]),
+          expect.objectContaining({ type: "integration" })
+        ])
       );
 
       // Should detect external dependencies
-      expect(
-        complexRec!.scenarios.some(
-          (s) =>
-            s.dependencies.includes("@linear/sdk") ||
-            s.dependencies.includes("zod"),
-        ),
-      ).toBe(true);
+      expect(complexRec!.scenarios.some(s => 
+        s.dependencies.includes("@linear/sdk") || 
+        s.dependencies.includes("zod")
+      )).toBe(true);
     });
   });
 
@@ -406,7 +396,7 @@ describe("Testing Agent Integration", () => {
       mockGlob
         .mockResolvedValueOnce([
           "/project/src/sessions/manager.ts",
-          "/project/src/webhooks/handler.ts",
+          "/project/src/webhooks/handler.ts"
         ])
         .mockResolvedValueOnce([]); // No existing tests
 
@@ -422,10 +412,10 @@ describe("Testing Agent Integration", () => {
       await cli.analyzeCoverage();
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Analyzing test coverage"),
+        expect.stringContaining("Analyzing test coverage")
       );
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Coverage: 0%"),
+        expect.stringContaining("Coverage: 0%")
       );
 
       // Test single file generation
@@ -434,32 +424,26 @@ describe("Testing Agent Integration", () => {
       expect(mockMkdir).toHaveBeenCalled();
       expect(mockWriteFile).toHaveBeenCalledWith(
         "src/sessions/manager.test.ts",
-        expect.stringContaining('describe("TestComponent"'),
+        expect.stringContaining("describe(\"TestComponent\"")
       );
 
       consoleSpy.mockRestore();
     });
 
     it("should handle CLI error scenarios gracefully", async () => {
-      const consoleErrorSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
-      const processExitSpy = vi
-        .spyOn(process, "exit")
-        .mockImplementation(() => {
-          throw new Error("Process exit called");
-        });
+      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const processExitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("Process exit called");
+      });
 
       // Mock file system error
       mockGlob.mockRejectedValue(new Error("File system error"));
 
-      await expect(cli.analyzeCoverage()).rejects.toThrow(
-        "Process exit called",
-      );
+      await expect(cli.analyzeCoverage()).rejects.toThrow("Process exit called");
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining("Failed to analyze coverage"),
-        "File system error",
+        "File system error"
       );
 
       consoleErrorSpy.mockRestore();
@@ -490,12 +474,11 @@ describe("Testing Agent Integration", () => {
 
       const coverage = await testingAgent.analyzeCoverage();
       const recommendation = coverage.recommendations[0];
-      const generatedTest =
-        await testingAgent.generateSampleTest(recommendation);
+      const generatedTest = await testingAgent.generateSampleTest(recommendation);
 
       // Should import and use proper mock data
       expect(generatedTest).toContain("import {");
-      expect(generatedTest).toContain('from "../testing/mocks.js"');
+      expect(generatedTest).toContain("from \"../testing/mocks.js\"");
       expect(generatedTest).toContain("mockConfig: IntegrationConfig");
       expect(generatedTest).toContain("mockLogger: Logger");
 
@@ -508,12 +491,13 @@ describe("Testing Agent Integration", () => {
   describe("Performance and Scalability", () => {
     it("should handle large codebases efficiently", async () => {
       // Simulate large project with many files
-      const manyFiles = Array.from(
-        { length: 100 },
-        (_, i) => `/project/src/module${i}/component${i}.ts`,
+      const manyFiles = Array.from({ length: 100 }, (_, i) => 
+        `/project/src/module${i}/component${i}.ts`
       );
 
-      mockGlob.mockResolvedValueOnce(manyFiles).mockResolvedValueOnce([]);
+      mockGlob
+        .mockResolvedValueOnce(manyFiles)
+        .mockResolvedValueOnce([]);
 
       mockReadFile.mockResolvedValue(`
         export class Component {
@@ -532,13 +516,15 @@ describe("Testing Agent Integration", () => {
 
     it("should prioritize correctly across many components", async () => {
       const mixedFiles = [
-        "/project/src/sessions/manager.ts", // High priority
-        "/project/src/webhooks/handler.ts", // High priority
-        "/project/src/utils/helper.ts", // Low priority
-        "/project/src/config/settings.ts", // Low priority
+        "/project/src/sessions/manager.ts",      // High priority
+        "/project/src/webhooks/handler.ts",     // High priority
+        "/project/src/utils/helper.ts",         // Low priority
+        "/project/src/config/settings.ts"      // Low priority
       ];
 
-      mockGlob.mockResolvedValueOnce(mixedFiles).mockResolvedValueOnce([]);
+      mockGlob
+        .mockResolvedValueOnce(mixedFiles)
+        .mockResolvedValueOnce([]);
 
       const highPriorityContent = `
         export class SessionManager {
@@ -561,9 +547,7 @@ describe("Testing Agent Integration", () => {
         .mockResolvedValueOnce(lowPriorityContent);
 
       const coverage = await testingAgent.analyzeCoverage();
-      const sortedRecs = coverage.recommendations.sort(
-        (a, b) => b.priority - a.priority,
-      );
+      const sortedRecs = coverage.recommendations.sort((a, b) => b.priority - a.priority);
 
       // Core components should be first
       expect(sortedRecs[0].componentName).toBe("SessionManager");
@@ -600,7 +584,7 @@ describe("Testing Agent Integration", () => {
       mockGlob
         .mockResolvedValueOnce([
           "/project/src/empty.ts",
-          "/project/src/minimal.ts",
+          "/project/src/minimal.ts"
         ])
         .mockResolvedValueOnce([]);
 

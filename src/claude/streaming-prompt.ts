@@ -21,7 +21,7 @@ export class StreamingPrompt {
     issue: Issue,
     session: ClaudeSession,
     logger: Logger,
-    triggerComment?: Comment,
+    triggerComment?: Comment
   ) {
     this.issue = issue;
     this.session = session;
@@ -40,7 +40,7 @@ export class StreamingPrompt {
 
     // Construct initial messages
     await this.constructInitialMessages();
-
+    
     return this.messages;
   }
 
@@ -50,15 +50,15 @@ export class StreamingPrompt {
   private async constructInitialMessages(): Promise<void> {
     // Add main issue message
     this.addIssueMessage();
-
+    
     // Add trigger comment if any
     if (this.triggerComment) {
       this.addTriggerCommentMessage();
     }
-
+    
     this.logger.debug("Initial messages constructed", {
       sessionId: this.session.id,
-      messageCount: this.messages.length,
+      messageCount: this.messages.length
     });
   }
 
@@ -66,14 +66,11 @@ export class StreamingPrompt {
    * Add issue message
    */
   private addIssueMessage(): void {
-    const issueDescription =
-      this.issue.description || "No description provided";
-
+    const issueDescription = this.issue.description || "No description provided";
+    
     const message: SDKUserMessage = {
-      type: "user",
-      message: {
-        role: "user",
-        content: `
+      role: "user",
+      content: `
 # Linear Issue: ${this.issue.identifier} - ${this.issue.title}
 
 ## Issue Description
@@ -104,15 +101,11 @@ Analyze the issue description and implement the requested changes.
 ### Working Directory
 You are working in: ${this.session.workingDir}
 
-${
-  this.session.branchName
-    ? `
+${this.session.branchName ? `
 ### Git Branch
 A new branch has been created for this work: ${this.session.branchName}
 All changes should be committed to this branch.
-`
-    : ""
-}
+` : ""}
 
 ### Completion
 When you're done:
@@ -124,12 +117,9 @@ When you're done:
 ---
 
 **Important**: Focus on delivering working, tested code that addresses the issue requirements. Be thorough but efficient.
-        `.trim(),
-      },
-      parent_tool_use_id: null,
-      session_id: this.session.id,
+      `.trim()
     };
-
+    
     this.messages.push(message);
   }
 
@@ -138,23 +128,18 @@ When you're done:
    */
   private addTriggerCommentMessage(): void {
     if (!this.triggerComment) return;
-
+    
     const message: SDKUserMessage = {
-      type: "user",
-      message: {
-        role: "user",
-        content: `
+      role: "user",
+      content: `
 ## New Instructions from Comment
 
 ${this.triggerComment.body}
 
 Please incorporate these instructions into your work on this issue.
-        `.trim(),
-      },
-      parent_tool_use_id: null,
-      session_id: this.session.id,
+      `.trim()
     };
-
+    
     this.messages.push(message);
   }
 
@@ -163,26 +148,21 @@ Please incorporate these instructions into your work on this issue.
    */
   async addProgressUpdate(progress: string): Promise<void> {
     const message: SDKUserMessage = {
-      type: "user",
-      message: {
-        role: "user",
-        content: `
+      role: "user",
+      content: `
 ## Progress Update
 
 ${progress}
 
 Please continue your work with this additional information.
-        `.trim(),
-      },
-      parent_tool_use_id: null,
-      session_id: this.session.id,
+      `.trim()
     };
-
+    
     this.messages.push(message);
-
+    
     this.logger.debug("Progress update added to messages", {
       sessionId: this.session.id,
-      messageCount: this.messages.length,
+      messageCount: this.messages.length
     });
   }
 
@@ -191,24 +171,20 @@ Please continue your work with this additional information.
    */
   async addSystemMessage(content: string): Promise<void> {
     const message: SDKUserMessage = {
-      type: "user",
-      message: {
-        role: "user",
-        content: `
+      role: "user",
+      content: `
 ## System Message
 
 ${content}
-        `.trim(),
-      },
-      parent_tool_use_id: null,
-      session_id: this.session.id,
+      `.trim()
     };
-
+    
     this.messages.push(message);
-
+    
     this.logger.debug("System message added", {
       sessionId: this.session.id,
-      messageCount: this.messages.length,
+      messageCount: this.messages.length
     });
   }
 }
+

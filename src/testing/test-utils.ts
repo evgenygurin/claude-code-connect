@@ -3,7 +3,7 @@
  * Single source of truth for common test patterns
  */
 
-import { vi, expect } from "vitest";
+import { vi } from "vitest";
 import type { IntegrationConfig, Logger } from "../core/types.js";
 
 /**
@@ -13,7 +13,7 @@ import type { IntegrationConfig, Logger } from "../core/types.js";
 export function createMockExecutor() {
   return {
     execute: vi.fn(),
-    cancelSession: vi.fn(),
+    cancelSession: vi.fn()
   };
 }
 
@@ -23,11 +23,11 @@ export function createMockExecutor() {
  */
 export function setupExecutorMock() {
   const mockExecutor = createMockExecutor();
-
+  
   vi.mock("../claude/executor.js", () => ({
-    ClaudeExecutor: vi.fn().mockImplementation(() => mockExecutor),
+    ClaudeExecutor: vi.fn().mockImplementation(() => mockExecutor)
   }));
-
+  
   return mockExecutor;
 }
 
@@ -39,14 +39,16 @@ export function setupCryptoMock() {
   const mockCrypto = {
     createHmac: vi.fn().mockReturnValue({
       update: vi.fn().mockReturnThis(),
-      digest: vi.fn().mockReturnValue("mocked-signature"),
+      digest: vi.fn().mockReturnValue("mocked-signature")
     }),
-    timingSafeEqual: vi.fn().mockReturnValue(true),
+    timingSafeEqual: vi.fn().mockReturnValue(true)
   };
 
-  // Mock crypto module for ES6 imports
-  vi.mock("crypto", () => mockCrypto);
-
+  vi.mock("crypto", () => ({
+    default: mockCrypto,
+    ...mockCrypto
+  }));
+  
   return mockCrypto;
 }
 
@@ -80,7 +82,7 @@ export function standardAfterEach(cleanup?: () => void | Promise<void>) {
  * Factory for mock logger with standard spy setup
  * Eliminates repeated logger mock creation
  */
-export function createStandardMockLogger(): Logger & {
+export function createStandardMockLogger(): Logger & { 
   debug: ReturnType<typeof vi.fn>;
   info: ReturnType<typeof vi.fn>;
   warn: ReturnType<typeof vi.fn>;
@@ -90,7 +92,7 @@ export function createStandardMockLogger(): Logger & {
     debug: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
-    error: vi.fn(),
+    error: vi.fn()
   };
 }
 
@@ -98,9 +100,7 @@ export function createStandardMockLogger(): Logger & {
  * Factory for mock integration config
  * Eliminates repeated config mock creation
  */
-export function createStandardMockConfig(
-  overrides: Partial<IntegrationConfig> = {},
-): IntegrationConfig {
+export function createStandardMockConfig(overrides: Partial<IntegrationConfig> = {}): IntegrationConfig {
   return {
     linearApiToken: "test-token",
     linearOrganizationId: "test-org-id",
@@ -113,7 +113,7 @@ export function createStandardMockConfig(
     timeoutMinutes: 30,
     agentUserId: "test-agent-id",
     debug: false,
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -121,34 +121,32 @@ export function createStandardMockConfig(
  * Complete test environment setup
  * Single function to set up common test requirements
  */
-export function setupTestEnvironment(
-  options: {
-    needsExecutorMock?: boolean;
-    needsCryptoMock?: boolean;
-    configOverrides?: Partial<IntegrationConfig>;
-  } = {},
-) {
+export function setupTestEnvironment(options: {
+  needsExecutorMock?: boolean;
+  needsCryptoMock?: boolean;
+  configOverrides?: Partial<IntegrationConfig>;
+} = {}) {
   const logger = createStandardMockLogger();
   const config = createStandardMockConfig(options.configOverrides);
-
+  
   let mockExecutor;
   let mockCrypto;
-
+  
   if (options.needsExecutorMock) {
     mockExecutor = setupExecutorMock();
   }
-
+  
   if (options.needsCryptoMock) {
     mockCrypto = setupCryptoMock();
   }
-
+  
   return {
     logger,
     config,
     mockExecutor,
     mockCrypto,
     beforeEach: standardBeforeEach(),
-    afterEach: standardAfterEach(),
+    afterEach: standardAfterEach()
   };
 }
 
@@ -162,21 +160,21 @@ export const testAssertions = {
   wasCalledWith: (mock: any, ...args: any[]) => {
     expect(mock).toHaveBeenCalledWith(...args);
   },
-
+  
   /**
    * Assert mock was called once
    */
   wasCalledOnce: (mock: any) => {
     expect(mock).toHaveBeenCalledTimes(1);
   },
-
+  
   /**
    * Assert mock was not called
    */
   wasNotCalled: (mock: any) => {
     expect(mock).not.toHaveBeenCalled();
   },
-
+  
   /**
    * Assert result has expected structure
    */
@@ -184,5 +182,5 @@ export const testAssertions = {
     for (const key of expectedKeys) {
       expect(result).toHaveProperty(key);
     }
-  },
+  }
 };

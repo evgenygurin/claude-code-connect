@@ -5,17 +5,13 @@
 import { EventEmitter } from "events";
 import { promises as fs } from "fs";
 import { join } from "path";
-import type {
-  IntegrationConfig,
+import type { Timeout } from "node:timers";
+import type { 
+  IntegrationConfig, 
   Logger,
-  ClaudeSession,
+  ClaudeSession
 } from "../core/types.js";
-import {
-  SecurityAgent,
-  SecurityEvent,
-  SecuritySeverity,
-  SecurityEventType,
-} from "./security-agent.js";
+import { SecurityAgent, SecurityEvent, SecuritySeverity, SecurityEventType } from "./security-agent.js";
 
 /**
  * Security metric thresholds
@@ -85,8 +81,8 @@ const DEFAULT_MONITORING_CONFIG: MonitoringConfig = {
     maxSessionDurationMinutes: 60,
     maxConcurrentSessions: 10,
     maxMemoryUsageMB: 1024,
-    maxCpuUsagePercent: 80,
-  },
+    maxCpuUsagePercent: 80
+  }
 };
 
 /**
@@ -99,23 +95,20 @@ export class SecurityMonitor extends EventEmitter {
   private securityAgent: SecurityAgent;
   private metrics: SecurityMetrics[] = [];
   private alerts: SecurityAlert[] = [];
-  private metricsInterval?: ReturnType<typeof setInterval>;
+  private metricsInterval?: Timeout;
   private isMonitoring = false;
 
   constructor(
     config: IntegrationConfig,
     logger: Logger,
     securityAgent: SecurityAgent,
-    monitoringConfig?: Partial<MonitoringConfig>,
+    monitoringConfig?: Partial<MonitoringConfig>
   ) {
     super();
     this.config = config;
     this.logger = logger;
     this.securityAgent = securityAgent;
-    this.monitoringConfig = {
-      ...DEFAULT_MONITORING_CONFIG,
-      ...monitoringConfig,
-    };
+    this.monitoringConfig = { ...DEFAULT_MONITORING_CONFIG, ...monitoringConfig };
   }
 
   /**
@@ -129,7 +122,7 @@ export class SecurityMonitor extends EventEmitter {
     this.logger.info("Starting security monitoring", {
       realTimeAlerts: this.monitoringConfig.enableRealTimeAlerts,
       metricsCollection: this.monitoringConfig.enableMetricsCollection,
-      retentionDays: this.monitoringConfig.metricsRetentionDays,
+      retentionDays: this.monitoringConfig.metricsRetentionDays
     });
 
     // Start metrics collection
@@ -141,7 +134,7 @@ export class SecurityMonitor extends EventEmitter {
     this.setupEventListeners();
 
     this.isMonitoring = true;
-    this.emit("monitoring-started");
+    this.emit('monitoring-started');
   }
 
   /**
@@ -164,7 +157,7 @@ export class SecurityMonitor extends EventEmitter {
     this.removeAllListeners();
 
     this.isMonitoring = false;
-    this.emit("monitoring-stopped");
+    this.emit('monitoring-stopped');
   }
 
   /**
@@ -179,15 +172,13 @@ export class SecurityMonitor extends EventEmitter {
 
         // Keep only recent metrics based on retention policy
         const retentionDate = new Date();
-        retentionDate.setDate(
-          retentionDate.getDate() - this.monitoringConfig.metricsRetentionDays,
-        );
-        this.metrics = this.metrics.filter((m) => m.timestamp > retentionDate);
+        retentionDate.setDate(retentionDate.getDate() - this.monitoringConfig.metricsRetentionDays);
+        this.metrics = this.metrics.filter(m => m.timestamp > retentionDate);
 
         // Check thresholds
         await this.checkThresholds(metrics);
 
-        this.emit("metrics-collected", metrics);
+        this.emit('metrics-collected', metrics);
       } catch (error) {
         this.logger.error("Failed to collect security metrics", error as Error);
       }
@@ -200,21 +191,21 @@ export class SecurityMonitor extends EventEmitter {
   private setupEventListeners(): void {
     // Listen for security events from the security agent
     // In a real implementation, this would be integrated with the security agent's event system
-
-    this.on("security-event", async (event: SecurityEvent) => {
+    
+    this.on('security-event', async (event: SecurityEvent) => {
       await this.handleSecurityEvent(event);
     });
 
-    this.on("session-created", async (session: ClaudeSession) => {
-      await this.handleSessionEvent("created", session);
+    this.on('session-created', async (session: ClaudeSession) => {
+      await this.handleSessionEvent('created', session);
     });
 
-    this.on("session-completed", async (session: ClaudeSession) => {
-      await this.handleSessionEvent("completed", session);
+    this.on('session-completed', async (session: ClaudeSession) => {
+      await this.handleSessionEvent('completed', session);
     });
 
-    this.on("session-failed", async (session: ClaudeSession) => {
-      await this.handleSessionEvent("failed", session);
+    this.on('session-failed', async (session: ClaudeSession) => {
+      await this.handleSessionEvent('failed', session);
     });
   }
 
@@ -224,35 +215,30 @@ export class SecurityMonitor extends EventEmitter {
   private async collectMetrics(): Promise<SecurityMetrics> {
     const memoryUsage = process.memoryUsage();
     const cpuUsage = process.cpuUsage();
-
+    
     // Get security events from the last hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    const recentEvents = this.securityAgent
-      .getSecurityEvents()
-      .filter((event) => event.timestamp > oneHourAgo);
+    const recentEvents = this.securityAgent.getSecurityEvents().filter(
+      event => event.timestamp > oneHourAgo
+    );
 
     const securityEventCounts = {
-      critical: recentEvents.filter(
-        (e) => e.severity === SecuritySeverity.CRITICAL,
-      ).length,
-      high: recentEvents.filter((e) => e.severity === SecuritySeverity.HIGH)
-        .length,
-      medium: recentEvents.filter((e) => e.severity === SecuritySeverity.MEDIUM)
-        .length,
-      low: recentEvents.filter((e) => e.severity === SecuritySeverity.LOW)
-        .length,
+      critical: recentEvents.filter(e => e.severity === SecuritySeverity.CRITICAL).length,
+      high: recentEvents.filter(e => e.severity === SecuritySeverity.HIGH).length,
+      medium: recentEvents.filter(e => e.severity === SecuritySeverity.MEDIUM).length,
+      low: recentEvents.filter(e => e.severity === SecuritySeverity.LOW).length
     };
 
     return {
       timestamp: new Date(),
       activeSessions: 0, // This would be integrated with session manager
-      failedAuthentications: recentEvents.filter(
-        (e) => e.type === SecurityEventType.AUTHENTICATION_FAILURE,
+      failedAuthentications: recentEvents.filter(e => 
+        e.type === SecurityEventType.AUTHENTICATION_FAILURE
       ).length,
-      blockedRequests: recentEvents.filter((e) => e.blocked).length,
+      blockedRequests: recentEvents.filter(e => e.blocked).length,
       memoryUsageMB: Math.round(memoryUsage.heapUsed / 1024 / 1024),
       cpuUsagePercent: Math.round((cpuUsage.user + cpuUsage.system) / 1000), // Simplified calculation
-      securityEvents: securityEventCounts,
+      securityEvents: securityEventCounts
     };
   }
 
@@ -265,75 +251,67 @@ export class SecurityMonitor extends EventEmitter {
 
     // Check critical events threshold
     if (metrics.securityEvents.critical > thresholds.maxCriticalEventsPerHour) {
-      alerts.push(
-        await this.createAlert(
-          SecuritySeverity.CRITICAL,
-          "Critical Security Events Threshold Exceeded",
-          `${metrics.securityEvents.critical} critical security events in the last hour (threshold: ${thresholds.maxCriticalEventsPerHour})`,
-          [],
-          metrics,
-          [
-            "Review critical security events immediately",
-            "Check for ongoing security incidents",
-            "Consider temporarily blocking suspicious sources",
-          ],
-        ),
-      );
+      alerts.push(await this.createAlert(
+        SecuritySeverity.CRITICAL,
+        "Critical Security Events Threshold Exceeded",
+        `${metrics.securityEvents.critical} critical security events in the last hour (threshold: ${thresholds.maxCriticalEventsPerHour})`,
+        [],
+        metrics,
+        [
+          "Review critical security events immediately",
+          "Check for ongoing security incidents",
+          "Consider temporarily blocking suspicious sources"
+        ]
+      ));
     }
 
     // Check concurrent sessions threshold
     if (metrics.activeSessions > thresholds.maxConcurrentSessions) {
-      alerts.push(
-        await this.createAlert(
-          SecuritySeverity.HIGH,
-          "Maximum Concurrent Sessions Exceeded",
-          `${metrics.activeSessions} active sessions (threshold: ${thresholds.maxConcurrentSessions})`,
-          [],
-          metrics,
-          [
-            "Review active sessions for suspicious activity",
-            "Consider implementing session limits",
-            "Monitor resource usage",
-          ],
-        ),
-      );
+      alerts.push(await this.createAlert(
+        SecuritySeverity.HIGH,
+        "Maximum Concurrent Sessions Exceeded",
+        `${metrics.activeSessions} active sessions (threshold: ${thresholds.maxConcurrentSessions})`,
+        [],
+        metrics,
+        [
+          "Review active sessions for suspicious activity",
+          "Consider implementing session limits",
+          "Monitor resource usage"
+        ]
+      ));
     }
 
     // Check memory usage threshold
     if (metrics.memoryUsageMB > thresholds.maxMemoryUsageMB) {
-      alerts.push(
-        await this.createAlert(
-          SecuritySeverity.MEDIUM,
-          "High Memory Usage Detected",
-          `Memory usage at ${metrics.memoryUsageMB}MB (threshold: ${thresholds.maxMemoryUsageMB}MB)`,
-          [],
-          metrics,
-          [
-            "Check for memory leaks in active sessions",
-            "Consider restarting the service",
-            "Review session cleanup processes",
-          ],
-        ),
-      );
+      alerts.push(await this.createAlert(
+        SecuritySeverity.MEDIUM,
+        "High Memory Usage Detected",
+        `Memory usage at ${metrics.memoryUsageMB}MB (threshold: ${thresholds.maxMemoryUsageMB}MB)`,
+        [],
+        metrics,
+        [
+          "Check for memory leaks in active sessions",
+          "Consider restarting the service",
+          "Review session cleanup processes"
+        ]
+      ));
     }
 
     // Check blocked requests rate
     const blockedRequestsPerMinute = metrics.blockedRequests / 60; // Approximate
     if (blockedRequestsPerMinute > thresholds.maxFailedAuthPerMinute) {
-      alerts.push(
-        await this.createAlert(
-          SecuritySeverity.HIGH,
-          "High Rate of Blocked Requests",
-          `${metrics.blockedRequests} requests blocked in the last hour`,
-          [],
-          metrics,
-          [
-            "Investigate source of blocked requests",
-            "Review security policies",
-            "Consider IP blocking for persistent attackers",
-          ],
-        ),
-      );
+      alerts.push(await this.createAlert(
+        SecuritySeverity.HIGH,
+        "High Rate of Blocked Requests",
+        `${metrics.blockedRequests} requests blocked in the last hour`,
+        [],
+        metrics,
+        [
+          "Investigate source of blocked requests",
+          "Review security policies",
+          "Consider IP blocking for persistent attackers"
+        ]
+      ));
     }
 
     // Process alerts
@@ -349,21 +327,18 @@ export class SecurityMonitor extends EventEmitter {
     this.logger.debug("Processing security event for monitoring", {
       id: event.id,
       type: event.type,
-      severity: event.severity,
+      severity: event.severity
     });
 
     // Create immediate alert for critical/high severity events
-    if (
-      event.severity === SecuritySeverity.CRITICAL ||
-      event.severity === SecuritySeverity.HIGH
-    ) {
+    if (event.severity === SecuritySeverity.CRITICAL || event.severity === SecuritySeverity.HIGH) {
       const alert = await this.createAlert(
         event.severity,
         `Security Event: ${event.type}`,
         event.message,
         [event],
         undefined,
-        event.remediationAction ? [event.remediationAction] : [],
+        event.remediationAction ? [event.remediationAction] : []
       );
 
       await this.triggerAlert(alert);
@@ -373,21 +348,17 @@ export class SecurityMonitor extends EventEmitter {
   /**
    * Handle session events
    */
-  private async handleSessionEvent(
-    eventType: string,
-    session: ClaudeSession,
-  ): Promise<void> {
+  private async handleSessionEvent(eventType: string, session: ClaudeSession): Promise<void> {
     this.logger.debug("Processing session event for monitoring", {
       sessionId: session.id,
       eventType,
-      status: session.status,
+      status: session.status
     });
 
     // Check for long-running sessions
-    if (eventType === "created") {
+    if (eventType === 'created') {
       const sessionDuration = Date.now() - session.startedAt.getTime();
-      const maxDuration =
-        this.monitoringConfig.thresholds.maxSessionDurationMinutes * 60 * 1000;
+      const maxDuration = this.monitoringConfig.thresholds.maxSessionDurationMinutes * 60 * 1000;
 
       if (sessionDuration > maxDuration) {
         const alert = await this.createAlert(
@@ -399,8 +370,8 @@ export class SecurityMonitor extends EventEmitter {
           [
             "Review session activity logs",
             "Consider terminating if necessary",
-            "Check for stuck processes",
-          ],
+            "Check for stuck processes"
+          ]
         );
 
         await this.triggerAlert(alert);
@@ -417,7 +388,7 @@ export class SecurityMonitor extends EventEmitter {
     description: string,
     events: SecurityEvent[],
     metrics?: SecurityMetrics,
-    recommendations: string[] = [],
+    recommendations: string[] = []
   ): Promise<SecurityAlert> {
     const alert: SecurityAlert = {
       id: this.generateAlertId(),
@@ -427,7 +398,7 @@ export class SecurityMonitor extends EventEmitter {
       timestamp: new Date(),
       events,
       metrics,
-      recommendations,
+      recommendations
     };
 
     this.alerts.push(alert);
@@ -449,17 +420,14 @@ export class SecurityMonitor extends EventEmitter {
       severity: alert.severity,
       title: alert.title,
       description: alert.description,
-      timestamp: alert.timestamp.toISOString(),
+      timestamp: alert.timestamp.toISOString()
     });
 
     // Emit alert event
-    this.emit("security-alert", alert);
+    this.emit('security-alert', alert);
 
     // Send webhook notification if configured
-    if (
-      this.monitoringConfig.alertWebhookUrl &&
-      this.monitoringConfig.enableRealTimeAlerts
-    ) {
+    if (this.monitoringConfig.alertWebhookUrl && this.monitoringConfig.enableRealTimeAlerts) {
       await this.sendWebhookAlert(alert);
     }
 
@@ -476,7 +444,7 @@ export class SecurityMonitor extends EventEmitter {
       this.logger.info("Would send webhook alert", {
         url: this.monitoringConfig.alertWebhookUrl,
         alertId: alert.id,
-        severity: alert.severity,
+        severity: alert.severity
       });
     } catch (error) {
       this.logger.error("Failed to send webhook alert", error as Error);
@@ -488,12 +456,7 @@ export class SecurityMonitor extends EventEmitter {
    */
   private async saveAlertToFile(alert: SecurityAlert): Promise<void> {
     try {
-      const alertsDir = join(
-        this.config.projectRootDir,
-        "logs",
-        "security",
-        "alerts",
-      );
+      const alertsDir = join(this.config.projectRootDir, 'logs', 'security', 'alerts');
       await fs.mkdir(alertsDir, { recursive: true });
 
       const alertFile = join(alertsDir, `alert-${alert.id}.json`);
@@ -519,43 +482,39 @@ export class SecurityMonitor extends EventEmitter {
     let filteredMetrics = [...this.metrics];
 
     if (startDate) {
-      filteredMetrics = filteredMetrics.filter((m) => m.timestamp >= startDate);
+      filteredMetrics = filteredMetrics.filter(m => m.timestamp >= startDate);
     }
 
     if (endDate) {
-      filteredMetrics = filteredMetrics.filter((m) => m.timestamp <= endDate);
+      filteredMetrics = filteredMetrics.filter(m => m.timestamp <= endDate);
     }
 
-    return filteredMetrics.sort(
-      (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
-    );
+    return filteredMetrics.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
 
   /**
    * Get security alerts for time range
    */
   getAlerts(
-    startDate?: Date,
-    endDate?: Date,
-    severity?: SecuritySeverity,
+    startDate?: Date, 
+    endDate?: Date, 
+    severity?: SecuritySeverity
   ): SecurityAlert[] {
     let filteredAlerts = [...this.alerts];
 
     if (startDate) {
-      filteredAlerts = filteredAlerts.filter((a) => a.timestamp >= startDate);
+      filteredAlerts = filteredAlerts.filter(a => a.timestamp >= startDate);
     }
 
     if (endDate) {
-      filteredAlerts = filteredAlerts.filter((a) => a.timestamp <= endDate);
+      filteredAlerts = filteredAlerts.filter(a => a.timestamp <= endDate);
     }
 
     if (severity) {
-      filteredAlerts = filteredAlerts.filter((a) => a.severity === severity);
+      filteredAlerts = filteredAlerts.filter(a => a.severity === severity);
     }
 
-    return filteredAlerts.sort(
-      (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
-    );
+    return filteredAlerts.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }
 
   /**
@@ -578,7 +537,7 @@ export class SecurityMonitor extends EventEmitter {
       alertsCount: this.alerts.length,
       lastMetricTime: lastMetric?.timestamp,
       lastAlertTime: lastAlert?.timestamp,
-      config: this.monitoringConfig,
+      config: this.monitoringConfig
     };
   }
 
@@ -608,80 +567,49 @@ export class SecurityMonitor extends EventEmitter {
     const recentAlerts = this.getAlerts(startDate);
 
     // Calculate summary statistics
-    const avgMemoryUsage =
-      recentMetrics.length > 0
-        ? recentMetrics.reduce((sum, m) => sum + m.memoryUsageMB, 0) /
-          recentMetrics.length
-        : 0;
+    const avgMemoryUsage = recentMetrics.length > 0 
+      ? recentMetrics.reduce((sum, m) => sum + m.memoryUsageMB, 0) / recentMetrics.length
+      : 0;
 
-    const avgActiveSessions =
-      recentMetrics.length > 0
-        ? recentMetrics.reduce((sum, m) => sum + m.activeSessions, 0) /
-          recentMetrics.length
-        : 0;
+    const avgActiveSessions = recentMetrics.length > 0
+      ? recentMetrics.reduce((sum, m) => sum + m.activeSessions, 0) / recentMetrics.length
+      : 0;
 
-    const totalBlockedRequests = recentMetrics.reduce(
-      (sum, m) => sum + m.blockedRequests,
-      0,
-    );
+    const totalBlockedRequests = recentMetrics.reduce((sum, m) => sum + m.blockedRequests, 0);
 
     // Generate trends data
     const trends = {
-      securityEvents: this.generateTrendData(
-        recentMetrics,
-        "securityEvents",
-      ).map((item) => ({ date: item.date, count: item.value })),
-      memoryUsage: this.generateTrendData(recentMetrics, "memoryUsageMB").map(
-        (item) => ({ date: item.date, usage: item.value }),
-      ),
-      activeSessions: this.generateTrendData(
-        recentMetrics,
-        "activeSessions",
-      ).map((item) => ({ date: item.date, count: item.value })),
+      securityEvents: this.generateTrendData(recentMetrics, 'securityEvents'),
+      memoryUsage: this.generateTrendData(recentMetrics, 'memoryUsageMB'),
+      activeSessions: this.generateTrendData(recentMetrics, 'activeSessions')
     };
 
     // Generate recommendations
     const recommendations: string[] = [];
-
-    if (
-      recentAlerts.filter((a) => a.severity === SecuritySeverity.CRITICAL)
-        .length > 0
-    ) {
-      recommendations.push(
-        "Critical security alerts detected - immediate review required",
-      );
+    
+    if (recentAlerts.filter(a => a.severity === SecuritySeverity.CRITICAL).length > 0) {
+      recommendations.push("Critical security alerts detected - immediate review required");
     }
 
-    if (
-      avgMemoryUsage >
-      this.monitoringConfig.thresholds.maxMemoryUsageMB * 0.8
-    ) {
-      recommendations.push(
-        "Memory usage trending high - consider optimization",
-      );
+    if (avgMemoryUsage > this.monitoringConfig.thresholds.maxMemoryUsageMB * 0.8) {
+      recommendations.push("Memory usage trending high - consider optimization");
     }
 
     if (totalBlockedRequests > 100) {
-      recommendations.push(
-        "High number of blocked requests - review security policies",
-      );
+      recommendations.push("High number of blocked requests - review security policies");
     }
 
     return {
       summary: {
         alertCount: recentAlerts.length,
-        criticalAlerts: recentAlerts.filter(
-          (a) => a.severity === SecuritySeverity.CRITICAL,
-        ).length,
-        highAlerts: recentAlerts.filter(
-          (a) => a.severity === SecuritySeverity.HIGH,
-        ).length,
+        criticalAlerts: recentAlerts.filter(a => a.severity === SecuritySeverity.CRITICAL).length,
+        highAlerts: recentAlerts.filter(a => a.severity === SecuritySeverity.HIGH).length,
         avgMemoryUsage: Math.round(avgMemoryUsage),
         avgActiveSessions: Math.round(avgActiveSessions),
-        totalBlockedRequests,
+        totalBlockedRequests
       },
       trends,
-      recommendations,
+      recommendations
     };
   }
 
@@ -689,16 +617,15 @@ export class SecurityMonitor extends EventEmitter {
    * Generate trend data for charting
    */
   private generateTrendData(
-    metrics: SecurityMetrics[],
-    field: keyof SecurityMetrics,
+    metrics: SecurityMetrics[], 
+    field: keyof SecurityMetrics
   ): Array<{ date: string; value: number }> {
     const dailyData = new Map<string, number[]>();
 
     for (const metric of metrics) {
-      const dateKey = metric.timestamp.toISOString().split("T")[0];
-      const value =
-        typeof metric[field] === "number" ? (metric[field] as number) : 0;
-
+      const dateKey = metric.timestamp.toISOString().split('T')[0];
+      const value = typeof metric[field] === 'number' ? metric[field] as number : 0;
+      
       if (!dailyData.has(dateKey)) {
         dailyData.set(dateKey, []);
       }
@@ -707,7 +634,7 @@ export class SecurityMonitor extends EventEmitter {
 
     return Array.from(dailyData.entries()).map(([date, values]) => ({
       date,
-      value: values.reduce((sum, v) => sum + v, 0) / values.length,
+      value: values.reduce((sum, v) => sum + v, 0) / values.length
     }));
   }
 
@@ -724,15 +651,13 @@ export class SecurityMonitor extends EventEmitter {
    */
   async cleanup(): Promise<void> {
     const retentionDate = new Date();
-    retentionDate.setDate(
-      retentionDate.getDate() - this.monitoringConfig.metricsRetentionDays,
-    );
+    retentionDate.setDate(retentionDate.getDate() - this.monitoringConfig.metricsRetentionDays);
 
     const originalMetricsCount = this.metrics.length;
     const originalAlertsCount = this.alerts.length;
 
-    this.metrics = this.metrics.filter((m) => m.timestamp > retentionDate);
-    this.alerts = this.alerts.filter((a) => a.timestamp > retentionDate);
+    this.metrics = this.metrics.filter(m => m.timestamp > retentionDate);
+    this.alerts = this.alerts.filter(a => a.timestamp > retentionDate);
 
     const cleanedMetrics = originalMetricsCount - this.metrics.length;
     const cleanedAlerts = originalAlertsCount - this.alerts.length;
@@ -740,7 +665,7 @@ export class SecurityMonitor extends EventEmitter {
     this.logger.info("Security monitoring cleanup completed", {
       cleanedMetrics,
       cleanedAlerts,
-      retentionDays: this.monitoringConfig.metricsRetentionDays,
+      retentionDays: this.monitoringConfig.metricsRetentionDays
     });
   }
 }

@@ -4,18 +4,15 @@
 
 import { query } from "@anthropic-ai/claude-code";
 import { EventEmitter } from "events";
-import type {
-  ClaudeSession,
-  ClaudeExecutionContext,
-  ClaudeExecutionResult,
-  IntegrationConfig,
-  Logger,
+import type { 
+  ClaudeSession, 
+  ClaudeExecutionContext, 
+  ClaudeExecutionResult, 
+  IntegrationConfig, 
+  Logger 
 } from "../core/types.js";
 import { StreamingPrompt } from "./streaming-prompt.js";
-import {
-  createLinearMCPConfig,
-  getLinearAllowedTools,
-} from "../mcp/linear-config.js";
+import { createLinearMCPConfig, getLinearAllowedTools } from "../mcp/linear-config.js";
 import { GitWorktreeManager } from "../utils/git.js";
 
 /**
@@ -25,13 +22,10 @@ import { GitWorktreeManager } from "../utils/git.js";
 export class ClaudeRunner extends EventEmitter {
   private logger: Logger;
   private config: IntegrationConfig;
-  private activeSessions = new Map<
-    string,
-    {
-      prompt: StreamingPrompt;
-      abortController?: AbortController;
-    }
-  >();
+  private activeSessions = new Map<string, { 
+    prompt: StreamingPrompt,
+    abortController?: AbortController 
+  }>();
   private gitManager: GitWorktreeManager;
 
   constructor(config: IntegrationConfig, logger: Logger) {
@@ -44,9 +38,7 @@ export class ClaudeRunner extends EventEmitter {
   /**
    * Start Claude execution for issue
    */
-  async execute(
-    context: ClaudeExecutionContext,
-  ): Promise<ClaudeExecutionResult> {
+  async execute(context: ClaudeExecutionContext): Promise<ClaudeExecutionResult> {
     const { session, issue, triggerComment, workingDir } = context;
     const startTime = Date.now();
 
@@ -54,7 +46,7 @@ export class ClaudeRunner extends EventEmitter {
       sessionId: session.id,
       issueId: issue.id,
       issueIdentifier: issue.identifier,
-      workingDir,
+      workingDir
     });
 
     try {
@@ -63,34 +55,34 @@ export class ClaudeRunner extends EventEmitter {
         issue,
         session,
         this.logger,
-        triggerComment,
+        triggerComment
       );
-
+      
       // Store session for potential cancellation
       this.activeSessions.set(session.id, { prompt: streamingPrompt });
-
+      
       // Create abort controller for cancellation
       const abortController = new AbortController();
       this.activeSessions.get(session.id)!.abortController = abortController;
-
+      
       // Get MCP configuration
       const mcpConfig = createLinearMCPConfig(this.config);
-
+      
       // Get allowed tools
       const allowedTools = getLinearAllowedTools();
-
+      
       // Execute Claude Code SDK query
       const claudeResult = await this.executeClaudeSDK(
         session,
         streamingPrompt,
         mcpConfig,
         allowedTools,
-        abortController.signal,
+        abortController.signal
       );
-
+      
       // Parse git commits if any
       const commits = await this.gitManager.getCommits(workingDir);
-
+      
       // Get modified files
       const filesModified = await this.gitManager.getModifiedFiles(workingDir);
 
@@ -102,7 +94,7 @@ export class ClaudeRunner extends EventEmitter {
         filesModified,
         commits,
         duration,
-        exitCode: 0,
+        exitCode: 0
       };
 
       this.logger.info("Claude execution completed", {
@@ -110,7 +102,7 @@ export class ClaudeRunner extends EventEmitter {
         success: result.success,
         duration: result.duration,
         filesModified: filesModified.length,
-        commits: commits.length,
+        commits: commits.length
       });
 
       // Clean up
@@ -119,10 +111,10 @@ export class ClaudeRunner extends EventEmitter {
       return result;
     } catch (error) {
       const duration = Date.now() - startTime;
-
+      
       this.logger.error("Claude execution failed", error as Error, {
         sessionId: session.id,
-        duration,
+        duration
       });
 
       // Clean up
@@ -134,7 +126,7 @@ export class ClaudeRunner extends EventEmitter {
         filesModified: [],
         commits: [],
         duration,
-        exitCode: 1,
+        exitCode: 1
       };
     }
   }
@@ -147,18 +139,18 @@ export class ClaudeRunner extends EventEmitter {
     streamingPrompt: StreamingPrompt,
     mcpConfig: any,
     allowedTools: string[],
-    _signal: AbortSignal,
+    signal: AbortSignal
   ): Promise<{ output: string }> {
     try {
       this.logger.debug("Starting Claude Code SDK query", {
         sessionId: session.id,
         mcpConfig: Object.keys(mcpConfig),
-        allowedTools: allowedTools.length,
+        allowedTools: allowedTools.length
       });
 
       // Get messages from streaming prompt
       const messages = await streamingPrompt.getMessages();
-
+      
       // Set up system prompt
       const systemPrompt = `
 You are Claude, an AI assistant helping with software development tasks in Linear.
@@ -174,55 +166,31 @@ Linear API directly. Use these tools to get information about the issue, create 
 and update the issue status as needed.
       `.trim();
 
-      // Convert messages to async iterable
-      const messageIterable = async function* () {
-        for (const message of messages) {
-          yield message;
-        }
-      };
-
       // Execute Claude Code SDK query
-      const response = query({
-        prompt: messageIterable(),
-        options: {
-          customSystemPrompt: systemPrompt,
-          mcpServers: mcpConfig,
-          allowedTools,
-          abortController: new AbortController(),
-        },
+      const response = await query({
+        messages,
+        systemPrompt,
+        mcpConfig,
+        allowedTools,
+        signal
       });
 
-      // Collect output from response stream
-      const outputParts: string[] = [];
-      let messageCount = 0;
-
-      for await (const message of response) {
-        messageCount++;
-        if (message.type === "assistant" && message.message.content) {
-          if (typeof message.message.content === "string") {
-            outputParts.push(message.message.content);
-          } else if (Array.isArray(message.message.content)) {
-            for (const block of message.message.content) {
-              if (block.type === "text") {
-                outputParts.push(block.text);
-              }
-            }
-          }
-        }
-      }
-
-      const output = outputParts.join("\n\n");
+      // Extract output from response
+      const output = response.messages
+        .filter(msg => msg.role === "assistant")
+        .map(msg => msg.content)
+        .join("\n\n");
 
       this.logger.debug("Claude Code SDK query completed", {
         sessionId: session.id,
-        responseMessages: messageCount,
-        outputLength: output.length,
+        responseMessages: response.messages.length,
+        outputLength: output.length
       });
 
       return { output };
     } catch (error) {
       this.logger.error("Claude Code SDK query failed", error as Error, {
-        sessionId: session.id,
+        sessionId: session.id
       });
       throw error;
     }
@@ -242,15 +210,13 @@ and update the issue status as needed.
     try {
       // Abort the query
       session.abortController.abort();
-
+      
       // Remove from active sessions
       this.activeSessions.delete(sessionId);
-
+      
       return true;
     } catch (error) {
-      this.logger.error("Failed to cancel Claude session", error as Error, {
-        sessionId,
-      });
+      this.logger.error("Failed to cancel Claude session", error as Error, { sessionId });
       return false;
     }
   }

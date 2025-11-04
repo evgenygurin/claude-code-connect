@@ -3,14 +3,11 @@
  * Comprehensive security test scenarios and validation
  */
 
-import { SecurityAgent } from "./security-agent.js";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { SecurityAgent, SecuritySeverity, SecurityEventType } from "./security-agent.js";
 import { SecurityValidator, SecurityUtils } from "./validators.js";
 import { SecurityMonitor } from "./monitoring.js";
-import type {
-  IntegrationConfig,
-  Logger,
-  ClaudeSession,
-} from "../core/types.js";
+import type { IntegrationConfig, Logger, ClaudeSession } from "../core/types.js";
 
 /**
  * Security test scenarios
@@ -52,7 +49,7 @@ const mockConfig: IntegrationConfig = {
   createBranches: true,
   timeoutMinutes: 30,
   agentUserId: "test-agent-id",
-  debug: false,
+  debug: false
 };
 
 /**
@@ -62,7 +59,7 @@ const mockLogger: Logger = {
   debug: () => {},
   info: () => {},
   warn: () => {},
-  error: () => {},
+  error: () => {}
 };
 
 /**
@@ -77,11 +74,7 @@ export class SecurityTestSuite {
   constructor() {
     this.securityAgent = new SecurityAgent(mockConfig, mockLogger);
     this.securityValidator = new SecurityValidator();
-    this.securityMonitor = new SecurityMonitor(
-      mockConfig,
-      mockLogger,
-      this.securityAgent,
-    );
+    this.securityMonitor = new SecurityMonitor(mockConfig, mockLogger, this.securityAgent);
   }
 
   /**
@@ -119,9 +112,7 @@ export class SecurityTestSuite {
         allRecommendations.push(...result.recommendations);
       } catch (error) {
         failed++;
-        allVulnerabilities.push(
-          `Test scenario '${scenario.name}' failed with error: ${(error as Error).message}`,
-        );
+        allVulnerabilities.push(`Test scenario '${scenario.name}' failed with error: ${(error as Error).message}`);
       }
     }
 
@@ -129,7 +120,7 @@ export class SecurityTestSuite {
       passed,
       failed,
       vulnerabilities: [...new Set(allVulnerabilities)],
-      recommendations: [...new Set(allRecommendations)],
+      recommendations: [...new Set(allRecommendations)]
     };
   }
 
@@ -147,7 +138,7 @@ export class SecurityTestSuite {
       this.createAuthenticationTest(),
       this.createResourceExhaustionTest(),
       this.createDataSanitizationTest(),
-      this.createEnvironmentSecurityTest(),
+      this.createEnvironmentSecurityTest()
     ];
   }
 
@@ -157,8 +148,7 @@ export class SecurityTestSuite {
   private createWebhookSecurityTest(): SecurityTestScenario {
     return {
       name: "Webhook Security Validation",
-      description:
-        "Test webhook signature validation, payload size limits, and malicious payload detection",
+      description: "Test webhook signature validation, payload size limits, and malicious payload detection",
       setup: async () => {},
       execute: async () => {
         const startTime = Date.now();
@@ -170,11 +160,11 @@ export class SecurityTestSuite {
         // Test 1: Invalid signature
         const invalidSigResult = await this.securityAgent.validateWebhook(
           '{"test": "payload"}',
-          "invalid-signature",
-          "Linear-Webhook/1.0",
-          "127.0.0.1",
+          'invalid-signature',
+          'Linear-Webhook/1.0',
+          '127.0.0.1'
         );
-
+        
         if (invalidSigResult.valid) {
           vulnerabilities.push("Webhook accepts invalid signatures");
         }
@@ -183,21 +173,18 @@ export class SecurityTestSuite {
         const missingSigResult = await this.securityAgent.validateWebhook(
           '{"test": "payload"}',
           undefined,
-          "Linear-Webhook/1.0",
-          "127.0.0.1",
+          'Linear-Webhook/1.0',
+          '127.0.0.1'
         );
-
+        
         if (missingSigResult.valid && mockConfig.webhookSecret) {
-          vulnerabilities.push(
-            "Webhook accepts requests without signatures when secret is configured",
-          );
+          vulnerabilities.push("Webhook accepts requests without signatures when secret is configured");
         }
 
         // Test 3: Large payload
-        const largePayload = "x".repeat(2 * 1024 * 1024); // 2MB
-        const largeSizeResult =
-          this.securityValidator.validateWebhookPayloadSize(largePayload);
-
+        const largePayload = 'x'.repeat(2 * 1024 * 1024); // 2MB
+        const largeSizeResult = this.securityValidator.validateWebhookPayloadSize(largePayload);
+        
         if (largeSizeResult.valid) {
           vulnerabilities.push("Webhook accepts oversized payloads");
         }
@@ -205,11 +192,11 @@ export class SecurityTestSuite {
         // Test 4: Malicious user agent
         const maliciousUAResult = await this.securityAgent.validateWebhook(
           '{"test": "payload"}',
-          "sha256=valid-signature",
+          'sha256=valid-signature',
           '<script>alert("xss")</script>',
-          "127.0.0.1",
+          '127.0.0.1'
         );
-
+        
         // This should not block but should log a warning
         if (!maliciousUAResult.valid) {
           warnings.push("User-Agent validation may be too strict");
@@ -235,13 +222,13 @@ export class SecurityTestSuite {
           metrics: {
             executionTime: endTime - startTime,
             memoryUsage: endMemory - startMemory,
-            securityEvents: this.securityAgent.getSecurityEvents().length,
-          },
+            securityEvents: this.securityAgent.getSecurityEvents().length
+          }
         };
       },
       cleanup: async () => {
         this.securityAgent.clearSecurityEvents();
-      },
+      }
     };
   }
 
@@ -251,8 +238,7 @@ export class SecurityTestSuite {
   private createInputValidationTest(): SecurityTestScenario {
     return {
       name: "Input Validation Security",
-      description:
-        "Test input sanitization and validation for various attack vectors",
+      description: "Test input sanitization and validation for various attack vectors",
       setup: async () => {},
       execute: async () => {
         const startTime = Date.now();
@@ -261,55 +247,41 @@ export class SecurityTestSuite {
 
         // Test 1: Branch name injection
         const maliciousBranch = "feature/test; rm -rf /";
-        const branchResult =
-          this.securityValidator.validateBranchName(maliciousBranch);
-
-        if (branchResult.valid && branchResult.sanitized?.includes(";")) {
-          vulnerabilities.push(
-            "Branch name sanitization allows command injection",
-          );
+        const branchResult = this.securityValidator.validateBranchName(maliciousBranch);
+        
+        if (branchResult.valid && branchResult.sanitized?.includes(';')) {
+          vulnerabilities.push("Branch name sanitization allows command injection");
         }
 
         // Test 2: Path traversal
         const maliciousPath = "../../../etc/passwd";
-        const pathResult = this.securityValidator.validateFilePath(
-          maliciousPath,
-          "/tmp/test",
-        );
-
+        const pathResult = this.securityValidator.validateFilePath(maliciousPath, "/tmp/test");
+        
         if (pathResult.valid) {
           vulnerabilities.push("Path validation allows directory traversal");
         }
 
         // Test 3: Command injection
         const maliciousCommand = "git clone; cat /etc/passwd";
-        const commandResult =
-          this.securityValidator.validateCommand(maliciousCommand);
-
-        if (
-          commandResult.valid &&
-          commandResult.sanitized?.command.includes(";")
-        ) {
+        const commandResult = this.securityValidator.validateCommand(maliciousCommand);
+        
+        if (commandResult.valid && commandResult.sanitized?.command.includes(';')) {
           vulnerabilities.push("Command validation allows command injection");
         }
 
         // Test 4: XSS in issue description
         const xssPayload = '<script>alert("xss")</script>';
-        const sanitizedDescription =
-          this.securityValidator.sanitizeIssueDescription(xssPayload);
-
-        if (sanitizedDescription.includes("<script>")) {
+        const sanitizedDescription = this.securityValidator.sanitizeIssueDescription(xssPayload);
+        
+        if (sanitizedDescription.includes('<script>')) {
           vulnerabilities.push("Issue description sanitization allows XSS");
         }
 
         // Test 5: Injection detection
-        const injectionTest =
-          this.securityValidator.detectInjectionAttempts(maliciousCommand);
-
+        const injectionTest = this.securityValidator.detectInjectionAttempts(maliciousCommand);
+        
         if (!injectionTest.detected) {
-          vulnerabilities.push(
-            "Injection detection failed to identify malicious input",
-          );
+          vulnerabilities.push("Injection detection failed to identify malicious input");
         }
 
         recommendations.push("Implement comprehensive input sanitization");
@@ -324,11 +296,11 @@ export class SecurityTestSuite {
           metrics: {
             executionTime: Date.now() - startTime,
             memoryUsage: 0,
-            securityEvents: 0,
-          },
+            securityEvents: 0
+          }
         };
       },
-      cleanup: async () => {},
+      cleanup: async () => {}
     };
   }
 
@@ -338,8 +310,7 @@ export class SecurityTestSuite {
   private createSessionSecurityTest(): SecurityTestScenario {
     return {
       name: "Session Security Validation",
-      description:
-        "Test session ID generation, validation, and lifecycle security",
+      description: "Test session ID generation, validation, and lifecycle security",
       setup: async () => {},
       execute: async () => {
         const startTime = Date.now();
@@ -351,9 +322,7 @@ export class SecurityTestSuite {
         for (let i = 0; i < 1000; i++) {
           const id = this.securityValidator.generateSecureSessionId();
           if (sessionIds.has(id)) {
-            vulnerabilities.push(
-              "Session ID collision detected - weak randomness",
-            );
+            vulnerabilities.push("Session ID collision detected - weak randomness");
             break;
           }
           sessionIds.add(id);
@@ -372,36 +341,29 @@ export class SecurityTestSuite {
           "contains/slashes",
           "contains;semicolons",
           "",
-          "x".repeat(100),
+          "x".repeat(100)
         ];
 
         for (const invalidId of invalidIds) {
           if (SecurityUtils.isValidSessionId(invalidId)) {
-            vulnerabilities.push(
-              `Invalid session ID format accepted: ${invalidId}`,
-            );
+            vulnerabilities.push(`Invalid session ID format accepted: ${invalidId}`);
           }
         }
 
         // Test 4: Session metadata validation
         const maliciousMetadata = {
-          valid_key: "valid_value",
+          "valid_key": "valid_value",
           "script<>": "<script>alert('xss')</script>",
           "": "empty_key",
-          very_long_key_that_exceeds_limits: "value",
+          "very_long_key_that_exceeds_limits": "value"
         };
 
-        const metadataResult =
-          this.securityValidator.validateSessionMetadata(maliciousMetadata);
+        const metadataResult = this.securityValidator.validateSessionMetadata(maliciousMetadata);
         if (metadataResult.valid && metadataResult.sanitized?.["script<>"]) {
-          vulnerabilities.push(
-            "Session metadata validation allows malicious content",
-          );
+          vulnerabilities.push("Session metadata validation allows malicious content");
         }
 
-        recommendations.push(
-          "Use cryptographically secure session ID generation",
-        );
+        recommendations.push("Use cryptographically secure session ID generation");
         recommendations.push("Implement session expiration");
         recommendations.push("Encrypt sensitive session data");
 
@@ -413,11 +375,11 @@ export class SecurityTestSuite {
           metrics: {
             executionTime: Date.now() - startTime,
             memoryUsage: 0,
-            securityEvents: 0,
-          },
+            securityEvents: 0
+          }
         };
       },
-      cleanup: async () => {},
+      cleanup: async () => {}
     };
   }
 
@@ -440,7 +402,7 @@ export class SecurityTestSuite {
           "command $(malicious_substitution)",
           "command `malicious_backticks`",
           "command $((malicious_arithmetic))",
-          "command ${malicious_parameter}",
+          "command ${malicious_parameter}"
         ];
 
         for (const payload of injectionPayloads) {
@@ -449,8 +411,7 @@ export class SecurityTestSuite {
             vulnerabilities.push(`Command injection not prevented: ${payload}`);
           }
 
-          const detectionResult =
-            this.securityValidator.detectInjectionAttempts(payload);
+          const detectionResult = this.securityValidator.detectInjectionAttempts(payload);
           if (!detectionResult.detected) {
             vulnerabilities.push(`Injection detection failed for: ${payload}`);
           }
@@ -468,11 +429,11 @@ export class SecurityTestSuite {
           metrics: {
             executionTime: 0,
             memoryUsage: 0,
-            securityEvents: 0,
-          },
+            securityEvents: 0
+          }
         };
       },
-      cleanup: async () => {},
+      cleanup: async () => {}
     };
   }
 
@@ -494,24 +455,18 @@ export class SecurityTestSuite {
           "/etc/passwd",
           "C:\\Windows\\System32\\config\\SAM",
           "....//....//....//etc/passwd",
-          "%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd",
+          "%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd"
         ];
 
         for (const payload of traversalPayloads) {
-          const result = this.securityValidator.validateFilePath(
-            payload,
-            "/tmp/test",
-          );
+          const result = this.securityValidator.validateFilePath(payload, "/tmp/test");
           if (result.valid) {
             vulnerabilities.push(`Path traversal not prevented: ${payload}`);
           }
 
-          const detectionResult =
-            this.securityValidator.detectInjectionAttempts(payload);
-          if (payload.includes("..") && !detectionResult.detected) {
-            vulnerabilities.push(
-              `Path traversal detection failed for: ${payload}`,
-            );
+          const detectionResult = this.securityValidator.detectInjectionAttempts(payload);
+          if (payload.includes('..') && !detectionResult.detected) {
+            vulnerabilities.push(`Path traversal detection failed for: ${payload}`);
           }
         }
 
@@ -527,11 +482,11 @@ export class SecurityTestSuite {
           metrics: {
             executionTime: 0,
             memoryUsage: 0,
-            securityEvents: 0,
-          },
+            securityEvents: 0
+          }
         };
       },
-      cleanup: async () => {},
+      cleanup: async () => {}
     };
   }
 
@@ -551,24 +506,21 @@ export class SecurityTestSuite {
         const testIP = "192.168.1.100";
         let blockedCount = 0;
 
-        for (let i = 0; i < 150; i++) {
-          // Exceed typical rate limits
+        for (let i = 0; i < 150; i++) { // Exceed typical rate limits
           const result = await this.securityAgent.validateWebhook(
             '{"test": "payload"}',
-            "sha256=test-signature",
-            "Linear-Webhook/1.0",
-            testIP,
+            'sha256=test-signature',
+            'Linear-Webhook/1.0',
+            testIP
           );
 
-          if (!result.valid && result.reason?.includes("rate limit")) {
+          if (!result.valid && result.reason?.includes('rate limit')) {
             blockedCount++;
           }
         }
 
         if (blockedCount === 0) {
-          vulnerabilities.push(
-            "Rate limiting not working - no requests blocked",
-          );
+          vulnerabilities.push("Rate limiting not working - no requests blocked");
         } else if (blockedCount < 50) {
           vulnerabilities.push("Rate limiting may be too permissive");
         }
@@ -585,13 +537,13 @@ export class SecurityTestSuite {
           metrics: {
             executionTime: 0,
             memoryUsage: 0,
-            securityEvents: blockedCount,
-          },
+            securityEvents: blockedCount
+          }
         };
       },
       cleanup: async () => {
         this.securityAgent.clearSecurityEvents();
-      },
+      }
     };
   }
 
@@ -608,10 +560,7 @@ export class SecurityTestSuite {
         const recommendations: string[] = [];
 
         // Test token validation
-        if (
-          !mockConfig.linearApiToken ||
-          mockConfig.linearApiToken.length < 32
-        ) {
+        if (!mockConfig.linearApiToken || mockConfig.linearApiToken.length < 32) {
           vulnerabilities.push("API token appears to be weak or missing");
         }
 
@@ -634,11 +583,11 @@ export class SecurityTestSuite {
           metrics: {
             executionTime: 0,
             memoryUsage: 0,
-            securityEvents: 0,
-          },
+            securityEvents: 0
+          }
         };
       },
-      cleanup: async () => {},
+      cleanup: async () => {}
     };
   }
 
@@ -663,28 +612,10 @@ export class SecurityTestSuite {
           workingDir: "/tmp/test",
           startedAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
           lastActivityAt: new Date(),
-          metadata: {
-            createdBy: "test-user",
-            organizationId: "test-org",
-            projectScope: ["/tmp/test"],
-            permissions: {
-              canRead: true,
-              canWrite: true,
-              canExecute: true,
-              canNetwork: false,
-              canModifyFileSystem: true
-            }
-          },
-          securityContext: {
-            allowedPaths: ["/tmp/test"],
-            maxMemoryMB: 512,
-            maxExecutionTimeMs: 600000,
-            isolatedEnvironment: true
-          },
+          metadata: {}
         };
 
-        const sessionResult =
-          await this.securityAgent.validateSession(mockSession);
+        const sessionResult = await this.securityAgent.validateSession(mockSession);
         if (sessionResult.valid) {
           // This might be OK depending on configuration
         }
@@ -703,11 +634,11 @@ export class SecurityTestSuite {
           metrics: {
             executionTime: 0,
             memoryUsage: 0,
-            securityEvents: 0,
-          },
+            securityEvents: 0
+          }
         };
       },
-      cleanup: async () => {},
+      cleanup: async () => {}
     };
   }
 
@@ -729,17 +660,17 @@ export class SecurityTestSuite {
           "token=abc123xyz",
           "<script>alert('xss')</script>",
           "'; DROP TABLE users; --",
-          "\0null\0byte\0injection",
+          "\0null\0byte\0injection"
         ];
 
         for (const maliciousString of maliciousStrings) {
           const sanitized = SecurityUtils.sanitizeString(maliciousString);
-
-          if (sanitized.includes("<script>")) {
+          
+          if (sanitized.includes('<script>')) {
             vulnerabilities.push("XSS not prevented in string sanitization");
           }
-
-          if (sanitized.includes("\0")) {
+          
+          if (sanitized.includes('\0')) {
             vulnerabilities.push("Null byte injection not prevented");
           }
         }
@@ -756,11 +687,11 @@ export class SecurityTestSuite {
           metrics: {
             executionTime: 0,
             memoryUsage: 0,
-            securityEvents: 0,
-          },
+            securityEvents: 0
+          }
         };
       },
-      cleanup: async () => {},
+      cleanup: async () => {}
     };
   }
 
@@ -778,34 +709,25 @@ export class SecurityTestSuite {
 
         // Test environment variable validation
         const testEnv = {
-          PATH: "/usr/bin:/bin",
-          HOME: "/home/user",
-          SECRET_TOKEN: "should-be-filtered",
-          MALICIOUS_VAR: "rm -rf /",
-          "INVALID@VAR": "invalid-name",
+          'PATH': '/usr/bin:/bin',
+          'HOME': '/home/user',
+          'SECRET_TOKEN': 'should-be-filtered',
+          'MALICIOUS_VAR': 'rm -rf /',
+          'INVALID@VAR': 'invalid-name'
         };
 
-        const allowedVars = ["PATH", "HOME", "USER"];
-        const envResult = this.securityValidator.validateEnvironmentVariables(
-          testEnv,
-          allowedVars,
-        );
+        const allowedVars = ['PATH', 'HOME', 'USER'];
+        const envResult = this.securityValidator.validateEnvironmentVariables(testEnv, allowedVars);
 
-        if (envResult.valid && envResult.sanitized?.["SECRET_TOKEN"]) {
-          vulnerabilities.push(
-            "Environment validation allows sensitive variables",
-          );
+        if (envResult.valid && envResult.sanitized?.['SECRET_TOKEN']) {
+          vulnerabilities.push("Environment validation allows sensitive variables");
         }
 
-        if (envResult.valid && envResult.sanitized?.["INVALID@VAR"]) {
-          vulnerabilities.push(
-            "Environment validation allows invalid variable names",
-          );
+        if (envResult.valid && envResult.sanitized?.['INVALID@VAR']) {
+          vulnerabilities.push("Environment validation allows invalid variable names");
         }
 
-        recommendations.push(
-          "Filter environment variables for Claude processes",
-        );
+        recommendations.push("Filter environment variables for Claude processes");
         recommendations.push("Use minimal environment for security");
         recommendations.push("Regular audit of allowed environment variables");
 
@@ -817,11 +739,11 @@ export class SecurityTestSuite {
           metrics: {
             executionTime: 0,
             memoryUsage: 0,
-            securityEvents: 0,
-          },
+            securityEvents: 0
+          }
         };
       },
-      cleanup: async () => {},
+      cleanup: async () => {}
     };
   }
 
@@ -841,7 +763,7 @@ export class SecurityTestSuite {
       passedTests: number;
       failedTests: number;
       totalVulnerabilities: number;
-      riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+      riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
     };
     vulnerabilities: string[];
     recommendations: string[];
@@ -853,23 +775,19 @@ export class SecurityTestSuite {
     }>;
   } {
     const totalTests = this.testResults.length;
-    const passedTests = this.testResults.filter((r) => r.passed).length;
+    const passedTests = this.testResults.filter(r => r.passed).length;
     const failedTests = totalTests - passedTests;
+    
+    const allVulnerabilities = this.testResults.flatMap(r => r.vulnerabilities);
+    const allRecommendations = this.testResults.flatMap(r => r.recommendations);
 
-    const allVulnerabilities = this.testResults.flatMap(
-      (r) => r.vulnerabilities,
-    );
-    const allRecommendations = this.testResults.flatMap(
-      (r) => r.recommendations,
-    );
-
-    let riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" = "LOW";
+    let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW';
     if (failedTests > 5) {
-      riskLevel = "CRITICAL";
+      riskLevel = 'CRITICAL';
     } else if (failedTests > 3) {
-      riskLevel = "HIGH";
+      riskLevel = 'HIGH';
     } else if (failedTests > 1) {
-      riskLevel = "MEDIUM";
+      riskLevel = 'MEDIUM';
     }
 
     return {
@@ -878,7 +796,7 @@ export class SecurityTestSuite {
         passedTests,
         failedTests,
         totalVulnerabilities: allVulnerabilities.length,
-        riskLevel,
+        riskLevel
       },
       vulnerabilities: [...new Set(allVulnerabilities)],
       recommendations: [...new Set(allRecommendations)],
@@ -886,8 +804,8 @@ export class SecurityTestSuite {
         name: this.getTestScenarios()[index]?.name || `Test ${index + 1}`,
         passed: result.passed,
         vulnerabilities: result.vulnerabilities,
-        recommendations: result.recommendations,
-      })),
+        recommendations: result.recommendations
+      }))
     };
   }
 }
@@ -897,22 +815,22 @@ export class SecurityTestSuite {
  */
 export async function runSecurityTests(): Promise<void> {
   console.log("🔒 Running Security Test Suite...");
-
+  
   const testSuite = new SecurityTestSuite();
   const results = await testSuite.runAllTests();
-
+  
   console.log("\n📊 Security Test Results:");
   console.log(`✅ Passed: ${results.passed}`);
   console.log(`❌ Failed: ${results.failed}`);
-
+  
   if (results.vulnerabilities.length > 0) {
     console.log("\n🚨 Vulnerabilities Found:");
-    results.vulnerabilities.forEach((vuln) => console.log(`  - ${vuln}`));
+    results.vulnerabilities.forEach(vuln => console.log(`  - ${vuln}`));
   }
-
+  
   if (results.recommendations.length > 0) {
     console.log("\n💡 Recommendations:");
-    results.recommendations.forEach((rec) => console.log(`  - ${rec}`));
+    results.recommendations.forEach(rec => console.log(`  - ${rec}`));
   }
 
   const report = testSuite.generateReport();

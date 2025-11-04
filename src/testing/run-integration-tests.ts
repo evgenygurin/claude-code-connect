@@ -2,10 +2,10 @@
 
 /**
  * Integration Test Runner for Claude Code + Linear Integration
- *
+ * 
  * This script provides a command-line interface to run comprehensive integration tests
  * that validate the complete webhook processing pipeline without requiring actual Linear API calls.
- *
+ * 
  * Usage:
  *   npm run test:integration
  *   tsx src/testing/run-integration-tests.ts
@@ -14,8 +14,10 @@
  */
 
 import {
+  MockWebhookServer,
   WebhookTestScenarioBuilder,
   WebhookIntegrationTestRunner,
+  WebhookTestValidators
 } from "./mock-webhook-server.js";
 import { mockIntegrationConfig } from "./mocks.js";
 
@@ -25,43 +27,37 @@ import { mockIntegrationConfig } from "./mocks.js";
 const TEST_SCENARIOS = {
   "issue-assignment": {
     name: "Issue Assignment to Agent",
-    description:
-      "Tests the complete flow from issue assignment to agent execution",
-    generator: () => [
-      WebhookTestScenarioBuilder.createIssueAssignmentScenario().event,
-    ],
-    expected: { triggeredEvents: 1, sessionsCreated: 1 },
+    description: "Tests the complete flow from issue assignment to agent execution",
+    generator: () => [WebhookTestScenarioBuilder.createIssueAssignmentScenario().event],
+    expected: { triggeredEvents: 1, sessionsCreated: 1 }
   },
-
+  
   "bug-fix": {
-    name: "Bug Fix Agent Workflow",
+    name: "Bug Fix Agent Workflow", 
     description: "Tests comment mention triggering bug fix agent",
     generator: () => [WebhookTestScenarioBuilder.createBugFixScenario().event],
-    expected: { triggeredEvents: 1, sessionsCreated: 1 },
+    expected: { triggeredEvents: 1, sessionsCreated: 1 }
   },
 
   "testing-agent": {
     name: "Testing Agent Workflow",
     description: "Tests testing agent triggered by test requests",
     generator: () => [WebhookTestScenarioBuilder.createTestingScenario().event],
-    expected: { triggeredEvents: 1, sessionsCreated: 1 },
+    expected: { triggeredEvents: 1, sessionsCreated: 1 }
   },
 
   "performance-optimization": {
     name: "Performance Optimization Agent",
     description: "Tests performance optimization agent workflow",
-    generator: () => [
-      WebhookTestScenarioBuilder.createPerformanceScenario().event,
-    ],
-    expected: { triggeredEvents: 1, sessionsCreated: 1 },
+    generator: () => [WebhookTestScenarioBuilder.createPerformanceScenario().event],
+    expected: { triggeredEvents: 1, sessionsCreated: 1 }
   },
 
   "multi-agent": {
     name: "Multi-Agent Coordination",
     description: "Tests coordination between multiple agent types",
-    generator: () =>
-      WebhookTestScenarioBuilder.createMultiAgentScenario().events,
-    expected: { triggeredEvents: 4, sessionsCreated: 4 },
+    generator: () => WebhookTestScenarioBuilder.createMultiAgentScenario().events,
+    expected: { triggeredEvents: 4, sessionsCreated: 4 }
   },
 
   "concurrent-sessions": {
@@ -70,9 +66,9 @@ const TEST_SCENARIOS = {
     generator: () => [
       WebhookTestScenarioBuilder.createBugFixScenario().event,
       WebhookTestScenarioBuilder.createTestingScenario().event,
-      WebhookTestScenarioBuilder.createPerformanceScenario().event,
+      WebhookTestScenarioBuilder.createPerformanceScenario().event
     ],
-    expected: { triggeredEvents: 3, sessionsCreated: 3 },
+    expected: { triggeredEvents: 3, sessionsCreated: 3 }
   },
 
   "non-triggering": {
@@ -80,24 +76,23 @@ const TEST_SCENARIOS = {
     description: "Tests events that should not trigger agent execution",
     generator: () => {
       const scenario = WebhookTestScenarioBuilder.createCommentMentionScenario(
-        "This is just a regular comment without any agent mention",
+        "This is just a regular comment without any agent mention"
       );
       return [scenario.event];
     },
-    expected: { triggeredEvents: 0, sessionsCreated: 0 },
+    expected: { triggeredEvents: 0, sessionsCreated: 0 }
   },
 
   "error-handling": {
     name: "Error Handling",
     description: "Tests error handling with malformed events",
     generator: () => {
-      const malformed =
-        WebhookTestScenarioBuilder.createIssueAssignmentScenario();
+      const malformed = WebhookTestScenarioBuilder.createIssueAssignmentScenario();
       malformed.event.organizationId = "wrong-org-id";
       return [malformed.event];
     },
-    expected: { triggeredEvents: 0, sessionsCreated: 0 },
-  },
+    expected: { triggeredEvents: 0, sessionsCreated: 0 }
+  }
 };
 
 /**
@@ -118,12 +113,12 @@ function parseArgs(): {
     eventCount: 100,
     concurrency: 10,
     verbose: false,
-    help: false,
+    help: false
   };
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-
+    
     if (arg === "--help" || arg === "-h") {
       result.help = true;
     } else if (arg === "--verbose" || arg === "-v") {
@@ -161,9 +156,9 @@ Options:
   --help, -h             Show this help message
 
 Available Scenarios:
-${Object.entries(TEST_SCENARIOS)
-  .map(([key, scenario]) => `  ${key.padEnd(20)} ${scenario.description}`)
-  .join("\n")}
+${Object.entries(TEST_SCENARIOS).map(([key, scenario]) => 
+  `  ${key.padEnd(20)} ${scenario.description}`
+).join('\n')}
 
 Examples:
   tsx src/testing/run-integration-tests.ts
@@ -180,13 +175,13 @@ function formatTestResults(
   scenarioName: string,
   result: any,
   startTime: number,
-  verbose: boolean = false,
+  verbose: boolean = false
 ): void {
   const duration = Date.now() - startTime;
   const status = result.success ? "✅ PASS" : "❌ FAIL";
-
+  
   console.log(`\n${status} ${scenarioName} (${duration}ms)`);
-
+  
   if (result.success) {
     console.log(`  Events Processed: ${result.stats.totalEvents}`);
     console.log(`  Events Triggered: ${result.stats.triggeredEvents}`);
@@ -202,16 +197,12 @@ function formatTestResults(
     console.log(`  📊 Detailed Results:`);
     result.results.forEach((r: any, index: number) => {
       if (r.processed) {
-        console.log(
-          `    Event ${index + 1}: ${r.processed.shouldTrigger ? "Triggered" : "Ignored"}`,
-        );
+        console.log(`    Event ${index + 1}: ${r.processed.shouldTrigger ? 'Triggered' : 'Ignored'}`);
         if (r.processed.triggerReason) {
           console.log(`      Reason: ${r.processed.triggerReason}`);
         }
         if (r.executionResult) {
-          console.log(
-            `      Files Modified: ${r.executionResult.filesModified.length}`,
-          );
+          console.log(`      Files Modified: ${r.executionResult.filesModified.length}`);
           console.log(`      Commits: ${r.executionResult.commits.length}`);
           console.log(`      Duration: ${r.executionResult.duration}ms`);
         }
@@ -226,9 +217,9 @@ function formatTestResults(
 function formatStressTestResults(result: any, startTime: number): void {
   const duration = Date.now() - startTime;
   const status = result.success ? "✅ PASS" : "❌ FAIL";
-
+  
   console.log(`\n${status} Stress Test (${duration}ms)`);
-
+  
   if (result.success) {
     console.log(`  Processing Time: ${result.processingTime}ms`);
     console.log(`  Events Per Second: ${result.eventsPerSecond.toFixed(2)}`);
@@ -247,14 +238,12 @@ function formatStressTestResults(result: any, startTime: number): void {
 async function runScenario(
   runner: WebhookIntegrationTestRunner,
   scenarioKey: string,
-  verbose: boolean = false,
+  verbose: boolean = false
 ): Promise<boolean> {
   const scenario = TEST_SCENARIOS[scenarioKey as keyof typeof TEST_SCENARIOS];
   if (!scenario) {
     console.error(`❌ Unknown scenario: ${scenarioKey}`);
-    console.log(
-      `Available scenarios: ${Object.keys(TEST_SCENARIOS).join(", ")}`,
-    );
+    console.log(`Available scenarios: ${Object.keys(TEST_SCENARIOS).join(', ')}`);
     return false;
   }
 
@@ -266,7 +255,7 @@ async function runScenario(
   const result = await runner.runScenario(
     scenario.name,
     events,
-    scenario.expected,
+    scenario.expected
   );
 
   formatTestResults(scenario.name, result, startTime, verbose);
@@ -278,14 +267,14 @@ async function runScenario(
  */
 async function runAllScenarios(
   runner: WebhookIntegrationTestRunner,
-  verbose: boolean = false,
+  verbose: boolean = false
 ): Promise<{ passed: number; failed: number }> {
   let passed = 0;
   let failed = 0;
 
   console.log("🧪 Running all integration test scenarios...\n");
 
-  for (const [key] of Object.entries(TEST_SCENARIOS)) {
+  for (const [key, scenario] of Object.entries(TEST_SCENARIOS)) {
     const success = await runScenario(runner, key, verbose);
     if (success) {
       passed++;
@@ -303,15 +292,13 @@ async function runAllScenarios(
 async function runStressTest(
   runner: WebhookIntegrationTestRunner,
   eventCount: number,
-  concurrency: number,
+  concurrency: number
 ): Promise<boolean> {
-  console.log(
-    `🔥 Running stress test with ${eventCount} events (concurrency: ${concurrency})`,
-  );
-
+  console.log(`🔥 Running stress test with ${eventCount} events (concurrency: ${concurrency})`);
+  
   const startTime = Date.now();
   const result = await runner.runStressTest(eventCount, concurrency);
-
+  
   formatStressTestResults(result, startTime);
   return result.success;
 }
@@ -328,18 +315,14 @@ async function main(): Promise<void> {
   }
 
   console.log("🤖 Claude Code + Linear Integration Test Runner");
-  console.log("=".repeat(50));
+  console.log("=" .repeat(50));
 
   const runner = new WebhookIntegrationTestRunner(mockIntegrationConfig);
 
   try {
     if (args.stressTest) {
       // Run stress test
-      const success = await runStressTest(
-        runner,
-        args.eventCount,
-        args.concurrency,
-      );
+      const success = await runStressTest(runner, args.eventCount, args.concurrency);
       process.exit(success ? 0 : 1);
     } else if (args.scenario) {
       // Run specific scenario
@@ -348,12 +331,10 @@ async function main(): Promise<void> {
     } else {
       // Run all scenarios
       const results = await runAllScenarios(runner, args.verbose);
-
-      console.log("\n" + "=".repeat(50));
-      console.log(
-        `📊 Test Results: ${results.passed} passed, ${results.failed} failed`,
-      );
-
+      
+      console.log("\n" + "=" .repeat(50));
+      console.log(`📊 Test Results: ${results.passed} passed, ${results.failed} failed`);
+      
       if (results.failed > 0) {
         console.log(`❌ ${results.failed} test(s) failed`);
         process.exit(1);
@@ -371,13 +352,13 @@ async function main(): Promise<void> {
 /**
  * Handle process signals for cleanup
  */
-process.on("SIGINT", () => {
-  console.log("\n🛑 Test runner interrupted");
+process.on('SIGINT', () => {
+  console.log('\n🛑 Test runner interrupted');
   process.exit(130);
 });
 
-process.on("SIGTERM", () => {
-  console.log("\n🛑 Test runner terminated");
+process.on('SIGTERM', () => {
+  console.log('\n🛑 Test runner terminated');
   process.exit(143);
 });
 
